@@ -359,7 +359,7 @@ function Bridge.B(t, Paux::LandmarksAux)
         end
         if itostrat
             for k in 1:length(Paux.nfs)
-                nf = P.nfs[k]
+                nf = Paux.nfs[k]
                 qT = q(Paux.xT,i)
                 X[2i,2i] += 0.5 * ( z(qT,nf.τ,nf.δ,nf.γ) * ∇K̄(qT - nf.δ,nf.τ) -K̄(qT - nf.δ,nf.τ) * ∇z(qT,nf.τ,nf.δ,nf.γ) )  * nf.γ'
             end
