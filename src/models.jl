@@ -337,7 +337,7 @@ function Bridge.b!(t, x, out, Paux::LandmarksAux)
         if itostrat
             for k in 1:length(Paux.nfs)
                 # approximate q by qT
-                nf = P.nfs[k]
+                nf = Paux.nfs[k]
                 qT = q(Paux.xT,i)
                 out.q[i] += 0.5 * z(qT,nf.τ,nf.δ,nf.γ) * K̄(qT-nf.δ,nf.τ) * nf.γ
                 out.p[i] += 0.5 * dot(p(x,i),nf.γ) * ( z(qT,nf.τ,nf.δ,nf.γ) * ∇K̄(qT - nf.δ,nf.τ) -K̄(qT - nf.δ,nf.τ) * ∇z(qT,nf.τ,nf.δ,nf.γ) )
