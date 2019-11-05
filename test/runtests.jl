@@ -1,6 +1,9 @@
 using BridgeLandmarks
+using Bridge
 using Test
 
-@testset "BridgeLandmarks.jl" begin
-    # Write your own tests here.
-end
+const LM = BridgeLandmarks
+
+include("state.jl")
+include("patches.jl")
+#include("models.jl")
