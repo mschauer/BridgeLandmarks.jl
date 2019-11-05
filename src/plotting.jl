@@ -7,7 +7,7 @@ end
 
 
 
-function drawpath(i,n,x,X,objvals,parsave,(xobs0comp1,xobs0comp2,xobsTcomp1, xobsTcomp2),pb;showmomenta=false)
+function drawpath(ITER,i,n,x,X,objvals,parsave,(xobs0comp1,xobs0comp2,xobsTcomp1, xobsTcomp2),pb;showmomenta=false)
         s = deepvec2state(x).p
         pp1 = plotshapes(xobs0comp1,xobs0comp2,xobsTcomp1, xobsTcomp2)
         if showmomenta

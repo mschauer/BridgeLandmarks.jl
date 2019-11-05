@@ -647,7 +647,7 @@ function lm_mcmc(tt_, (xobs0,xobsT), σobs, mT, P,
 
     anim = @animate for i in 1:ITER
         if makefig
-            drawpath(i-1,P.n,x,X[1],objvals,parsave,(xobs0comp1,xobs0comp2,xobsTcomp1, xobsTcomp2),pb)
+            drawpath(ITER, i-1,P.n,x,X[1],objvals,parsave,(xobs0comp1,xobs0comp2,xobsTcomp1, xobsTcomp2),pb)
         end
         println();  println("iteration $i")
 #global acc_pcn
