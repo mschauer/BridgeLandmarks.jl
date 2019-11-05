@@ -81,7 +81,7 @@ mutable struct GuidedProposal!{T,Ttarget,Taux,TL,Txobs0,TxobsT,Tnshapes,TmT,F} <
     mT::TmT                         # momenta of final state used for defining auxiliary process
     endpoint::F
 
-    function GuidedProposal!(target, aux, tt_, guidrec, xobs0, xobsT,nshapes, endpoint=Bridge.endpoint)
+    function GuidedProposal!(target, aux, tt_, guidrec, xobs0, xobsT, nshapes, mT, endpoint=Bridge.endpoint)
         tt = collect(tt_)
         new{Bridge.valtype(target),typeof(target),eltype(aux),eltype(guidrec),typeof(xobs0),eltype(xobsT),Int64,typeof(mT),typeof(endpoint)}(target, aux, tt, guidrec, xobs0, xobsT, nshapes, mT,endpoint)
     end
