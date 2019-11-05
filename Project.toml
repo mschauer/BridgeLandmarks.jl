@@ -3,6 +3,13 @@ uuid = "83b8d07e-fbc4-11e9-24cb-23d125ee72bd"
 authors = ["mschauer <moritzschauer@web.de>"]
 version = "0.1.0"
 
+[deps]
+Bridge = "2d3116d5-4b8f-5680-861c-71f149790274"
+ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
 [compat]
 julia = "1"
 
