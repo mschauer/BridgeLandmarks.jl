@@ -8,7 +8,7 @@ makedocs(;
     ],
     repo="https://github.com/mschauer/BridgeLandmarks.jl/blob/{commit}{path}#L{line}",
     sitename="BridgeLandmarks.jl",
-    authors="mschauer <moritzschauer@web.de>",
+    authors="fmeulen, mschauer <moritzschauer@web.de>",
     assets=String[],
 )
 
