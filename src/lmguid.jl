@@ -195,6 +195,8 @@ function guidingbackwards!(::Lm, t, (Lt, Mt⁺, μt), Paux, obs_info; implicit=t
 
     # various ways to compute ã (which does not depend on time);
     aa = Bridge.a(0, Paux) # vanilla, no (possibly enclose with Matrix)
+    dt = t[2] - t[1]
+
     if !lowrank
         oldtemp = 0.5* Lt[end]* aa * Matrix(Lt[end]') * dt
     else
