@@ -107,7 +107,7 @@ function putpars!(Q::GuidedProposal!,(aᵒ,cᵒ,γᵒ))
         nfs = construct_nfs(Q.target.db, Q.target.nfstd, γᵒ) # need ot add db and nfstd to struct Landmarks
         Q.target = Landmarks(aᵒ,cᵒ,Q.target.n,Q.target.db,Q.target.nfstd,nfs)
     end
-    Q.aux = [auxiliary(Q.target,State(xobsT[k],Q.mT)) for k in 1:Q.nshapes]
+    Q.aux = [auxiliary(Q.target,State(Q.xobsT[k],Q.mT)) for k in 1:Q.nshapes]
 end
 
 
