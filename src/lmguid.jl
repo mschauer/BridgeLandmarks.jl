@@ -602,7 +602,7 @@ function lm_mcmc(tt_, (xobs0,xobsT), σobs, mT, P,
     # initialisation
     xobs0, obs_info = set_obsinfo(P.n,obs_atzero,fixinitmomentato0,σobs,xobs0)
     nshapes = length(xobsT)
-    guidrec = [init_guidrec(t,obs_info,xobs0) for k in 1:nshapes]  # memory allocation for backward recursion for each shape
+    guidrec = [init_guidrec(tt_,obs_info,xobs0) for k in 1:nshapes]  # memory allocation for backward recursion for each shape
     Paux = [auxiliary(P,State(xobsT[k],mT)) for k in 1:nshapes] # auxiliary process for each shape
     Q = GuidedProposal!(P,Paux,tt_,guidrec,xobs0,xobsT,nshapes,mT)
     update_guidrec!(Q, obs_info)   # compute backwards recursion
