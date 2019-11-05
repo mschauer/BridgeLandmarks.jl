@@ -19,7 +19,9 @@ export Point, PointF, Unc, UncF, State
 export Landmarks, LandmarksAux, MarslandShardlow, MarslandShardlowAux
 export landmarksforward, itostrat, construct_nfs, lm_mcmc
 
-export Lmplotbounds
+export Lmplotbounds, extractcomp
+
+plotlandmarkpositions = Ref{Any}((args...) -> nothing )
 
 include("nstate.jl")
 include("state.jl")
