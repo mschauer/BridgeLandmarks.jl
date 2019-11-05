@@ -4,11 +4,18 @@ using Bridge
 using ForwardDiff
 using Plots
 
-using LinearAlgebra
+using LinearAlgebra, Base.Iterators
 
 const d = 2
+const sk=1  # entries to skip for likelihood evaluation
+const itostrat = true
 
-export Point, PointF, Unc, UncF
+export Point, PointF, Unc, UncF, State
+
+export Landmarks, LandmarksAux, MarslandShardlow, MarslandShardlowAux
+export landmarksforward, itostrat, construct_nfs, lm_mcmc
+
+export Lmplotbounds
 
 include("nstate.jl")
 include("state.jl")
