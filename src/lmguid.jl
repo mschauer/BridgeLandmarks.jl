@@ -168,7 +168,7 @@ function update_guidrec!(Q, obs_info)
         # compute Cholesky decomposition of Mt at each time on the grid
         gr.Mt = map(X -> InverseCholesky(lchol(X)),gr.Mt⁺)
         # compute Ht at each time on the grid
-        for i in 1:length(tt_)
+        for i in 1:length(gr.Ht)
             gr.Ht[i] .= gr.Lt[i]' * (gr.Mt[i] * gr.Lt[i] )
         end
     end
