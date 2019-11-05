@@ -678,7 +678,7 @@ function lm_mcmc(tt_, (xobs0,xobsT), σobs, mT, P,
         #
 
         if makefig && (i==ITER)
-            drawpath(ITER,P.n,x,X[1],objvals,parsave,(xobs0comp1,xobs0comp2,xobsTcomp1, xobsTcomp2),pb)
+            drawpath(ITER, i, P.n,x,X[1],objvals,parsave,(xobs0comp1,xobs0comp2,xobsTcomp1, xobsTcomp2),pb)
         end
     end
     perc_acc_pcn = 100acc_pcn/(nshapes*ITER)
