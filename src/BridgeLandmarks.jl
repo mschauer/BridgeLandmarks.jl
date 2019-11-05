@@ -3,6 +3,10 @@ module BridgeLandmarks
 using Bridge
 using ForwardDiff
 using Plots
+using RecursiveArrayTools
+using DataFrames
+using Distributions
+using GaussianDistributions
 
 using LinearAlgebra, Base.Iterators
 
