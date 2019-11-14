@@ -7,6 +7,7 @@ using RecursiveArrayTools
 using DataFrames
 using Distributions
 using GaussianDistributions
+using SparseArrays
 
 using LinearAlgebra, Base.Iterators
 
@@ -19,7 +20,7 @@ export Point, PointF, Unc, UncF, State, deepvec
 export Landmarks, LandmarksAux, MarslandShardlow, MarslandShardlowAux
 export landmarksforward, itostrat, construct_nfs, lm_mcmc
 
-export Lmplotbounds, extractcomp
+export Lmplotbounds, extractcomp, tc
 
 plotlandmarkpositions = Ref{Any}((args...) -> nothing )
 

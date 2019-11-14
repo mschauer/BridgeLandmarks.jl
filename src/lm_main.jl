@@ -12,16 +12,20 @@
 # using NPZ # for reading python datafiles
 # using Random
 
+using BridgeLandmarks
+
 workdir = @__DIR__
 println(workdir)
 cd(workdir)
 
-pyplot()
+using RCall
+using Plots
+using Random
+using Distributions
+using NPZ # for reading python datafiles
 
-const sk=1  # entries to skip for likelihood evaluation
-const itostrat = true
-const d = 2
-const TEST = false
+
+pyplot()
 
 include("generatedata.jl")
 include("plotting.jl")
@@ -77,7 +81,7 @@ fixinitmomentato0 = true#false
 #------------------------------------------------------------------
 # set time grids
 dt = 0.01
-T = 1.0; t = 0.0:dt:T; tt_ =  tc(t,T)
+T = 1.0; t = 0.0:dt:T; tt_ =  BridgeLandmarks.tc(t,T)
 
 outdir = "./figs/"
 if false # to use later on, when plotting is transferred from R to Julia

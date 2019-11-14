@@ -449,7 +449,7 @@ function update_initialstate!(X,Xᵒ,W,ll,x,xᵒ,∇x, ∇xᵒ,
                      logpdf(ndistr,(x - xᵒ - .5*stepsize .* mask.* ∇xᵒ)[mask_id])
              # plotting
              Pdeterm = MarslandShardlow(0.1, 0.1, 0.0, 0.0, P.n)
-             plotlandmarkpositions[](initSamplePath(0:0.01:0.1,x0),Pdeterm,x0.q,deepvec2state(xᵒ).q;db=.5)
+    #         plotlandmarkpositions[](initSamplePath(0:0.01:0.1,x0),Pdeterm,x0.q,deepvec2state(xᵒ).q;db=.5)
      elseif updatekernel == :rmmala_pos
                cfg = ForwardDiff.GradientConfig(slogρ!(Q, W, X,llout), x, ForwardDiff.Chunk{2*d*n}()) # 2*d*P.n is maximal
                ForwardDiff.gradient!(∇x, slogρ!(Q, W, X,llout),x,cfg) # X gets overwritten but does not change
@@ -476,7 +476,7 @@ function update_initialstate!(X,Xᵒ,W,ll,x,xᵒ,∇x, ∇xᵒ,
                         logpdf(ndistrᵒ,x[mask_id] - xᵒ[mask_id] - .5*stepsize * deepmat(Kᵒ) * ∇xᵒ[mask_id])
                 # plotting
                 Pdeterm = MarslandShardlow(0.1, 0.1, 0.0, 0.0, P.n)
-                plotlandmarkpositions[](initSamplePath(0:0.01:0.1,x0),Pdeterm,x0.q,deepvec2state(xᵒ).q;db=.5)
+                #plotlandmarkpositions[](initSamplePath(0:0.01:0.1,x0),Pdeterm,x0.q,deepvec2state(xᵒ).q;db=.5)
         end
         if log(rand()) <= accinit
             println("update initial state ", updatekernel, " accinit: ", round(accinit;digits=3), "  accepted")
