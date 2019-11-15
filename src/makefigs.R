@@ -1,4 +1,6 @@
-setwd("~/.julia/dev/Bridge/landmarks/figs")
+# get directory of source script
+setwd(dirname(rstudioapi::getSourceEditorContext()$path))
+
 library(tidyverse)
 library(stringr)
 library(gridExtra)

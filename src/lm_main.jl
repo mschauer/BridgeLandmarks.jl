@@ -23,7 +23,9 @@ using Plots
 using Random
 using Distributions
 using NPZ # for reading python datafiles
-
+using DataFrames
+using DelimitedFiles
+using CSV
 
 pyplot()
 
@@ -39,7 +41,7 @@ models = [:ms, :ahs]
 model = models[1]
 println("model: ",model)
 
-ITER = 350
+ITER = 5
 subsamples = 0:1:ITER
 
 showplotσq = false # only for ahs model

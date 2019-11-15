@@ -22,6 +22,8 @@ export landmarksforward, itostrat, construct_nfs, lm_mcmc
 
 export Lmplotbounds, extractcomp, tc
 
+export d, sk
+
 plotlandmarkpositions = Ref{Any}((args...) -> nothing )
 
 include("nstate.jl")
