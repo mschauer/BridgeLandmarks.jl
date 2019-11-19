@@ -650,7 +650,7 @@ function lm_mcmc(tt_, (xobs0,xobsT), σobs, mT, P,
             drawpath(ITER, i-1,P.n,x,X[1],objvals,parsave,(xobs0comp1,xobs0comp2,xobsTcomp1, xobsTcomp2),pb)
         end
         println();  println("iteration $i")
-#global acc_pcn
+
         # updates paths
         acc_pcn = update_path!(X, Xᵒ, W, Wᵒ, Wnew, ll, x, Q, ρ, acc_pcn)
 
@@ -664,10 +664,12 @@ function lm_mcmc(tt_, (xobs0,xobsT), σobs, mT, P,
         δ[2] = adaptmalastep(i,accinfo,δ[2])
 
         # update parameters
-        accinfo_ = update_pars!(obs_info,X, Xᵒ,W, Q, Qᵒ, x, ll, (prior_a, prior_c, prior_γ), (σ_a,σ_c,σ_γ))
-        push!(accinfo, accinfo_)
+        if updatepars
+            accinfo_ = update_pars!(obs_info,X, Xᵒ,W, Q, Qᵒ, x, ll, (prior_a, prior_c, prior_γ), (σ_a,σ_c,σ_γ))
+            push!(accinfo, accinfo_)
 
         (σ_a,σ_c,σ_γ) = adaptparstep(i,accinfo,(σ_a,σ_c,σ_γ))
+        end
 
         # save some of the results
         if i in subsamples
@@ -685,13 +687,9 @@ function lm_mcmc(tt_, (xobs0,xobsT), σobs, mT, P,
     anim, Xsave, parsave, objvals, perc_acc_pcn, accinfo
 end
 
-function adaptmalastep(n,accinfo,δ)
-    adaptskip = 3
+function adaptmalastep(n,accinfo,δ; adaptskip = 15, targetaccept=0.5)
     if mod(n,adaptskip)==0
         η(n) = min(0.1, 10/sqrt(n))
-
-        targetaccept = 0.5
-
         ind1 =  findall(first.(accinfo).==:mala_mom)[end-adaptskip+1:end]
         recent_mean = mean(last.(accinfo)[ind1])
         if recent_mean > targetaccept
@@ -700,17 +698,12 @@ function adaptmalastep(n,accinfo,δ)
             δ *= exp(-η(n))
         end
     end
-        #ind = findall(first.(accinfo).=="parameterupdate")[end-adaptskip:end]
     δ
 end
 
-function adaptparstep(n,accinfo,(σ_a,σ_c,σ_γ))
-    adaptskip = 3
+function adaptparstep(n,accinfo,(σ_a,σ_c,σ_γ); adaptskip = 15, targetaccept=0.5)
     if mod(n,adaptskip)==0
         η(n) = min(0.1, 10/sqrt(n))
-
-        targetaccept = 0.5
-
         ind1 =  findall(first.(accinfo).=="parameterupdate")[end-adaptskip+1:end]
         recent_mean = mean(last.(accinfo)[ind1])
         if recent_mean > targetaccept
@@ -723,6 +716,5 @@ function adaptparstep(n,accinfo,(σ_a,σ_c,σ_γ))
             σ_γ *= exp(-η(n))
         end
     end
-        #ind = findall(first.(accinfo).=="parameterupdate")[end-adaptskip:end]
     (σ_a,σ_c,σ_γ)
 end
