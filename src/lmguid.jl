@@ -680,13 +680,14 @@ function lm_mcmc(tt_, (xobs0,xobsT), σobs, mT, P,
             drawpath(ITER, i, P.n,x,X[1],objvals,parsave,(xobs0comp1,xobs0comp2,xobsTcomp1, xobsTcomp2),pb)
         end
     end
-    perc_acc_pcn = 100acc_pcn/(nshapes*ITER)
-    anim, Xsave, parsave, objvals, perc_acc_pcn, accinfo
+    anim, Xsave, parsave, objvals, acc_pcn, accinfo
 end
+
+
+η(n) = min(0.1, 10/sqrt(n))
 
 function adaptmalastep(n,accinfo,δ; adaptskip = 15, targetaccept=0.5)
     if mod(n,adaptskip)==0
-        η(n) = min(0.1, 10/sqrt(n))
         ind1 =  findall(first.(accinfo).==:mala_mom)[end-adaptskip+1:end]
         recent_mean = mean(last.(accinfo)[ind1])
         if recent_mean > targetaccept
@@ -700,7 +701,6 @@ end
 
 function adaptparstep(n,accinfo,(σ_a,σ_c,σ_γ); adaptskip = 15, targetaccept=0.5)
     if mod(n,adaptskip)==0
-        η(n) = min(0.1, 10/sqrt(n))
         ind1 =  findall(first.(accinfo).=="parameterupdate")[end-adaptskip+1:end]
         recent_mean = mean(last.(accinfo)[ind1])
         if recent_mean > targetaccept
@@ -721,13 +721,12 @@ invsigmoid(z::Real) = log(z/(1-z))
 
 function adaptpcnstep(n, acc_pcn, ρ, nshapes; adaptskip = 15, targetaccept=0.5)
     if mod(n,adaptskip)==0
-        η(n) = min(0.1, 10/sqrt(n))
         recentvals = acc_pcn[end-adaptskip*nshapes+1:end]
         recentmean = mean(recentvals)
         if recentmean > targetaccept
-            ρ = sigmoid(invsigmoid(ρ) - η(n)*randn())
+            ρ = sigmoid(invsigmoid(ρ) - η(n)*rand())
         else
-            ρ = sigmoid(invsigmoid(ρ) + η(n)*randn())
+            ρ = sigmoid(invsigmoid(ρ) + η(n)*rand())
         end
     end
     ρ

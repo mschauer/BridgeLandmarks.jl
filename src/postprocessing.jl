@@ -1,6 +1,6 @@
 ## postprocessing
 
-fn = "_" * string(model) * "_" * string(sampler) *"_" * string(dataset)
+fn = string(model)
 gif(anim, outdir*fn*".gif", fps = 50)
 mp4(anim, outdir*fn*".mp4", fps = 50)
 
@@ -45,7 +45,7 @@ close(f)
 ########### write info to txt file
 fn = outdir*  "info_" * string(model) * "_" * string(sampler) *"_" * string(dataset)*".txt"
 f = open(fn,"w")
-write(f, "Dataset: ", string(dataset),"\n")
+#write(f, "Dataset: ", string(dataset),"\n")
 write(f, "Sampler: ", string(sampler), "\n")
 
 write(f, "Number of iterations: ",string(ITER),"\n")
@@ -57,7 +57,7 @@ write(f, "rho (Crank-Nicholsen parameter: ",string(ρ),"\n")
 write(f, "MALA parameter (delta): ",string(δ),"\n")
 write(f, "skip in evaluation of loglikelihood: ",string(sk),"\n")
 write(f, "Average acceptance percentage pCN update steps: ",string(perc_acc_pcn),"\n\n")
-#write(f, "Backward type parametrisation in terms of nu and H? ",string(Î½Hparam),"\n")
+
 close(f)
 
 ######## write observations to file

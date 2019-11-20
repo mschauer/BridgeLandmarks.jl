@@ -139,7 +139,6 @@ mT = zeros(PointF,P.n)   # vector of momenta at time T used for constructing gui
 
 start = time() # to compute elapsed time
 
-
 if obs_atzero     # only update mom
     xobsT = [xobsT]  # should be a vector
     xinit = State(xobs0, zeros(PointF,P.n))
@@ -161,15 +160,15 @@ elseif !obs_atzero & fixinitmomentato0   # multiple shapes only update pos, so i
 end
 
 
-anim, Xsave, parsave, objvals, perc_acc_pcn, accinfo = lm_mcmc(tt_, (xobs0,xobsT), σobs, mT, P,
+anim, Xsave, parsave, objvals, acc_pcn, accinfo = lm_mcmc(tt_, (xobs0,xobsT), σobs, mT, P,
          sampler, obs_atzero, fixinitmomentato0,
          xinit, ITER, subsamples,
-        (ρ, δ, prior_a, prior_c, prior_γ, σ_a, σ_c, σ_γ), initstate_updatetypes, adaptskip, 
+        (ρ, δ, prior_a, prior_c, prior_γ, σ_a, σ_c, σ_γ), initstate_updatetypes, adaptskip,
         outdir,  pb; updatepars = true, makefig=true, showmomenta=false)
 
 elapsed = time() - start
 
 println("Elapsed    time: ",round(elapsed/60;digits=2), " minutes")
-println("Acceptance percentage pCN step: ",perc_acc_pcn)
+println("Acceptance percentage pCN step: ",acc_pcn)
 
 include("./postprocessing.jl")
