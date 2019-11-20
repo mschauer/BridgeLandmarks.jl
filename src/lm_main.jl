@@ -164,7 +164,7 @@ end
 anim, Xsave, parsave, objvals, perc_acc_pcn, accinfo = lm_mcmc(tt_, (xobs0,xobsT), σobs, mT, P,
          sampler, obs_atzero, fixinitmomentato0,
          xinit, ITER, subsamples,
-        (ρ, δ, prior_a, prior_c, prior_γ, σ_a, σ_c, σ_γ), initstate_updatetypes,
+        (ρ, δ, prior_a, prior_c, prior_γ, σ_a, σ_c, σ_γ), initstate_updatetypes, adaptskip, 
         outdir,  pb; updatepars = true, makefig=true, showmomenta=false)
 
 elapsed = time() - start

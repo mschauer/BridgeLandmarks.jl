@@ -363,11 +363,12 @@ function update_path!(X,Xᵒ,W,Wᵒ,Wnew,ll,x, Q, ρ, acc_pcn)
                 X[k].yy[i] .= Xᵒ[k].yy[i]
                 W[k].yy[i] .= Wᵒ.yy[i]
             end
-            println("update innovation. diff_ll: ",round(diff_ll;digits=3),"  accepted")
+            #println("update innovation. diff_ll: ",round(diff_ll;digits=3),"  accepted")
             ll[k] = llᵒ_
-            acc_pcn +=1
+            push!(acc_pcn, 1)
         else
-            println("update innovation. diff_ll: ",round(diff_ll;digits=3),"  rejected")
+            #println("update innovation. diff_ll: ",round(diff_ll;digits=3),"  rejected")
+            push!(acc_pcn, 0)
         end
     end
     acc_pcn
@@ -422,7 +423,7 @@ function update_initialstate!(X,Xᵒ,W,ll,x,xᵒ,∇x, ∇xᵒ,
             x .+= .5*δ*mask.*∇x + sqrt(δ)*mask.*randn(2d*Q.target.n)
         end
         obj = simguidedlm_llikelihood!(LeftRule(), X, deepvec2state(x), W, Q; skip=sk)
-        println("obj ", obj)
+        #println("obj ", obj)
     end
     if sampler==:mcmc
         accinit = ll_incl0 = ll_incl0ᵒ = 0.0 # define because of scoping rules
@@ -479,7 +480,7 @@ function update_initialstate!(X,Xᵒ,W,ll,x,xᵒ,∇x, ∇xᵒ,
                 #plotlandmarkpositions[](initSamplePath(0:0.01:0.1,x0),Pdeterm,x0.q,deepvec2state(xᵒ).q;db=.5)
         end
         if log(rand()) <= accinit
-            println("update initial state ", updatekernel, " accinit: ", round(accinit;digits=3), "  accepted")
+            #println("update initial state ", updatekernel, " accinit: ", round(accinit;digits=3), "  accepted")
             obj = ll_incl0ᵒ
             deepcopyto!(X, Xᵒ)
             x .= xᵒ
@@ -487,7 +488,7 @@ function update_initialstate!(X,Xᵒ,W,ll,x,xᵒ,∇x, ∇xᵒ,
             ll .= lloutᵒ
             accepted = 1
         else
-            println("update initial state ", updatekernel, " accinit: ", round(accinit;digits=3), "  rejected")
+            #println("update initial state ", updatekernel, " accinit: ", round(accinit;digits=3), "  rejected")
             obj = ll_incl0
             #ll .= llout
             accepted = 0
@@ -534,7 +535,7 @@ function update_pars!(obs_info,X, Xᵒ,W, Q, Qᵒ, x, ll, (prior_a, prior_c, pri
         logpdf(LogNormal(log(getγ(Pᵒ)),σ_γ),getγ(P))- logpdf(LogNormal(log(getγ(P)),σ_γ),getγ(Pᵒ))
 
     if log(rand()) <= A
-        println("logaccept for parameter update ", round(A;digits=4), "  accepted")
+        #println("logaccept for parameter update ", round(A;digits=4), "  accepted")
         ll .= llᵒ
         #deepcopyto!(Q,Qᵒ)
         deepcopyto!(Q.guidrec,Qᵒ.guidrec)
@@ -543,7 +544,7 @@ function update_pars!(obs_info,X, Xᵒ,W, Q, Qᵒ, x, ll, (prior_a, prior_c, pri
         deepcopyto!(X,Xᵒ)
         accept = 1
     else
-        println("logaccept for parameter update ", round(A;digits=4), "  rejected")
+        #println("logaccept for parameter update ", round(A;digits=4), "  rejected")
         accept = 0
     end
     (kernel = "parameterupdate", acc = accept)
@@ -574,6 +575,9 @@ end
     σ_c: parameter determining update proposal for c [update c to cᵒ as cᵒ = c * exp(σ_c * rnorm())]
     σ_γ: parameter determining update proposal for γ [update γ to γᵒ as γᵒ = γ * exp(σ_γ * rnorm())]
 
+    initstate_updatetypes: specify type of updates on initialstate
+    adaptskip: adapt mcmc tuning pars every adaptskip iteration
+
     outdir: output directory for animation
     pb:: Lmplotbounds (axis used for plotting landmarks evolution)
     updatepars: logical flag for updating pars a, c, γ
@@ -585,18 +589,11 @@ end
     parsave: saved iterations of all parameter updates ,
     objvals: saved values of stochastic approximation to loglikelihood
     perc_acc: acceptance percentages (bridgepath - inital state)
-
-
-    anim, Xsave, parsave, objvals, perc_acc = lm_mcmc_mv(tt_, (xobs0,xobsTvec), σobs, mT, P,
-             sampler, obs_atzero,
-             xinit, ITER, subsamples,
-            (δ, prior_a, prior_c, prior_γ, σ_a, σ_c, σ_γ),
-            outdir, pb; updatepars = true, makefig=true, showmomenta=false)
 """
 function lm_mcmc(tt_, (xobs0,xobsT), σobs, mT, P,
          sampler, obs_atzero, fixinitmomentato0,
          xinit, ITER, subsamples,
-        (ρ, δ, prior_a, prior_c, prior_γ, σ_a, σ_c, σ_γ), initstate_updatetypes,
+        (ρ, δ, prior_a, prior_c, prior_γ, σ_a, σ_c, σ_γ), initstate_updatetypes, adaptskip,
         outdir, pb; updatepars = true, makefig=true, showmomenta=false)
 
     StateW = PointF
@@ -618,7 +615,6 @@ function lm_mcmc(tt_, (xobs0,xobsT), σobs, mT, P,
 
     # saving objects
     objvals = Float64[]             # keep track of (sgd approximation of the) loglikelihood
-    acc_pcn = 0                   # keep track of mcmc accept probs for pCN update
     Xsave = typeof(zeros(length(tt_) * P.n * 2 * d * nshapes))[]
     parsave = Vector{Float64}[]
     push!(Xsave, convert_samplepath(X))
@@ -641,8 +637,8 @@ function lm_mcmc(tt_, (xobs0,xobsT), σobs, mT, P,
     xobsTcomp2 = extractcomp(xobsT[1],2)
     pp1 = plotshapes(xobs0comp1,xobs0comp2,xobsTcomp1, xobsTcomp2)
 
-    accinfo = []    # keeps track of accepted parameter and initial state updates
-    acc_pcn = 0     # keeps track of nr of accepted pCN updates
+    accinfo = []                        # keeps track of accepted parameter and initial state updates
+    acc_pcn = Int64[]                      # keeps track of nr of accepted pCN updates
     obj = 0
 
     anim = @animate for i in 1:ITER
@@ -653,22 +649,21 @@ function lm_mcmc(tt_, (xobs0,xobsT), σobs, mT, P,
 
         # updates paths
         acc_pcn = update_path!(X, Xᵒ, W, Wᵒ, Wnew, ll, x, Q, ρ, acc_pcn)
+        ρ = adaptpcnstep(i, acc_pcn, ρ,Q.nshapes; adaptskip = adaptskip)
 
         # update initial state
         for updatekernel in initstate_updatetypes
             obj, accinfo_ = update_initialstate!(X,Xᵒ,W,ll,x,xᵒ,∇x, ∇xᵒ,sampler, Q, δ, updatekernel)
-                        push!(accinfo, accinfo_)
+            push!(accinfo, accinfo_)
         end
-        println(δ[2])
-
-        δ[2] = adaptmalastep(i,accinfo,δ[2])
+        δ[2] = adaptmalastep(i,accinfo,δ[2]; adaptskip = adaptskip)
 
         # update parameters
         if updatepars
             accinfo_ = update_pars!(obs_info,X, Xᵒ,W, Q, Qᵒ, x, ll, (prior_a, prior_c, prior_γ), (σ_a,σ_c,σ_γ))
             push!(accinfo, accinfo_)
 
-        (σ_a,σ_c,σ_γ) = adaptparstep(i,accinfo,(σ_a,σ_c,σ_γ))
+        (σ_a,σ_c,σ_γ) = adaptparstep(i,accinfo,(σ_a,σ_c,σ_γ);  adaptskip = adaptskip)
         end
 
         # save some of the results
@@ -678,6 +673,8 @@ function lm_mcmc(tt_, (xobs0,xobsT), σobs, mT, P,
             push!(objvals, obj)
         end
         #
+
+        println("ρ ", ρ ,",   δ[2] ", δ[2], ",   σ_a ", σ_a)
 
         if makefig && (i==ITER)
             drawpath(ITER, i, P.n,x,X[1],objvals,parsave,(xobs0comp1,xobs0comp2,xobsTcomp1, xobsTcomp2),pb)
@@ -717,4 +714,21 @@ function adaptparstep(n,accinfo,(σ_a,σ_c,σ_γ); adaptskip = 15, targetaccept=
         end
     end
     (σ_a,σ_c,σ_γ)
+end
+
+sigmoid(z::Real) = 1.0 / (1.0 + exp(-z))
+invsigmoid(z::Real) = log(z/(1-z))
+
+function adaptpcnstep(n, acc_pcn, ρ, nshapes; adaptskip = 15, targetaccept=0.5)
+    if mod(n,adaptskip)==0
+        η(n) = min(0.1, 10/sqrt(n))
+        recentvals = acc_pcn[end-adaptskip*nshapes+1:end]
+        recentmean = mean(recentvals)
+        if recentmean > targetaccept
+            ρ = sigmoid(invsigmoid(ρ) - η(n)*randn())
+        else
+            ρ = sigmoid(invsigmoid(ρ) + η(n)*randn())
+        end
+    end
+    ρ
 end

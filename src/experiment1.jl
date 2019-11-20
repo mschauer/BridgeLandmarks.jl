@@ -7,6 +7,8 @@ using DataFrames
 using DelimitedFiles
 using CSV
 using StaticArrays
+using LinearAlgebra
+using JLD
 
 workdir = @__DIR__
 println(workdir)
@@ -18,7 +20,7 @@ outdir = "./figs/"
 Random.seed!(3)
 
 ################################# start settings #################################
-n = 15  # nr of landmarks
+n = 10  # nr of landmarks
 models = [:ms, :ahs]
 model = models[1]
 sampler = :mcmc
@@ -27,11 +29,12 @@ obs_atzero = true
 σobs = 0.01   # noise on observations
 T = 1.0
 dt = 0.01
-t = 0.0:dt:T; tt_ =  BridgeLandmarks.tc(t,T)
+t = 0.0:dt:T; tt_ =  tc(t,T)
+updatepars = true
 
-
-ITER = 50
+ITER = 250
 subsamples = 0:1:ITER
+adaptskip = 10
 
 #-------- set prior on θ = (a, c, γ) ----------------------------------------------------------
 prior_a = Exponential(5.0)
@@ -75,7 +78,11 @@ xobsT = [rot * stretch * xobs0[i]  for i in 1:Ptrue.n ] + σobs * randn(PointF,n
 #---------------- step-size on mala steps for initial state -------------------
 δ = [0.0, 0.01] # first comp is not used
 
-(ainit, cinit, γinit) = (1.0, 1.0, 1.0)
+
+#(ainit, cinit, γinit) = (1.0, 1.0, 1.0)
+ainit = mean(norm.([q0[i]-q0[i-1] for i in 2:n]))
+cinit = 1.0
+γinit = 0.1
 if model == :ms
     P = MarslandShardlow(ainit, cinit, γinit, Ptrue.λ, Ptrue.n)
 elseif model == :ahs
@@ -92,8 +99,8 @@ start = time() # to compute elapsed time
     anim, Xsave, parsave, objvals, perc_acc_pcn, accinfo = lm_mcmc(tt_, (xobs0,xobsT), σobs, mT, P,
              sampler, obs_atzero, fixinitmomentato0,
              xinit, ITER, subsamples,
-            (ρ, δ, prior_a, prior_c, prior_γ, σ_a, σ_c, σ_γ), initstate_updatetypes,
-            outdir,  pb; updatepars = false, makefig=true, showmomenta=false)
+            (ρ, δ, prior_a, prior_c, prior_γ, σ_a, σ_c, σ_γ), initstate_updatetypes, adaptskip,
+            outdir,  pb; updatepars = updatepars, makefig=true, showmomenta=false)
 elapsed = time() - start
 
 #----------- post processing -------------------------------------------------
