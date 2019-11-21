@@ -581,8 +581,7 @@ end
     outdir: output directory for animation
     pb:: Lmplotbounds (axis used for plotting landmarks evolution)
     updatepars: logical flag for updating pars a, c, γ
-    makefig: logical flag for making figures
-    showmomenta: logical flag if momenta are also drawn in figures
+    make_animation: logical flag for making animation
 
     Returns:
     Xsave: saved iterations of all states at all times in tt_
@@ -594,7 +593,7 @@ function lm_mcmc(tt_, (xobs0,xobsT), σobs, mT, P,
          sampler, obs_atzero, fixinitmomentato0,
          xinit, ITER, subsamples,
         (ρ, δ, prior_a, prior_c, prior_γ, σ_a, σ_c, σ_γ), initstate_updatetypes, adaptskip,
-        outdir, pb; updatepars = true, makefig=true, showmomenta=false)
+        outdir, pb; updatepars = true, make_animation=false)
 
     StateW = PointF
     dwiener = dimwiener(P)
@@ -642,7 +641,7 @@ function lm_mcmc(tt_, (xobs0,xobsT), σobs, mT, P,
     obj = 0
 
     anim = @animate for i in 1:ITER
-        if makefig
+        if make_animation
             drawpath(ITER, i-1,P.n,x,X[1],objvals,parsave,(xobs0comp1,xobs0comp2,xobsTcomp1, xobsTcomp2),pb)
         end
         println();  println("iteration $i")
@@ -676,7 +675,7 @@ function lm_mcmc(tt_, (xobs0,xobsT), σobs, mT, P,
 
         println("ρ ", ρ ,",   δ[2] ", δ[2], ",   σ_a ", σ_a)
 
-        if makefig && (i==ITER)
+        if make_animation && (i==ITER)
             drawpath(ITER, i, P.n,x,X[1],objvals,parsave,(xobs0comp1,xobs0comp2,xobsTcomp1, xobsTcomp2),pb)
         end
     end
