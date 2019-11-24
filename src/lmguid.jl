@@ -245,7 +245,7 @@ end
 σ!(t, x, dw, out, Q::GuidedProposal!) = σ!(t, x, dw, out, Q.target)
 
 """
-    Evaluate tilder (appearing in guiding term of guided proposal) at (t,x), write into out
+    Evaluate tilde_r (appearing in guiding term of guided proposal) at (t,x), write into out
 """
 function _r!((i,t), x::State, out::State, Q::GuidedProposal!,k)
     out .= vecofpoints2state(Q.guidrec[k].Lt[i]' * (Q.guidrec[k].Mt[i] *(Q.xobsT[k]-Q.guidrec[k].μt[i]-Q.guidrec[k].Lt[i]*vec(x))))
@@ -254,7 +254,7 @@ end
 
 
 """
-    Compute log tildeρ(0,x_0) for the k-th shape
+    Compute log tildeρ(0,x_0,k) for the k-th shape
 """
 function lρtilde(x0, Q,k)
   y = deepvec([Q.xobs0; Q.xobsT[k]] - Q.guidrec[k].μt0 - Q.guidrec[k].Lt0*vec(x0))
@@ -412,18 +412,12 @@ function update_initialstate!(X,Xᵒ,W,ll,x,xᵒ,∇x, ∇xᵒ,
     llout = copy(ll)
     lloutᵒ = copy(ll)
 
-    if sampler in [:sgd, :sgld] # ADJUST LATER
+    if sampler ==:sgd  # ADJUST LATER
         sample!(W, Wiener{Vector{StateW}}())
         cfg = ForwardDiff.GradientConfig(slogρ(Q, W, X), x, ForwardDiff.Chunk{2*d*n}()) # 2*d*P.n is maximal
-        ForwardDiff.gradient!(∇x, slogρ(Q, W, X),x,cfg) # X gets overwritten but does not change
-        if sampler==:sgd
-            x .+= δ * mask .* ∇x
-        end
-        if sampler==:sgld
-            x .+= .5*δ*mask.*∇x + sqrt(δ)*mask.*randn(2d*Q.target.n)
-        end
+        ForwardDiff.gradient!(∇x, slogρ(Q, W, X),x,cfg) # X gets overwritten but does not chan
+        x .+= δ * mask .* ∇x
         obj = simguidedlm_llikelihood!(LeftRule(), X, deepvec2state(x), W, Q; skip=sk)
-        #println("obj ", obj)
     end
     if sampler==:mcmc
         accinit = ll_incl0 = ll_incl0ᵒ = 0.0 # define because of scoping rules
@@ -449,8 +443,8 @@ function update_initialstate!(X,Xᵒ,W,ll,x,xᵒ,∇x, ∇xᵒ,
                       logpdf(ndistr,(xᵒ - x - .5*stepsize .* mask.* ∇x)[mask_id]) +
                      logpdf(ndistr,(x - xᵒ - .5*stepsize .* mask.* ∇xᵒ)[mask_id])
              # plotting
-             Pdeterm = MarslandShardlow(0.1, 0.1, 0.0, 0.0, P.n)
-    #         plotlandmarkpositions[](initSamplePath(0:0.01:0.1,x0),Pdeterm,x0.q,deepvec2state(xᵒ).q;db=.5)
+             #Pdeterm = MarslandShardlow(0.1, 0.1, 0.0, 0.0, P.n)
+             #plotlandmarkpositions[](initSamplePath(0:0.01:0.1,x0),Pdeterm,x0.q,deepvec2state(xᵒ).q;db=.5)
      elseif updatekernel == :rmmala_pos
                cfg = ForwardDiff.GradientConfig(slogρ!(Q, W, X,llout), x, ForwardDiff.Chunk{2*d*n}()) # 2*d*P.n is maximal
                ForwardDiff.gradient!(∇x, slogρ!(Q, W, X,llout),x,cfg) # X gets overwritten but does not change
@@ -458,7 +452,7 @@ function update_initialstate!(X,Xᵒ,W,ll,x,xᵒ,∇x, ∇xᵒ,
                mask = deepvec(State(1 .- 0*x0.q,  0*x0.p))
                stepsize = δ[1]
                mask_id = (mask .> 0.1) # get indices that correspond to positions or momenta
-               K = reshape([kernel(x0.q[i]- x0.q[j],P) * one(UncF) for i in 1:P.n for j in 1:P.n], P.n, P.n)
+               K = reshape([kernel(x0.q[i]- x0.q[j],P) * one(UncF) for i in 1:n for j in 1:n], n, n)
                lcholK = lchol(K) # so K = lcholK * lcholK'
                lvdiff = deepvec(Matrix(lcholK) * randn(PointF, P.n))
                lvdrift =  deepmat(K) * ∇x[mask_id]
@@ -469,14 +463,20 @@ function update_initialstate!(X,Xᵒ,W,ll,x,xᵒ,∇x, ∇xᵒ,
                ll_incl0ᵒ = sum(lloutᵒ)
 
                x0ᵒ = deepvec2state(xᵒ)
-               Kᵒ = reshape([kernel(x0ᵒ.q[i]- x0ᵒ.q[j],P) * one(UncF) for i in 1:P.n for j in 1:P.n], P.n, P.n)
-               ndistr = MvNormal(stepsize*Matrix(Symmetric(deepmat(K))))
-               ndistrᵒ = MvNormal(stepsize*Matrix(Symmetric(deepmat(Kᵒ))))
+               Kᵒ = reshape([kernel(x0ᵒ.q[i]- x0ᵒ.q[j],P) * one(UncF) for i in 1:n for j in 1:n], n, n)
+               #println("K posdef ?", isposdef(deepmat(K)))
+              # ndistr = MvNormal(stepsize*Matrix(Symmetric(deepmat(K))))
+              # ndistrᵒ = MvNormal(stepsize*Matrix(Symmetric(deepmat(Kᵒ))))
+
+               ndistr = MvNormal(stepsize*deepmat(K))
+               ndistrᵒ = MvNormal(stepsize*deepmat(Kᵒ))
+
+
                accinit = ll_incl0ᵒ - ll_incl0 -
                          logpdf(ndistr,xᵒ[mask_id] - x[mask_id] - .5*stepsize * deepmat(K) * ∇x[mask_id]) +
                         logpdf(ndistrᵒ,x[mask_id] - xᵒ[mask_id] - .5*stepsize * deepmat(Kᵒ) * ∇xᵒ[mask_id])
                 # plotting
-                Pdeterm = MarslandShardlow(0.1, 0.1, 0.0, 0.0, P.n)
+                #Pdeterm = MarslandShardlow(0.1, 0.1, 0.0, 0.0, P.n)
                 #plotlandmarkpositions[](initSamplePath(0:0.01:0.1,x0),Pdeterm,x0.q,deepvec2state(xᵒ).q;db=.5)
         end
         if log(rand()) <= accinit
@@ -537,7 +537,6 @@ function update_pars!(obs_info,X, Xᵒ,W, Q, Qᵒ, x, ll, (prior_a, prior_c, pri
     if log(rand()) <= A
         #println("logaccept for parameter update ", round(A;digits=4), "  accepted")
         ll .= llᵒ
-        #deepcopyto!(Q,Qᵒ)
         deepcopyto!(Q.guidrec,Qᵒ.guidrec)
         Q.target = Qᵒ.target
         deepcopyto!(Q.aux,Qᵒ.aux)
@@ -574,6 +573,7 @@ end
     σ_a: parameter determining update proposal for a [update a to aᵒ as aᵒ = a * exp(σ_a * rnorm())]
     σ_c: parameter determining update proposal for c [update c to cᵒ as cᵒ = c * exp(σ_c * rnorm())]
     σ_γ: parameter determining update proposal for γ [update γ to γᵒ as γᵒ = γ * exp(σ_γ * rnorm())]
+    η: (function) scheme to adapt tuning pars with diminishing adaptation
 
     initstate_updatetypes: specify type of updates on initialstate
     adaptskip: adapt mcmc tuning pars every adaptskip iteration
@@ -592,7 +592,7 @@ end
 function lm_mcmc(tt_, (xobs0,xobsT), σobs, mT, P,
          sampler, obs_atzero, fixinitmomentato0,
          xinit, ITER, subsamples,
-        (ρ, δ, prior_a, prior_c, prior_γ, σ_a, σ_c, σ_γ), initstate_updatetypes, adaptskip,
+        (ρ, δ, prior_a, prior_c, prior_γ, σ_a, σ_c, σ_γ,η), initstate_updatetypes, adaptskip,
         outdir, pb; updatepars = true, make_animation=false)
 
     StateW = PointF
@@ -648,21 +648,21 @@ function lm_mcmc(tt_, (xobs0,xobsT), σobs, mT, P,
 
         # updates paths
         acc_pcn = update_path!(X, Xᵒ, W, Wᵒ, Wnew, ll, x, Q, ρ, acc_pcn)
-        ρ = adaptpcnstep(i, acc_pcn, ρ,Q.nshapes; adaptskip = adaptskip)
+        ρ = adaptpcnstep(i, acc_pcn, ρ,Q.nshapes, η; adaptskip = adaptskip)
 
         # update initial state
         for updatekernel in initstate_updatetypes
             obj, accinfo_ = update_initialstate!(X,Xᵒ,W,ll,x,xᵒ,∇x, ∇xᵒ,sampler, Q, δ, updatekernel)
             push!(accinfo, accinfo_)
         end
-        δ[2] = adaptmalastep(i,accinfo,δ[2]; adaptskip = adaptskip)
+        δ[2] = adaptmalastep(i,accinfo,δ[2], η; adaptskip = adaptskip)
 
         # update parameters
         if updatepars
             accinfo_ = update_pars!(obs_info,X, Xᵒ,W, Q, Qᵒ, x, ll, (prior_a, prior_c, prior_γ), (σ_a,σ_c,σ_γ))
             push!(accinfo, accinfo_)
 
-        (σ_a,σ_c,σ_γ) = adaptparstep(i,accinfo,(σ_a,σ_c,σ_γ);  adaptskip = adaptskip)
+        (σ_a,σ_c,σ_γ) = adaptparstep(i,accinfo,(σ_a,σ_c,σ_γ), η;  adaptskip = adaptskip)
         end
 
         # save some of the results
@@ -682,10 +682,7 @@ function lm_mcmc(tt_, (xobs0,xobsT), σobs, mT, P,
     anim, Xsave, parsave, objvals, acc_pcn, accinfo
 end
 
-
-η(n) = min(0.1, 10/sqrt(n))
-
-function adaptmalastep(n,accinfo,δ; adaptskip = 15, targetaccept=0.5)
+function adaptmalastep(n,accinfo,δ, η; adaptskip = 15, targetaccept=0.5)
     if mod(n,adaptskip)==0
         ind1 =  findall(first.(accinfo).==:mala_mom)[end-adaptskip+1:end]
         recent_mean = mean(last.(accinfo)[ind1])
@@ -698,7 +695,7 @@ function adaptmalastep(n,accinfo,δ; adaptskip = 15, targetaccept=0.5)
     δ
 end
 
-function adaptparstep(n,accinfo,(σ_a,σ_c,σ_γ); adaptskip = 15, targetaccept=0.5)
+function adaptparstep(n,accinfo,(σ_a,σ_c,σ_γ), η; adaptskip = 15, targetaccept=0.5)
     if mod(n,adaptskip)==0
         ind1 =  findall(first.(accinfo).=="parameterupdate")[end-adaptskip+1:end]
         recent_mean = mean(last.(accinfo)[ind1])
@@ -718,7 +715,7 @@ end
 sigmoid(z::Real) = 1.0 / (1.0 + exp(-z))
 invsigmoid(z::Real) = log(z/(1-z))
 
-function adaptpcnstep(n, acc_pcn, ρ, nshapes; adaptskip = 15, targetaccept=0.5)
+function adaptpcnstep(n, acc_pcn, ρ, nshapes, η; adaptskip = 15, targetaccept=0.5)
     if mod(n,adaptskip)==0
         recentvals = acc_pcn[end-adaptskip*nshapes+1:end]
         recentmean = mean(recentvals)

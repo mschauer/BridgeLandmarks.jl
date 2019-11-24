@@ -77,6 +77,8 @@ fixinitmomentato0 = true#false
 σ_c = 0.2  # update c to cᵒ as cᵒ = c * exp(σ_c * rnorm())
 σ_γ = 0.2  # update γ to γᵒ as γᵒ = γ * exp(σ_γ * rnorm())
 
+η(n) = min(0.1, 10/sqrt(n))  # adaptation rate for adjusting tuning pars
+
 #------------------------------------------------------------------
 σobs = 0.01   # noise on observations
 
@@ -163,7 +165,7 @@ end
 anim, Xsave, parsave, objvals, acc_pcn, accinfo = lm_mcmc(tt_, (xobs0,xobsT), σobs, mT, P,
          sampler, obs_atzero, fixinitmomentato0,
          xinit, ITER, subsamples,
-        (ρ, δ, prior_a, prior_c, prior_γ, σ_a, σ_c, σ_γ), initstate_updatetypes, adaptskip,
+        (ρ, δ, prior_a, prior_c, prior_γ, σ_a, σ_c, σ_γ, η), initstate_updatetypes, adaptskip,
         outdir,  pb; updatepars = true, makefig=true, showmomenta=false)
 
 elapsed = time() - start
