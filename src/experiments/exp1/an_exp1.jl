@@ -18,9 +18,9 @@ println(workdir)
 cd(workdir)
 
 pyplot()
-include("plotting.jl")
-include("postprocessing.jl")
-outdir = "./figs/"
+include("/Users/Frank/.julia/dev/BridgeLandmarks/src/plotting.jl")
+include("/Users/Frank/.julia/dev/BridgeLandmarks/src/postprocessing.jl")
+outdir = workdir*("/")
 
 Random.seed!(3)
 
@@ -49,7 +49,7 @@ prior_c = Exponential(1.0)
 prior_γ = Exponential(1.0)
 
 #-------- generate data ----------------------------------------------------------
-dat = load("./figs/data_exp1.jld")
+dat = load("data_exp1.jld")
 xobs0 = dat["xobs0"]
 xobsT = dat["xobsT"]
 n = dat["n"]

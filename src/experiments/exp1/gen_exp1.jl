@@ -35,4 +35,4 @@ rot =  SMatrix{2,2}(cos(θ), sin(θ), -sin(θ), cos(θ))
 stretch = SMatrix{2,2}(1.0 + ψ, 0.0, 0.0, 1.0 - ψ)
 xobsT = [rot * stretch * xobs0[i]  for i in 1:Ptrue.n ] + σobs * randn(PointF,n)
 
-save("./figs/data_exp1.jld", "xobs0",xobs0, "xobsT", xobsT, "n", n, "x0", x0, "pb", pb, "nshapes", nshapes)
+save("data_exp1.jld", "xobs0",xobs0, "xobsT", xobsT, "n", n, "x0", x0, "pb", pb, "nshapes", nshapes)

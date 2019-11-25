@@ -37,4 +37,4 @@ xobs0 = []
 pb = Lmplotbounds(-3.0,3.0,-3.0,3.0)
 
 
-save("./figs/data_exp2.jld", "xobs0",xobs0, "xobsT", xobsT, "n", n, "x0", x0, "pb", pb, "nshapes", nshapes)
+save("data_exp2.jld", "xobs0",xobs0, "xobsT", xobsT, "n", n, "x0", x0, "pb", pb, "nshapes", nshapes)

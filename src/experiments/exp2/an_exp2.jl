@@ -18,9 +18,9 @@ println(workdir)
 cd(workdir)
 
 pyplot()
-include("plotting.jl")
-include("postprocessing.jl")
-outdir = "./figs/"
+include("/Users/Frank/.julia/dev/BridgeLandmarks/src/plotting.jl")
+include("/Users/Frank/.julia/dev/BridgeLandmarks/src/postprocessing.jl")
+outdir = workdir*("/")
 
 Random.seed!(3)
 
@@ -39,7 +39,7 @@ updatepars = true
 
 make_animation = false
 
-ITER = 250
+ITER = 25
 subsamples = 0:1:ITER
 adaptskip = 10  # adapt mcmc tuning pars every adaptskip iters
 
@@ -49,7 +49,7 @@ prior_c = Exponential(1.0)
 prior_γ = Exponential(1.0)
 
 #-------- generate data ----------------------------------------------------------
-dat = load("./figs/data_exp2.jld")
+dat = load("data_exp2.jld")
 xobs0 = dat["xobs0"]
 xobsT = dat["xobsT"]
 n = dat["n"]
