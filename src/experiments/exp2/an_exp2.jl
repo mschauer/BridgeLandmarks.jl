@@ -18,8 +18,9 @@ println(workdir)
 cd(workdir)
 
 pyplot()
-include("/Users/Frank/.julia/dev/BridgeLandmarks/src/plotting.jl")
-include("/Users/Frank/.julia/dev/BridgeLandmarks/src/postprocessing.jl")
+
+include(dirname(dirname(workdir))*"/plotting.jl")
+include(dirname(dirname(workdir))*"/postprocessing.jl")
 outdir = workdir*("/")
 
 Random.seed!(3)

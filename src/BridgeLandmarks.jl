@@ -10,6 +10,7 @@ using GaussianDistributions
 using SparseArrays
 
 using LinearAlgebra, Base.Iterators
+using PDMats
 
 const d = 2
 const sk=1  # entries to skip for likelihood evaluation

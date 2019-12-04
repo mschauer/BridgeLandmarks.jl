@@ -43,15 +43,18 @@ function write_info(sampler, ITER, n, tt_,σobs, ρ, δ, perc_acc_pcn, outdir)
     write(f, "Length time grid: ", string(length(tt_)),"\n")
     write(f, "Endpoint: ",string(tt_[end]),"\n")
     write(f, "Noise Sigma: ",string(σobs),"\n")
-    write(f, "rho (Crank-Nicholsen parameter: ",string(ρ),"\n")
-    write(f, "MALA parameter (delta): ",string(δ),"\n")
+    write(f, "Initialisation of rho (Crank-Nicholsen parameter: ",string(ρ),"\n")
+    write(f, "Initialisation of MALA parameter (delta): ",string(δ),"\n")
     write(f, "skip in evaluation of loglikelihood: ",string(sk),"\n")
     write(f, "Average acceptance percentage pCN update steps: ",string(perc_acc_pcn),"\n\n")
     close(f)
 end
 
-function write_acc_par_and_initstate(accinfo,outdir)
-    accdf = DataFrame(kernel = map(x->x.kernel, accinfo), acc = map(x->x.acc, accinfo), iter = 1:length(accinfo))
+function write_acc(accinfo,accpcn,outdir)
+    la = length(accinfo)
+    accdf = DataFrame(kernel = map(x->x.kernel, accinfo), acc = map(x->x.acc, accinfo), iter = 1:la)
+    accpcndf = DataFrame(kernel = fill(Symbol("pCN"),la), acc=accpcn, iter=1:la)
+    append!(accdf, accpcndf)
     CSV.write(outdir*"accdf.csv", accdf; delim=";")
 end
 
