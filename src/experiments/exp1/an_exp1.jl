@@ -1,7 +1,9 @@
 # ellipse to rotated and shifted ellipse
 # initial and final landmark positions observed
+using Revise
 
 using BridgeLandmarks
+const BL=BridgeLandmarks
 using RCall
 using Plots
 using Random
@@ -14,7 +16,6 @@ using LinearAlgebra
 using JLD
 
 workdir = @__DIR__
-println(workdir)
 cd(workdir)
 
 pyplot()
@@ -26,12 +27,16 @@ outdir = workdir*("/")
 
 ################################# start settings #################################
 models = [:ms, :ahs]
-model = models[2]
+model = models[1]
 sampler = :mcmc
 
 fixinitmomentato0 = false
 obs_atzero = true
-σobs = 0.01   # noise on observations
+if model==:ms
+    σobs = 0.01   # noise on observations
+else
+    σobs = 0.1   # noise on observations
+end
 T = 1.0
 dt = 0.01
 t = 0.0:dt:T; tt_ =  tc(t,T)
@@ -39,7 +44,7 @@ updatepars = false #true #false#true
 
 make_animation = false
 
-ITER = 100
+ITER = 175
 subsamples = 0:1:ITER
 adaptskip = 5  # adapt mcmc tuning pars every adaptskip iters
 
@@ -62,31 +67,37 @@ nshapes = dat["nshapes"]
 σ_c = 0.2  # update c to cᵒ as cᵒ = c * exp(σ_c * rnorm())
 σ_γ = 0.2  # update γ to γᵒ as γᵒ = γ * exp(σ_γ * rnorm())
 if model==:ms
-    δ = [0.0, 0.01] # first comp is not used
+    δ = [0.0, 0.1] # first comp is not used
 else
-    δ = [0.0, 0.01] # first comp is not used
+    δ = [0.0, 0.1] # first comp is not used
 end
 η(n) = min(0.1, 10/sqrt(n))  # adaptation rate for adjusting tuning pars
 ################################# end settings #################################
 
-ainit = mean(norm.([x0.q[i]-x0.q[i-1] for i in 2:n]))
-cinit = 0.1
-γinit = 0.5
+ainit = mean(norm.([x0.q[i]-x0.q[i-1] for i in 2:n]))/2.0   # Let op: door 2 gedeeld
+
+
+
 if model == :ms
+    cinit = 0.2
+    γinit = 2.0
     P = MarslandShardlow(ainit, cinit, γinit, 0.0, n)
 elseif model == :ahs
+    cinit = 0.1
+    γinit = 0.5
     stdev = 0.75
     nfsinit = construct_nfs(2.5, stdev, γinit)
     P = Landmarks(ainit, cinit, n, 2.5, stdev, nfsinit)
 end
 
 mT = zeros(PointF,n)   # vector of momenta at time T used for constructing guiding term #mT = randn(PointF,P.n)
+mT = rand(PointF,n)
 
 start = time() # to compute elapsed time
     xobsT = [xobsT]
     xinit = State(xobs0, zeros(PointF,P.n))
     #xinit = State(xobs0, rand(PointF,P.n))
-    initstate_updatetypes = [:rmmala_mom]# [:mala_mom]
+    initstate_updatetypes = [:mala_mom]# [:rmmala_mom]#
     anim, Xsave, parsave, objvals, accpcn, accinfo = lm_mcmc(tt_, (xobs0,xobsT), σobs, mT, P,
              sampler, obs_atzero, fixinitmomentato0,
              xinit, ITER, subsamples,
@@ -109,4 +120,12 @@ if make_animation
     fn = string(model)
     gif(anim, outdir*"anim.gif", fps = 50)
     mp4(anim, outdir*"anim.mp4", fps = 50)
+end
+
+if false
+nn = 3
+K = reshape([BL.kernel(x0.q[i]- x0.q[j],P) * one(UncF) for i in 1:nn for j in 1:nn], nn, nn)
+dK = PDMat(BL.deepmat(K))  #chol_dK = cholesky(dK)  # then dK = chol_dk.U' * chol_dk.U
+inv_dK = inv(dK)
+ndistr = MvNormal(inv_dK)
 end

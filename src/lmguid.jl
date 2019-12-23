@@ -166,7 +166,16 @@ function update_guidrec!(Q, obs_info)
         # perform gpupdate step at time zero
         lm_gpupdate!(Lt0₊, Mt⁺0₊, μt0₊, (obs_info.L0, obs_info.Σ0, Q.xobs0),gr.Lt0, gr.Mt⁺0, gr.μt0)
         # compute Cholesky decomposition of Mt at each time on the grid
-        gr.Mt = map(X -> InverseCholesky(lchol(X)),gr.Mt⁺)
+
+        # for ℓ in eachindex(Q.tt)
+        #     u = deepmat(gr.Mt⁺[ℓ])
+        #     println(isposdef(u+u'))
+        # end
+# need to symmetrize gr.Mt⁺[ℓ]
+        S = map(X -> 0.5*(X+X'), gr.Mt⁺)
+        gr.Mt = map(X -> InverseCholesky(lchol(X)),S)
+
+    #    gr.Mt = map(X -> InverseCholesky(lchol(X)),gr.Mt⁺) # old code
         # compute Ht at each time on the grid
         for i in 1:length(gr.Ht)
             gr.Ht[i] .= gr.Lt[i]' * (gr.Mt[i] * gr.Lt[i] )
@@ -174,6 +183,16 @@ function update_guidrec!(Q, obs_info)
     end
 end
 
+"""
+    Update momenta mT used for constructing the auxiliary process and recompute
+    backward recursion
+"""
+function update_Paux_xT!(Q, mTvec, obs_info)
+    for k in Q.nshapes
+        Q.aux[k] = auxiliary(Q.target,State(Q.xobsT[k],mTvec[k]))  # auxiliary process for each shape
+    end
+    update_guidrec!(Q, obs_info)
+end
 
 
 ##########################
@@ -445,7 +464,7 @@ function update_initialstate!(X,Xᵒ,W,ll,x,xᵒ,∇x, ∇xᵒ,
              # plotting
              #Pdeterm = MarslandShardlow(0.1, 0.1, 0.0, 0.0, P.n)
              #plotlandmarkpositions[](initSamplePath(0:0.01:0.1,x0),Pdeterm,x0.q,deepvec2state(xᵒ).q;db=.5)
-     elseif updatekernel == :rmmala_pos
+        elseif updatekernel == :rmmala_pos
                cfg = ForwardDiff.GradientConfig(slogρ!(Q, W, X,llout), x, ForwardDiff.Chunk{2*d*n}()) # 2*d*P.n is maximal
                ForwardDiff.gradient!(∇x, slogρ!(Q, W, X,llout),x,cfg) # X gets overwritten but does not change
                ll_incl0 = sum(llout)
@@ -478,7 +497,7 @@ function update_initialstate!(X,Xᵒ,W,ll,x,xᵒ,∇x, ∇xᵒ,
                 # plotting
                 #Pdeterm = MarslandShardlow(0.1, 0.1, 0.0, 0.0, P.n)
                 #plotlandmarkpositions[](initSamplePath(0:0.01:0.1,x0),Pdeterm,x0.q,deepvec2state(xᵒ).q;db=.5)
-            elseif updatekernel == :rmmala_mom
+        elseif updatekernel == :rmmala_mom
              cfg = ForwardDiff.GradientConfig(slogρ!(Q, W, X,llout), x, ForwardDiff.Chunk{2*d*n}()) # 2*d*P.n is maximal
              ForwardDiff.gradient!(∇x, slogρ!(Q, W, X,llout),x,cfg) # X gets overwritten but does not change
              ll_incl0 = sum(llout)
@@ -487,7 +506,6 @@ function update_initialstate!(X,Xᵒ,W,ll,x,xᵒ,∇x, ∇xᵒ,
              mask_id = (mask .> 0.1) # get indices that correspond to positions or momenta
 
              # proposal step
-            #K = reshape([kernel(x0.p[i]- x0.p[j],P) * one(UncF) for i in 1:n for j in 1:n], n, n)
              K = reshape([kernel(x0.q[i]- x0.q[j],P) * one(UncF) for i in 1:n for j in 1:n], n, n)
              dK = PDMat(deepmat(K))  #chol_dK = cholesky(dK)  # then dK = chol_dk.U' * chol_dk.U
              inv_dK = inv(dK)
@@ -502,19 +520,14 @@ function update_initialstate!(X,Xᵒ,W,ll,x,xᵒ,∇x, ∇xᵒ,
              ForwardDiff.gradient!(∇xᵒ, slogρ!(Q, W, Xᵒ,lloutᵒ),xᵒ,cfgᵒ) # Xᵒ gets overwritten but does not change
              ll_incl0ᵒ = sum(lloutᵒ)
              x0ᵒ = deepvec2state(xᵒ)
-             Kᵒ = reshape([kernel(x0ᵒ.q[i]- x0ᵒ.q[j],P) * one(UncF) for i in 1:n for j in 1:n], n, n)
-#            Kᵒ = reshape([kernel(x0ᵒ.p[i]- x0ᵒ.p[j],P) * one(UncF) for i in 1:n for j in 1:n], n, n)
-             dKᵒ = PDMat(deepmat(Kᵒ))
-             inv_dKᵒ = inv(dKᵒ)
-             ndistrᵒ = MvNormal(stepsize*inv_dKᵒ)
+             ndistrᵒ = ndistr
 
-              accinit = ll_incl0ᵒ - ll_incl0 -
+             accinit = ll_incl0ᵒ - ll_incl0 -
                         logpdf(ndistr,xᵒ[mask_id] - x[mask_id] - .5*stepsize * inv_dK * ∇x[mask_id]) +
-                       logpdf(ndistrᵒ,x[mask_id] - xᵒ[mask_id] - .5*stepsize * inv_dKᵒ * ∇xᵒ[mask_id])
-               # plotting
-               #Pdeterm = MarslandShardlow(0.1, 0.1, 0.0, 0.0, P.n)
-               #plotlandmarkpositions[](initSamplePath(0:0.01:0.1,x0),Pdeterm,x0.q,deepvec2state(xᵒ).q;db=.5)
-               end
+                       logpdf(ndistrᵒ,x[mask_id] - xᵒ[mask_id] - .5*stepsize * inv_dK * ∇xᵒ[mask_id])
+         end
+
+        # MH step
         if log(rand()) <= accinit
             #println("update initial state ", updatekernel, " accinit: ", round(accinit;digits=3), "  accepted")
             obj = ll_incl0ᵒ
@@ -631,6 +644,7 @@ function lm_mcmc(tt_, (xobs0,xobsT), σobs, mT, P,
         (ρ, δ, prior_a, prior_c, prior_γ, σ_a, σ_c, σ_γ,η), initstate_updatetypes, adaptskip,
         outdir, pb; updatepars = true, make_animation=false)
 
+    lt = length(tt_)
     StateW = PointF
     dwiener = dimwiener(P)
     # initialisation
@@ -641,10 +655,10 @@ function lm_mcmc(tt_, (xobs0,xobsT), σobs, mT, P,
     Q = GuidedProposal!(P,Paux,tt_,guidrec,xobs0,xobsT,nshapes,mT)
     update_guidrec!(Q, obs_info)   # compute backwards recursion
 
-    X = [initSamplePath(tt_, xinit) for i in 1:nshapes]
-    W = [initSamplePath(tt_,  zeros(StateW, dwiener)) for i in 1:nshapes]
-    for i in 1:nshapes
-        sample!(W[i], Wiener{Vector{StateW}}())
+    X = [initSamplePath(tt_, xinit) for k in 1:nshapes]
+    W = [initSamplePath(tt_,  zeros(StateW, dwiener)) for k in 1:nshapes]
+    for k in 1:nshapes
+        sample!(W[k], Wiener{Vector{StateW}}())
     end
     ll = simguidedlm_llikelihood!(LeftRule(), X, xinit, W, Q; skip=sk)
 
@@ -701,6 +715,13 @@ function lm_mcmc(tt_, (xobs0,xobsT), σobs, mT, P,
         (σ_a,σ_c,σ_γ) = adaptparstep(i,accinfo,(σ_a,σ_c,σ_γ), η;  adaptskip = adaptskip)
         end
 
+        # adjust mT
+        if mod(i,10)==0 && i<50
+            mTvec = [X[k][lt][2].p  for k in 1:nshapes]     # extract momenta at time T for each shape
+            update_Paux_xT!(Q, mTvec, obs_info)
+        end
+
+
         # save some of the results
         if i in subsamples
             push!(Xsave, convert_samplepath(X))
@@ -720,9 +741,9 @@ end
 
 function adaptmalastep(n,accinfo,δ, η; adaptskip = 15, targetaccept=0.5)
     if mod(n,adaptskip)==0
-        mala = [:mala_mom, :rmmala_mom]
-        ind1 =  findall(first.(accinfo).==:rmmala_mom)[end-adaptskip+1:end]
-        #ind1 =  findall(first.(accinfo).in mala)[end-adaptskip+1:end]
+        #mala = [:mala_mom, :rmmala_mom]
+        #ind1 =  findall(first.(accinfo).==:rmmala_mom)[end-adaptskip+1:end]
+        ind1 =  findall(first.(accinfo).== :mala_mom)[end-adaptskip+1:end]
         recent_mean = mean(last.(accinfo)[ind1])
         if recent_mean > targetaccept
             δ *= exp(η(n))
