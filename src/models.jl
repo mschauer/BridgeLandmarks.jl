@@ -207,6 +207,31 @@ function Bridge.a(t,  P::Union{MarslandShardlow, MarslandShardlowAux})
 end
 Bridge.a(t, x, P::Union{MarslandShardlow, MarslandShardlowAux}) = Bridge.a(t, P)
 
+
+
+"""
+    Return matrix σ̃(t)
+"""
+function σ̃(t,  P::Union{MarslandShardlow, MarslandShardlowAux})
+    Iind = Int[]
+    Jind = Int[]
+    X = UncF[]
+    γ = P.γ
+    for i in 1:P.n
+            push!(Iind, 2i)
+            push!(Jind,i)
+            push!(X, γ*one(UncF))
+    end
+    sparse(Iind, Jind, X, 2P.n, P.n)
+end
+
+# if TEST
+#      dm = rand(PointF,15)
+#      Matrix(BL.σ̃(1.0, P))*dm
+#      Matrix(BL.σ̃(1.0, P)) * Matrix(BL.σ̃(1.0, P))'
+# end
+
+
 """
 Multiply a(t,x) times xin (which is of type state)
 Returns variable of type State
@@ -411,6 +436,8 @@ function Bridge.β(t, Paux::LandmarksAux)
 end
 
 
+
+
 """
 Compute sigma(t,x) * dm where dm is a vector and sigma is the diffusion coefficient of landmarks
 write to out which is of type State
@@ -450,6 +477,24 @@ function σtmul(t, x_, y::State{Pnt}, P::Union{Landmarks,LandmarksAux}) where Pn
     end
     out
 end
+
+"""
+    Return matrix σ̃(t) for LandmarksAux
+"""
+function σ̃(t,  Paux::LandmarksAux)
+    x = Paux.xT
+    out = zeros(UncF, 2Paux.n, length(Paux.nfs))
+    for i in 1:Paux.n
+        for j in 1:length(Paux.nfs)
+            out[2i-1,j] = σq(q(x, i), Paux.nfs[j])
+            out[2i,j] = σp(q(x, i), p(x, i), Paux.nfs[j])
+        end
+    end
+    out
+end
+
+
+
 
 """
     compute σ(t,x)' y, where y::State

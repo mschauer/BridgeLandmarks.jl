@@ -44,7 +44,7 @@ updatepars = false #true #false#true
 
 make_animation = false
 
-ITER = 175
+ITER = 10
 subsamples = 0:1:ITER
 adaptskip = 5  # adapt mcmc tuning pars every adaptskip iters
 
@@ -71,7 +71,7 @@ if model==:ms
 else
     δ = [0.0, 0.1] # first comp is not used
 end
-η(n) = min(0.1, 10/sqrt(n))  # adaptation rate for adjusting tuning pars
+η(n) = min(0.2, 10/sqrt(n))  # adaptation rate for adjusting tuning pars
 ################################# end settings #################################
 
 ainit = mean(norm.([x0.q[i]-x0.q[i-1] for i in 2:n]))/2.0   # Let op: door 2 gedeeld
@@ -83,7 +83,7 @@ if model == :ms
     γinit = 2.0
     P = MarslandShardlow(ainit, cinit, γinit, 0.0, n)
 elseif model == :ahs
-    cinit = 0.1
+    cinit = 0.05
     γinit = 0.5
     stdev = 0.75
     nfsinit = construct_nfs(2.5, stdev, γinit)
@@ -91,7 +91,7 @@ elseif model == :ahs
 end
 
 mT = zeros(PointF,n)   # vector of momenta at time T used for constructing guiding term #mT = randn(PointF,P.n)
-mT = rand(PointF,n)
+#mT = rand(PointF,n)
 
 start = time() # to compute elapsed time
     xobsT = [xobsT]

@@ -171,7 +171,7 @@ function update_guidrec!(Q, obs_info)
         #     u = deepmat(gr.Mt⁺[ℓ])
         #     println(isposdef(u+u'))
         # end
-# need to symmetrize gr.Mt⁺[ℓ]
+        # need to symmetrize gr.Mt⁺; else AHS  gives numerical roundoff errors when mT \neq 0
         S = map(X -> 0.5*(X+X'), gr.Mt⁺)
         gr.Mt = map(X -> InverseCholesky(lchol(X)),S)
 
@@ -213,11 +213,13 @@ function guidingbackwards!(::Lm, t, (Lt, Mt⁺, μt), Paux, obs_info; implicit=t
     β = vec(Bridge.β(0,Paux))       # does not depend on time
 
     # various ways to compute ã (which does not depend on time);
-    aa = Bridge.a(0, Paux) # vanilla, no (possibly enclose with Matrix)
+    #aa = Bridge.a(0, Paux) # vanilla, no (possibly enclose with Matrix)
+    σ̃T = σ̃(0, Paux) # vanilla, no (possibly enclose with Matrix)
     dt = t[2] - t[1]
 
     if !lowrank
-        oldtemp = 0.5* Lt[end]* aa * Matrix(Lt[end]') * dt
+#        oldtemp = 0.5* Lt[end]* aa * Matrix(Lt[end]') * dt  ## WORKS, ORIGINAL IMPLEMENTATION
+        oldtemp = (0.5*dt) * Bridge.outer(Lt[end] * σ̃T)
     else
         #aalr = pheigfact(deepmat(aa), rtol=1e-8)  # control accuracy of lr approx
         aalr = pheigfact(deepmat(aa))  # control accuracy of lr approx
@@ -233,13 +235,13 @@ function guidingbackwards!(::Lm, t, (Lt, Mt⁺, μt), Paux, obs_info; implicit=t
             Lt[i] .=  Lt[i+1] * (I + BB * dt)
         end
         if !lowrank
-            temp = 0.5 * Lt[i]* aa * Matrix(Lt[i]') * dt
-            Mt⁺[i] .= Mt⁺[i+1] + oldtemp + temp
-            oldtemp = temp
+            #temp = (0.5 * dt) * Lt[i] * aa * Matrix(Lt[i]')  # OLD CORRECT IMPLEMENTATION
+            temp = (0.5*dt) * Bridge.outer(Lt[i] * σ̃T)
         else
-            C = (0.5 * dt) * Bridge.outer(Lt[i+1] * sqrt_aalr)
-            Mt⁺[i] .= Mt⁺[i+1] + (C + C')
+            temp = (0.5*dt) * Bridge.outer(Lt[i] * sqrt_aalr)
         end
+        Mt⁺[i] .= Mt⁺[i+1] + oldtemp + temp
+        oldtemp = temp
         μt[i] .= μt[i+1] + 0.5 * (Lt[i] + Lt[i+1]) * β * dt  # trapezoid rule
     end
     (Lt[1], Mt⁺[1], μt[1])

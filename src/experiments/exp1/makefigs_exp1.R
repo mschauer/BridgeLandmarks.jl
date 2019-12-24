@@ -161,3 +161,12 @@ pdf("acceptance.pdf",width=widthfig,height=1.5)
 dev.off()
 accfig
 
+
+pmomT <-  d %>% dplyr::filter(time==1) %>%
+  dplyr::filter(landmarkid %in% landmarkid_subset  )%>%
+  ggplot(aes(x=mom1,y=mom2,colour=iterate)) + geom_point(size=0.5) +
+  #  geom_path(aes(group=interaction(landmarkid,iteratenr),colour=iterate)) +
+  facet_wrap(~landmarkid)  +scale_colour_gradient(low="grey",high="darkblue")+
+  theme(axis.title.x=element_blank(), axis.title.y=element_blank()) +
+  geom_hline(yintercept=0, linetype="dashed")+geom_vline(xintercept=0, linetype="dashed")+theme(legend.position='bottom')
+pmomT

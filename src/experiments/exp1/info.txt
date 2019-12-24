@@ -1,11 +1,11 @@
 Sampler: mcmc
-Number of iterations: 175
+Number of iterations: 10
 Number of landmarks: 15
 Length time grid: 101
 Endpoint: 1.0
 Noise Sigma: 0.01
 Initialisation of rho (Crank-Nicholsen parameter: 0.9
-Initialisation of MALA parameter (delta): [0.0, 0.547395]
+Initialisation of MALA parameter (delta): [0.0, 0.149182]
 skip in evaluation of loglikelihood: 1
-Average acceptance percentage pCN update steps: 36.57142857142857
+Average acceptance percentage pCN update steps: 50.0
 
