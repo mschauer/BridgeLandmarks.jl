@@ -718,7 +718,7 @@ function lm_mcmc(tt_, (xobs0,xobsT), σobs, mT, P,
         end
 
         # adjust mT
-        if mod(i,10)==0 && i<50
+        if mod(i,adaptskip)==0 && i<50
             mTvec = [X[k][lt][2].p  for k in 1:nshapes]     # extract momenta at time T for each shape
             update_Paux_xT!(Q, mTvec, obs_info)
         end
@@ -741,6 +741,10 @@ function lm_mcmc(tt_, (xobs0,xobsT), σobs, mT, P,
     anim, Xsave, parsave, objvals, accpcn, accinfo
 end
 
+"""
+    Adapt the step size for mala_mom updates.
+    The adaptation is multiplication/divsion by exp(η(n))
+"""
 function adaptmalastep(n,accinfo,δ, η; adaptskip = 15, targetaccept=0.5)
     if mod(n,adaptskip)==0
         #mala = [:mala_mom, :rmmala_mom]
@@ -756,6 +760,10 @@ function adaptmalastep(n,accinfo,δ, η; adaptskip = 15, targetaccept=0.5)
     δ
 end
 
+"""
+    Adapt the step size for mala_mom updates.
+    The adaptation is multiplication/divsion by exp(η(n))
+"""
 function adaptparstep(n,accinfo,(σ_a,σ_c,σ_γ), η; adaptskip = 15, targetaccept=0.5)
     if mod(n,adaptskip)==0
         ind1 =  findall(first.(accinfo).=="parameterupdate")[end-adaptskip+1:end]
@@ -776,14 +784,20 @@ end
 sigmoid(z::Real) = 1.0 / (1.0 + exp(-z))
 invsigmoid(z::Real) = log(z/(1-z))
 
+
+"""
+    Adapt the step size for mala_mom updates.
+    The adaptation is multiplication/divsion by exp(η(n)) for log(ρ/(1-ρ))
+"""
+
 function adaptpcnstep(n, acc_pcn, ρ, nshapes, η; adaptskip = 15, targetaccept=0.5)
     if mod(n,adaptskip)==0
         recentvals = acc_pcn[end-adaptskip*nshapes+1:end]
         recentmean = mean(recentvals)
         if recentmean > targetaccept
-            ρ = sigmoid(invsigmoid(ρ) - η(n)*rand())
+            ρ = sigmoid(invsigmoid(ρ) * exp(-η(n)))
         else
-            ρ = sigmoid(invsigmoid(ρ) + η(n)*rand())
+            ρ = sigmoid(invsigmoid(ρ) * exp(η(n)))
         end
     end
     ρ

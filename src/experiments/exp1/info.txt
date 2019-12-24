@@ -1,6 +1,6 @@
 Sampler: mcmc
 Number of iterations: 10
-Number of landmarks: 15
+Number of landmarks: 18
 Length time grid: 101
 Endpoint: 1.0
 Noise Sigma: 0.01

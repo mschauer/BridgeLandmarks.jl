@@ -40,7 +40,7 @@ end
 T = 1.0
 dt = 0.01
 t = 0.0:dt:T; tt_ =  tc(t,T)
-updatepars = false #true #false#true
+updatepars = false
 
 make_animation = false
 
@@ -71,7 +71,7 @@ if model==:ms
 else
     δ = [0.0, 0.1] # first comp is not used
 end
-η(n) = min(0.2, 10/sqrt(n))  # adaptation rate for adjusting tuning pars
+η(n) = min(0.2, 10/n)  # adaptation rate for adjusting tuning pars
 ################################# end settings #################################
 
 ainit = mean(norm.([x0.q[i]-x0.q[i-1] for i in 2:n]))/2.0   # Let op: door 2 gedeeld

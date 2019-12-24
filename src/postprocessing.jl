@@ -51,9 +51,11 @@ function write_info(sampler, ITER, n, tt_,σobs, ρ, δ, perc_acc_pcn, outdir)
 end
 
 function write_acc(accinfo,accpcn,outdir)
-    la = length(accinfo)
-    accdf = DataFrame(kernel = map(x->x.kernel, accinfo), acc = map(x->x.acc, accinfo), iter = 1:la)
-    accpcndf = DataFrame(kernel = fill(Symbol("pCN"),la), acc=accpcn, iter=1:la)
+    # extract number of distinct update steps in accinfo
+    nunique = length(unique(map(x->x[1], accinfo)))
+    niterates = length(accpcn)
+    accdf = DataFrame(kernel = map(x->x.kernel, accinfo), acc = map(x->x.acc, accinfo), iter = repeat(1:niterates, inner= nunique))
+    accpcndf = DataFrame(kernel = fill(Symbol("pCN"),niterates), acc=accpcn, iter=1:niterates)
     append!(accdf, accpcndf)
     CSV.write(outdir*"accdf.csv", accdf; delim=";")
 end

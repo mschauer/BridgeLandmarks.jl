@@ -218,18 +218,13 @@ function σ̃(t,  P::Union{MarslandShardlow, MarslandShardlowAux})
     X = UncF[]
     γ = P.γ
     for i in 1:P.n
-            push!(Iind, 2i)
-            push!(Jind,i)
-            push!(X, γ*one(UncF))
+        push!(Iind, 2i)
+        push!(Jind,i)
+        push!(X, γ*one(UncF))
     end
     sparse(Iind, Jind, X, 2P.n, P.n)
 end
 
-# if TEST
-#      dm = rand(PointF,15)
-#      Matrix(BL.σ̃(1.0, P))*dm
-#      Matrix(BL.σ̃(1.0, P)) * Matrix(BL.σ̃(1.0, P))'
-# end
 
 
 """
