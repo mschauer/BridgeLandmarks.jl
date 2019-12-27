@@ -28,19 +28,19 @@ end
 """
 function set_obsinfo(n, obs_atzero::Bool,fixinitmomentato0::Bool, σobs,xobs0)
     if obs_atzero
-        L0 = LT = [(i==j)*one(UncF) for i in 1:2:2n, j in 1:2n]  # pick position indices
-        Σ0 = ΣT = [(i==j)*σobs^2*one(UncF) for i in 1:n, j in 1:n]
+        L0 = LT = [(i==j) * one(UncF) for i in 1:2:2n, j in 1:2n]  # pick position indices
+        Σ0 = ΣT = [(i==j)*σobs^2 * one(UncF) for i in 1:n, j in 1:n]
     elseif !obs_atzero & !fixinitmomentato0
         L0 = Array{UncF}(undef,0,2*n)
         Σ0 = Array{UncF}(undef,0,0)
         xobs0 = Array{PointF}(undef,0)
         LT = [(i==j)*one(UncF) for i in 1:2:2n, j in 1:2n]
-        ΣT = [(i==j)*σobs^2*one(UncF) for i in 1:n, j in 1:n]
+        ΣT = [(i==j)*σobs^2 * one(UncF) for i in 1:n, j in 1:n]
     elseif !obs_atzero & fixinitmomentato0   # only update positions and fix initial state momenta to zero
         xobs0 = zeros(PointF,n)
-        L0 = [((i+1)==j)*one(UncF) for i in 1:2:2n, j in 1:2n] # pick momenta indices
-        LT = [(i==j)*one(UncF) for i in 1:2:2n, j in 1:2n] # pick position indices
-        Σ0 = ΣT = [(i==j)*σobs^2*one(UncF) for i in 1:n, j in 1:n]
+        L0 = [((i+1)==j) * one(UncF) for i in 1:2:2n, j in 1:2n] # pick momenta indices
+        LT = [(i==j) * one(UncF) for i in 1:2:2n, j in 1:2n] # pick position indices
+        Σ0 = ΣT = [(i==j) * σobs^2 * one(UncF) for i in 1:n, j in 1:n]
     end
     μT = zeros(PointF,n)
     xobs0, ObsInfo(LT,ΣT,μT,L0,Σ0)
@@ -120,7 +120,7 @@ function init_guidrec(t,obs_info,xobs0)
     Pnt = eltype(obs_info.ΣT)
     Lt =  [copy(obs_info.LT) for s in t]
     Mt⁺ = [copy(obs_info.ΣT) for s in t]
-    Mt = map(X->InverseCholesky(lchol(X)),Mt⁺)
+    Mt = map(X -> InverseCholesky(lchol(X)),Mt⁺)
     μt = [copy(obs_info.μT) for s in t]
     H = obs_info.LT' * (obs_info.ΣT * obs_info.LT )
     Ht = [copy(H) for s in t]
@@ -371,6 +371,7 @@ end
 function update_path!(X,Xᵒ,W,Wᵒ,Wnew,ll,x, Q, ρ, accpcn, maxnrpaths)
 #    nn = length(X[1].yy)
     x0 = deepvec2state(x)
+    dw = dimwiener(Q.target)
     # From current state (x,W) with loglikelihood ll, update to (x, Wᵒ)
     for k in 1:Q.nshapes
         sample!(Wnew, Wiener{Vector{PointF}}())
@@ -379,7 +380,6 @@ function update_path!(X,Xᵒ,W,Wᵒ,Wnew,ll,x, Q, ρ, accpcn, maxnrpaths)
         # end
 
         # updateset: those indices for which the Wiener increment gets updated
-        dw = dimwiener(Q.target)
         if dw <= maxnrpaths
             updateset = 1:dw
         else
@@ -513,11 +513,8 @@ function update_initialstate!(X,Xᵒ,W,ll,x,xᵒ,∇x, ∇xᵒ,
                x0ᵒ = deepvec2state(xᵒ)
                Kᵒ = reshape([kernel(x0ᵒ.q[i]- x0ᵒ.q[j],P) * one(UncF) for i in 1:n for j in 1:n], n, n)
                dKᵒ = PDMat(deepmat(Kᵒ))
-               ndistrᵒ = MvNormal(stepsize*dKᵒ)
+               ndistrᵒ = MvNormal(stepsize*dKᵒ)  #     ndistrᵒ = MvNormal(stepsize*deepmat(Kᵒ))
 
-#println(logpdf(ndistr,xᵒ[mask_id] - x[mask_id] - .5*stepsize * dK * ∇x[mask_id]))
-
-                      #     ndistrᵒ = MvNormal(stepsize*deepmat(Kᵒ))
                accinit = ll_incl0ᵒ - ll_incl0 -
                          logpdf(ndistr,xᵒ[mask_id] - x[mask_id] - .5*stepsize * dK * ∇x[mask_id]) +
                         logpdf(ndistrᵒ,x[mask_id] - xᵒ[mask_id] - .5*stepsize * dKᵒ * ∇xᵒ[mask_id])
@@ -571,16 +568,16 @@ function update_initialstate!(X,Xᵒ,W,ll,x,xᵒ,∇x, ∇xᵒ,
 end
 
 #---------------------------------------------------
-# don't think we need these functions anymore
-logϕ(p) = -0.5 * norm(p)^2
-logϕ(qfix, p, P) = -hamiltonian(NState(qfix,p),P)
-function hamiltonian(x::NState, P::MarslandShardlow)
-    s = 0.0
-    for i in 1:P.n, j in 1:P.n
-        s += dot(x.p[i], x.p[j])*kernel(x.q[i] - x.q[j], P)
-    end
-    0.5 * s
-end
+# don't need these functions anymore
+# logϕ(p) = -0.5 * norm(p)^2
+# logϕ(qfix, p, P) = -hamiltonian(NState(qfix,p),P)
+# function hamiltonian(x::NState, P::MarslandShardlow)
+#     s = 0.0
+#     for i in 1:P.n, j in 1:P.n
+#         s += dot(x.p[i], x.p[j])*kernel(x.q[i] - x.q[j], P)
+#     end
+#     0.5 * s
+# end
 #---------------------------------------------------
 
 """
@@ -675,7 +672,8 @@ function lm_mcmc(tt_, (xobs0,xobsT), σobs, mT, P,
     xobs0, obs_info = set_obsinfo(P.n,obs_atzero,fixinitmomentato0,σobs,xobs0)
     nshapes = length(xobsT)
     guidrec = [init_guidrec(tt_,obs_info,xobs0) for k in 1:nshapes]  # memory allocation for backward recursion for each shape
-    Paux = [auxiliary(P,State(xobsT[k],mT)) for k in 1:nshapes] # auxiliary process for each shape
+
+    Paux = [auxiliary(P, State(xobsT[k],mT)) for k in 1:nshapes] # auxiliary process for each shape
     Q = GuidedProposal!(P,Paux,tt_,guidrec,xobs0,xobsT,nshapes,mT)
     update_guidrec!(Q, obs_info)   # compute backwards recursion
 
@@ -731,7 +729,11 @@ function lm_mcmc(tt_, (xobs0,xobsT), σobs, mT, P,
         for updatekernel in initstate_updatetypes
             obj, accinfo_ = update_initialstate!(X,Xᵒ,W,ll,x,xᵒ,∇x, ∇xᵒ,sampler, Q, δ, updatekernel)
             push!(accinfo, accinfo_)
-            δ[2] = adaptmalastep(i,accinfo,δ[2], η, updatekernel; adaptskip = adaptskip)
+            if updatekernel in [:mala_mom, :rmmala_mom]
+                δ[2] = adaptmalastep(i,accinfo,δ[2], η, updatekernel; adaptskip = adaptskip)
+            else
+                δ[1] = adaptmalastep(i,accinfo,δ[1], η, updatekernel; adaptskip = adaptskip)
+            end
         end
 
 

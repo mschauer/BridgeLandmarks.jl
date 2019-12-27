@@ -10,15 +10,23 @@
 function write_mcmc_iterates(Xsave, tt_, n, nshapes, subsamples, outdir)
     nshapes = length(xobsT)
     iterates = reshape(vcat(Xsave...),2*d*length(tt_)*n*nshapes, length(subsamples)) # each column contains samplepath of an iteration
+
+    # total number of rows is nshapes * length(tt_) * n * (2d)
+
     # Ordering in each column is as follows:
     # 0) shape
     # 1) time
     # 2) landmark nr
     # 3) for each landmark: q1, q2 p1, p2
-    pqtype = repeat(["pos1", "pos2", "mom1", "mom2"], length(tt_)*P.n*nshapes)
-    times = repeat(tt_,inner=2d*n*nshapes)
-    landmarkid = repeat(1:P.n, inner=2d, outer=length(tt_)*nshapes)
-    shapes = repeat(1:nshapes, inner=length(tt_)*2d*P.n)
+    if !(d==2) error("pqtype in write_mcmc_iterates only implemented in case d=2") end
+    shapes = repeat(1:nshapes, inner=length(tt_)*2d*n)
+        #times = repeat(tt_,inner=2d*n*nshapes)
+    times = repeat(tt_, inner=2*d*n, outer=nshapes)
+    landmarkid = repeat(1:n, inner=2d, outer=length(tt_)*nshapes)
+    pqtype = repeat(["pos1", "pos2", "mom1", "mom2"], outer=length(tt_)*n*nshapes)
+
+
+
 
     out = hcat(times,pqtype,landmarkid,shapes,iterates)
     headline = "time " * "pqtype " * "landmarkid " * "shapes " * prod(map(x -> "iter"*string(x)*" ",subsamples))
@@ -58,12 +66,12 @@ function write_info(sampler, ITER, n, tt_,σobs, ρinit, δinit, ρ, δ, perc_ac
     close(f)
 end
 
-function write_acc(accinfo,accpcn,outdir)
+function write_acc(accinfo,accpcn,nshapes,outdir)
     # extract number of distinct update steps in accinfo
     nunique = length(unique(map(x->x[1], accinfo)))
-    niterates = length(accpcn)
+    niterates = div(length(accinfo),nunique)
     accdf = DataFrame(kernel = map(x->x.kernel, accinfo), acc = map(x->x.acc, accinfo), iter = repeat(1:niterates, inner= nunique))
-    accpcndf = DataFrame(kernel = fill(Symbol("pCN"),niterates), acc=accpcn, iter=1:niterates)
+    accpcndf = DataFrame(kernel = fill(Symbol("pCN"),length(accpcn)), acc=accpcn, iter=repeat(1:niterates,inner=nshapes))
     append!(accdf, accpcndf)
     CSV.write(outdir*"accdf.csv", accdf; delim=";")
 end
