@@ -15,6 +15,8 @@ using StaticArrays
 using LinearAlgebra
 using JLD
 
+Random.seed!(9)
+
 workdir = @__DIR__
 cd(workdir)
 
@@ -40,13 +42,14 @@ end
 T = 1.0
 dt = 0.01
 t = 0.0:dt:T; tt_ =  tc(t,T)
-updatepars = false
+updatepars =  false#true#false
 
 make_animation = false
 
-ITER = 10
+ITER = 500
 subsamples = 0:1:ITER
-adaptskip = 5  # adapt mcmc tuning pars every adaptskip iters
+adaptskip = 20  # adapt mcmc tuning pars every adaptskip iters
+maxnrpaths = 10 # update at most maxnrpaths Wiener increments at once
 
 #-------- set prior on θ = (a, c, γ) ----------------------------------------------------------
 prior_a = Exponential(1.0)
@@ -62,14 +65,16 @@ x0 = dat["x0"]
 nshapes = dat["nshapes"]
 
 #--------- MCMC tuning pars ---------------------------------------------------------
-ρ = 0.9              # pcN-step
+initstate_updatetypes = [:mala_mom] #, [:rmmala_mom]
+
+ρinit = 0.9              # pcN-step
 σ_a = 0.2  # update a to aᵒ as aᵒ = a * exp(σ_a * rnorm())
 σ_c = 0.2  # update c to cᵒ as cᵒ = c * exp(σ_c * rnorm())
 σ_γ = 0.2  # update γ to γᵒ as γᵒ = γ * exp(σ_γ * rnorm())
 if model==:ms
-    δ = [0.0, 0.1] # first comp is not used
+    δinit = [0.0, 0.1] # first comp is not used
 else
-    δ = [0.0, 0.1] # first comp is not used
+    δinit = [0.0, 0.1] # first comp is not used
 end
 η(n) = min(0.2, 10/n)  # adaptation rate for adjusting tuning pars
 ################################# end settings #################################
@@ -97,11 +102,11 @@ start = time() # to compute elapsed time
     xobsT = [xobsT]
     xinit = State(xobs0, zeros(PointF,P.n))
     #xinit = State(xobs0, rand(PointF,P.n))
-    initstate_updatetypes = [:mala_mom]# [:rmmala_mom]#
-    anim, Xsave, parsave, objvals, accpcn, accinfo = lm_mcmc(tt_, (xobs0,xobsT), σobs, mT, P,
+
+    anim, Xsave, parsave, objvals, accpcn, accinfo, δ, ρ = lm_mcmc(tt_, (xobs0,xobsT), σobs, mT, P,
              sampler, obs_atzero, fixinitmomentato0,
              xinit, ITER, subsamples,
-            (ρ, δ, prior_a, prior_c, prior_γ, σ_a, σ_c, σ_γ, η), initstate_updatetypes, adaptskip,
+            (ρinit, maxnrpaths, δinit, prior_a, prior_c, prior_γ, σ_a, σ_c, σ_γ, η), initstate_updatetypes, adaptskip,
             outdir,  dat["pb"]; updatepars = updatepars, make_animation=make_animation)
 elapsed = time() - start
 
@@ -111,7 +116,8 @@ perc_acc_pcn = mean(accpcn)*100
 println("Acceptance percentage pCN step: ", round(perc_acc_pcn;digits=2))
 
 write_mcmc_iterates(Xsave, tt_, n, nshapes, subsamples, outdir)
-write_info(sampler, ITER, n, tt_,σobs, ρ, δ, perc_acc_pcn, outdir)
+write_info(sampler, ITER, n, tt_,σobs, ρinit, δinit,ρ, δ, perc_acc_pcn,
+updatepars, model, adaptskip, maxnrpaths, initstate_updatetypes, outdir)
 write_observations(xobs0, xobsT, n, nshapes, x0,outdir)
 write_acc(accinfo,accpcn,outdir)
 write_params(parsave,subsamples,outdir)

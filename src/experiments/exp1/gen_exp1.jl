@@ -12,7 +12,7 @@ workdir = @__DIR__
 println(workdir)
 cd(workdir)
 
-n = 18  # in the final experiment we'll take n = 18
+n = 18#18  # in the final experiment we'll take n = 18
 nshapes = 1
 T = 1.0
 

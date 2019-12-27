@@ -366,33 +366,52 @@ end
     update bridges for all shapes using Crank-Nicholsen scheme with parameter ρ (only in case the method is mcmc)
     Newly accepted bridges are written into (X,W), loglikelihood on each segment is written into vector ll
 
-    update_path!(X,Xᵒ,W,Wᵒ,Wnew,ll,x, Q, ρ, acc_pcn)
+    update_path!(X,Xᵒ,W,Wᵒ,Wnew,ll,x, Q, ρ, accpcn)
 """
-function update_path!(X,Xᵒ,W,Wᵒ,Wnew,ll,x, Q, ρ, acc_pcn)
-    nn = length(X[1].yy)
+function update_path!(X,Xᵒ,W,Wᵒ,Wnew,ll,x, Q, ρ, accpcn, maxnrpaths)
+#    nn = length(X[1].yy)
     x0 = deepvec2state(x)
     # From current state (x,W) with loglikelihood ll, update to (x, Wᵒ)
     for k in 1:Q.nshapes
         sample!(Wnew, Wiener{Vector{PointF}}())
-        for i in 1:nn
-            Wᵒ.yy[i] .= ρ * W[k].yy[i] + sqrt(1-ρ^2) * Wnew.yy[i]
+        # for i in eachindex(W[1].yy) #i in nn
+        #     Wᵒ.yy[i] .= ρ * W[k].yy[i] + sqrt(1-ρ^2) * Wnew.yy[i]
+        # end
+
+        # updateset: those indices for which the Wiener increment gets updated
+        dw = dimwiener(Q.target)
+        if dw <= maxnrpaths
+            updateset = 1:dw
+        else
+            updateset = sample(1:dw, maxnrpaths, replace=false)
         end
+        updatesetcompl = setdiff(1:dw, updateset)
+        for i in eachindex(W[1].yy) #i in nn
+            for j in updateset
+                Wᵒ.yy[i][j] = ρ * W[k].yy[i][j] + sqrt(1-ρ^2) * Wnew.yy[i][j]
+            end
+            for j in updatesetcompl
+                Wᵒ.yy[i][j] =  W[k].yy[i][j]
+            end
+        end
+
+
         llᵒ_ = simguidedlm_llikelihood!(LeftRule(), Xᵒ[k], x0, Wᵒ, Q,k;skip=sk)
         diff_ll = llᵒ_ - ll[k]
         if log(rand()) <= diff_ll
-            for i in 1:nn
+            for i in eachindex(W[1].yy)  #i in nn
                 X[k].yy[i] .= Xᵒ[k].yy[i]
                 W[k].yy[i] .= Wᵒ.yy[i]
             end
             #println("update innovation. diff_ll: ",round(diff_ll;digits=3),"  accepted")
             ll[k] = llᵒ_
-            push!(acc_pcn, 1)
+            push!(accpcn, 1)
         else
             #println("update innovation. diff_ll: ",round(diff_ll;digits=3),"  rejected")
-            push!(acc_pcn, 0)
+            push!(accpcn, 0)
         end
     end
-    acc_pcn
+    accpcn
 end
 
 """
@@ -441,7 +460,9 @@ function update_initialstate!(X,Xᵒ,W,ll,x,xᵒ,∇x, ∇xᵒ,
         obj = simguidedlm_llikelihood!(LeftRule(), X, deepvec2state(x), W, Q; skip=sk)
     end
     if sampler==:mcmc
-        accinit = ll_incl0 = ll_incl0ᵒ = 0.0 # define because of scoping rules
+        accinit = 0.0
+        ll_incl0 = 0,0
+        ll_incl0ᵒ = 0.0 # define because of scoping rules
 
         if updatekernel in [:mala_pos, :mala_mom]
             cfg = ForwardDiff.GradientConfig(slogρ!(Q, W, X,llout), x, ForwardDiff.Chunk{2*d*n}()) # 2*d*P.n is maximal
@@ -474,28 +495,32 @@ function update_initialstate!(X,Xᵒ,W,ll,x,xᵒ,∇x, ∇xᵒ,
                stepsize = δ[1]
                mask_id = (mask .> 0.1) # get indices that correspond to positions or momenta
                K = reshape([kernel(x0.q[i]- x0.q[j],P) * one(UncF) for i in 1:n for j in 1:n], n, n)
-               lcholK = lchol(K) # so K = lcholK * lcholK'
-               lvdiff = deepvec(Matrix(lcholK) * randn(PointF, n))
-               lvdrift =  deepmat(K) * ∇x[mask_id]
+               dK = PDMat(deepmat(K))
+               ndistr = MvNormal(stepsize*dK)
+
                xᵒ = copy(x)
-               xᵒ[mask_id] = x[mask_id] .+ .5 * stepsize * lvdrift .+ sqrt(stepsize) .* lvdiff                             # should be ".=" or just "="?
+
+               # lcholK = lchol(K) # so K = lcholK * lcholK'
+               # lvdiff = deepvec(Matrix(lcholK) * randn(PointF, n))
+               # lvdrift =  deepmat(K) * ∇x[mask_id]
+               # xᵒ[mask_id] = x[mask_id] .+ .5 * stepsize * lvdrift .+ sqrt(stepsize) .* lvdiff                             # should be ".=" or just "="?
+                xᵒ[mask_id] = x[mask_id] .+ .5 * stepsize * dK * ∇x[mask_id] .+ rand(ndistr)
+
                cfgᵒ = ForwardDiff.GradientConfig(slogρ!(Q, W, Xᵒ,lloutᵒ), xᵒ, ForwardDiff.Chunk{2*d*n}()) # 2*d*P.n is maximal
                ForwardDiff.gradient!(∇xᵒ, slogρ!(Q, W, Xᵒ,lloutᵒ),xᵒ,cfgᵒ) # Xᵒ gets overwritten but does not change
                ll_incl0ᵒ = sum(lloutᵒ)
 
                x0ᵒ = deepvec2state(xᵒ)
                Kᵒ = reshape([kernel(x0ᵒ.q[i]- x0ᵒ.q[j],P) * one(UncF) for i in 1:n for j in 1:n], n, n)
-               #println("K posdef ?", isposdef(deepmat(K)))
-              # ndistr = MvNormal(stepsize*Matrix(Symmetric(deepmat(K))))
-              # ndistrᵒ = MvNormal(stepsize*Matrix(Symmetric(deepmat(Kᵒ))))
+               dKᵒ = PDMat(deepmat(Kᵒ))
+               ndistrᵒ = MvNormal(stepsize*dKᵒ)
 
-               ndistr = MvNormal(stepsize*deepmat(K))
-               ndistrᵒ = MvNormal(stepsize*deepmat(Kᵒ))
+#println(logpdf(ndistr,xᵒ[mask_id] - x[mask_id] - .5*stepsize * dK * ∇x[mask_id]))
 
-
+                      #     ndistrᵒ = MvNormal(stepsize*deepmat(Kᵒ))
                accinit = ll_incl0ᵒ - ll_incl0 -
-                         logpdf(ndistr,xᵒ[mask_id] - x[mask_id] - .5*stepsize * deepmat(K) * ∇x[mask_id]) +
-                        logpdf(ndistrᵒ,x[mask_id] - xᵒ[mask_id] - .5*stepsize * deepmat(Kᵒ) * ∇xᵒ[mask_id])
+                         logpdf(ndistr,xᵒ[mask_id] - x[mask_id] - .5*stepsize * dK * ∇x[mask_id]) +
+                        logpdf(ndistrᵒ,x[mask_id] - xᵒ[mask_id] - .5*stepsize * dKᵒ * ∇xᵒ[mask_id])
                 # plotting
                 #Pdeterm = MarslandShardlow(0.1, 0.1, 0.0, 0.0, P.n)
                 #plotlandmarkpositions[](initSamplePath(0:0.01:0.1,x0),Pdeterm,x0.q,deepvec2state(xᵒ).q;db=.5)
@@ -512,16 +537,13 @@ function update_initialstate!(X,Xᵒ,W,ll,x,xᵒ,∇x, ∇xᵒ,
              dK = PDMat(deepmat(K))  #chol_dK = cholesky(dK)  # then dK = chol_dk.U' * chol_dk.U
              inv_dK = inv(dK)
              ndistr = MvNormal(stepsize*inv_dK)
-                        #lcholK = lchol(K) # so K = lcholK * lcholK'
-             lvdrift =  inv_dK * ∇x[mask_id]
              xᵒ = copy(x)
-             xᵒ[mask_id] = x[mask_id] .+ .5 * stepsize * lvdrift .+  rand(ndistr)
+             xᵒ[mask_id] = x[mask_id] .+ .5 * stepsize * inv_dK * ∇x[mask_id] .+  rand(ndistr)
 
              # reverse step
              cfgᵒ = ForwardDiff.GradientConfig(slogρ!(Q, W, Xᵒ,lloutᵒ), xᵒ, ForwardDiff.Chunk{2*d*n}()) # 2*d*P.n is maximal
              ForwardDiff.gradient!(∇xᵒ, slogρ!(Q, W, Xᵒ,lloutᵒ),xᵒ,cfgᵒ) # Xᵒ gets overwritten but does not change
              ll_incl0ᵒ = sum(lloutᵒ)
-             x0ᵒ = deepvec2state(xᵒ)
              ndistrᵒ = ndistr
 
              accinit = ll_incl0ᵒ - ll_incl0 -
@@ -643,7 +665,7 @@ end
 function lm_mcmc(tt_, (xobs0,xobsT), σobs, mT, P,
          sampler, obs_atzero, fixinitmomentato0,
          xinit, ITER, subsamples,
-        (ρ, δ, prior_a, prior_c, prior_γ, σ_a, σ_c, σ_γ,η), initstate_updatetypes, adaptskip,
+        (ρinit, maxnrpaths, δinit, prior_a, prior_c, prior_γ, σ_a, σ_c, σ_γ,η), initstate_updatetypes, adaptskip,
         outdir, pb; updatepars = true, make_animation=false)
 
     lt = length(tt_)
@@ -692,6 +714,9 @@ function lm_mcmc(tt_, (xobs0,xobsT), σobs, mT, P,
     accpcn = Int64[]                      # keeps track of nr of accepted pCN updates
     obj = 0
 
+    δ = deepcopy(δinit)
+    ρ = deepcopy(ρinit)
+
     anim = @animate for i in 1:ITER
         if make_animation
             drawpath(ITER, i-1,P.n,x,X[1],objvals,parsave,(xobs0comp1,xobs0comp2,xobsTcomp1, xobsTcomp2),pb)
@@ -699,15 +724,16 @@ function lm_mcmc(tt_, (xobs0,xobsT), σobs, mT, P,
         println();  println("iteration $i")
 
         # updates paths
-        accpcn = update_path!(X, Xᵒ, W, Wᵒ, Wnew, ll, x, Q, ρ, accpcn)
-        ρ = adaptpcnstep(i, accpcn, ρ,Q.nshapes, η; adaptskip = adaptskip)
+        accpcn = update_path!(X, Xᵒ, W, Wᵒ, Wnew, ll, x, Q, ρ, accpcn, maxnrpaths)
+        ρ = adaptpcnstep(i, accpcn, ρ, Q.nshapes, η; adaptskip = adaptskip)
 
         # update initial state
         for updatekernel in initstate_updatetypes
             obj, accinfo_ = update_initialstate!(X,Xᵒ,W,ll,x,xᵒ,∇x, ∇xᵒ,sampler, Q, δ, updatekernel)
             push!(accinfo, accinfo_)
+            δ[2] = adaptmalastep(i,accinfo,δ[2], η, updatekernel; adaptskip = adaptskip)
         end
-        δ[2] = adaptmalastep(i,accinfo,δ[2], η; adaptskip = adaptskip)
+
 
         # update parameters
         if updatepars
@@ -718,7 +744,7 @@ function lm_mcmc(tt_, (xobs0,xobsT), σobs, mT, P,
         end
 
         # adjust mT
-        if mod(i,adaptskip)==0 && i<50
+        if mod(i,adaptskip)==0 && i < 100
             mTvec = [X[k][lt][2].p  for k in 1:nshapes]     # extract momenta at time T for each shape
             update_Paux_xT!(Q, mTvec, obs_info)
         end
@@ -732,24 +758,22 @@ function lm_mcmc(tt_, (xobs0,xobsT), σobs, mT, P,
         end
         #
 
-        println("ρ ", ρ ,",   δ[2] ", δ[2], ",   σ_a ", σ_a)
+        println("ρ ", ρ ,",   δ ", δ, ",   σ_a ", σ_a)
 
         if make_animation && (i==ITER)
             drawpath(ITER, i, P.n,x,X[1],objvals,parsave,(xobs0comp1,xobs0comp2,xobsTcomp1, xobsTcomp2),pb)
         end
     end
-    anim, Xsave, parsave, objvals, accpcn, accinfo
+    anim, Xsave, parsave, objvals, accpcn, accinfo, δ, ρ
 end
 
 """
     Adapt the step size for mala_mom updates.
     The adaptation is multiplication/divsion by exp(η(n))
 """
-function adaptmalastep(n,accinfo,δ, η; adaptskip = 15, targetaccept=0.5)
+function adaptmalastep(n,accinfo,δ, η, updatekernel; adaptskip = 15, targetaccept=0.5)
     if mod(n,adaptskip)==0
-        #mala = [:mala_mom, :rmmala_mom]
-        #ind1 =  findall(first.(accinfo).==:rmmala_mom)[end-adaptskip+1:end]
-        ind1 =  findall(first.(accinfo).== :mala_mom)[end-adaptskip+1:end]
+        ind1 =  findall(first.(accinfo).== updatekernel)[end-adaptskip+1:end]
         recent_mean = mean(last.(accinfo)[ind1])
         if recent_mean > targetaccept
             δ *= exp(η(n))
@@ -790,9 +814,9 @@ invsigmoid(z::Real) = log(z/(1-z))
     The adaptation is multiplication/divsion by exp(η(n)) for log(ρ/(1-ρ))
 """
 
-function adaptpcnstep(n, acc_pcn, ρ, nshapes, η; adaptskip = 15, targetaccept=0.5)
+function adaptpcnstep(n, accpcn, ρ, nshapes, η; adaptskip = 15, targetaccept=0.5)
     if mod(n,adaptskip)==0
-        recentvals = acc_pcn[end-adaptskip*nshapes+1:end]
+        recentvals = accpcn[end-adaptskip*nshapes+1:end]
         recentmean = mean(recentvals)
         if recentmean > targetaccept
             ρ = sigmoid(invsigmoid(ρ) * exp(-η(n)))

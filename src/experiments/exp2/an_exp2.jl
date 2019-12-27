@@ -29,7 +29,7 @@ Random.seed!(3)
 models = [:ms, :ahs]
 model = models[1]
 sampler = :mcmc
-nshapes = 1
+#nshapes = 1
 fixinitmomentato0 = false
 obs_atzero = false
 σobs = 0.01   # noise on observations
@@ -40,9 +40,10 @@ updatepars = true
 
 make_animation = false
 
-ITER = 25
+ITER = 20
 subsamples = 0:1:ITER
-adaptskip = 10  # adapt mcmc tuning pars every adaptskip iters
+adaptskip = 5  # adapt mcmc tuning pars every adaptskip iters
+maxnrpaths = 10 # update at most maxnrpaths Wiener increments at once
 
 #-------- set prior on θ = (a, c, γ) ----------------------------------------------------------
 prior_a = Exponential(1.0)
@@ -58,36 +59,48 @@ x0 = dat["x0"]
 nshapes = dat["nshapes"]
 
 #--------- MCMC tuning pars ---------------------------------------------------------
-ρ = 0.8              # pcN-step
+
+ρinit = 0.9              # pcN-step
 σ_a = 0.2  # update a to aᵒ as aᵒ = a * exp(σ_a * rnorm())
 σ_c = 0.2  # update c to cᵒ as cᵒ = c * exp(σ_c * rnorm())
 σ_γ = 0.2  # update γ to γᵒ as γᵒ = γ * exp(σ_γ * rnorm())
-δ = [0.0005, 0.005]
-
-η(n) = min(0.1, 10/sqrt(n))  # adaptation rate for adjusting tuning pars
+if model==:ms  #δ = [0.0005, 0.005]
+    δ = [0.01, 0.1] # first comp is not used
+else
+    δ = [0.01, 0.1] # first comp is not used
+end
+η(n) = min(0.2, 10/n)  # adaptation rate for adjusting tuning pars
 ################################# end settings #################################
 
-ainit = mean(norm.([x0.q[i]-x0.q[i-1] for i in 2:n]))
-cinit = 0.2
-γinit = 0.1
+ainit = mean(norm.([x0.q[i]-x0.q[i-1] for i in 2:n]))/2.0
 if model == :ms
+    cinit = 0.2
+    γinit = 2.0
     P = MarslandShardlow(ainit, cinit, γinit, 0.0, n)
 elseif model == :ahs
+    cinit = 0.05
+    γinit = 0.5
     stdev = 0.75
     nfsinit = construct_nfs(2.5, stdev, γinit)
     P = Landmarks(ainit, cinit, n, 2.5, stdev, nfsinit)
 end
 
 mT = zeros(PointF,n)   # vector of momenta at time T used for constructing guiding term #mT = randn(PointF,P.n)
+# deliberately take wrong initial landmark configuration
+xinitq = xobsT[1]
+θ, ψ =  π/6, 0.25
+rot =  SMatrix{2,2}(cos(θ), sin(θ), -sin(θ), cos(θ))
+stretch = SMatrix{2,2}(1.0 + ψ, 0.0, 0.0, 1.0 - ψ)
+xinitq_adj = [rot * stretch * xinitq[i] for i in 1:n ]
+xinit = State(xinitq_adj, mT)
+
 
 start = time() # to compute elapsed time
-    xinitq = xobsT[1]
-    xinit = State(xinitq, zeros(PointF,P.n))
     initstate_updatetypes = [:mala_mom, :rmmala_pos]
-    anim, Xsave, parsave, objvals, acc_pcn, accinfo = lm_mcmc(tt_, (xobs0,xobsT), σobs, mT, P,
+    anim, Xsave, parsave, objvals, accpcn, accinfo, δ, ρ = lm_mcmc(tt_, (xobs0,xobsT), σobs, mT, P,
              sampler, obs_atzero, fixinitmomentato0,
              xinit, ITER, subsamples,
-            (ρ, δ, prior_a, prior_c, prior_γ, σ_a, σ_c, σ_γ, η), initstate_updatetypes, adaptskip,
+            (ρinit, maxnrpaths, δ, prior_a, prior_c, prior_γ, σ_a, σ_c, σ_γ, η), initstate_updatetypes, adaptskip,
             outdir,  dat["pb"]; updatepars = updatepars, make_animation=make_animation)
 elapsed = time() - start
 
@@ -96,10 +109,13 @@ println("Elapsed time: ",round(elapsed/60;digits=2), " minutes")
 perc_acc_pcn = mean(acc_pcn)*100
 println("Acceptance percentage pCN step: ", round(perc_acc_pcn;digits=2))
 
+
 write_mcmc_iterates(Xsave, tt_, n, nshapes, subsamples, outdir)
-write_info(sampler, ITER, n, tt_,σobs, ρ, δ, perc_acc_pcn, outdir)
-write_observations(xobs0, xobsT, n, nshapes, x0,outdir)
-write_acc_par_and_initstate(accinfo,outdir)
+write_info(sampler, ITER, n, tt_,σobs, ρinit, δinit,ρ, δ, perc_acc_pcn,
+updatepars, model, adaptskip, maxnrpaths, initstate_updatetypes, outdir)
+
+write_observations(xobs0, xobsT, n, nshapes, x0,updatepars, model, adaptskip, maxnrpaths, initstate_updatetypes,outdir)
+write_acc(accinfo,accpcn,outdir)
 write_params(parsave,subsamples,outdir)
 write_noisefields(P,outdir)
 if make_animation
