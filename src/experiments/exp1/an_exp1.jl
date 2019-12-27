@@ -29,7 +29,7 @@ outdir = workdir*("/")
 
 ################################# start settings #################################
 models = [:ms, :ahs]
-model = models[1]
+model = models[2]
 sampler = :mcmc
 
 fixinitmomentato0 = false
@@ -37,7 +37,7 @@ obs_atzero = true
 if model==:ms
     σobs = 0.01   # noise on observations
 else
-    σobs = 0.1   # noise on observations
+    σobs = 0.01   # noise on observations
 end
 T = 1.0
 dt = 0.01
@@ -88,8 +88,8 @@ if model == :ms
     γinit = 2.0
     P = MarslandShardlow(ainit, cinit, γinit, 0.0, n)
 elseif model == :ahs
-    cinit = 0.05
-    γinit = 0.5
+    cinit = 0.02#0.05
+    γinit = 0.2
     stdev = 0.75
     nfsinit = construct_nfs(2.5, stdev, γinit)
     P = Landmarks(ainit, cinit, n, 2.5, stdev, nfsinit)
