@@ -119,19 +119,11 @@ write_mcmc_iterates(Xsave, tt_, n, nshapes, subsamples, outdir)
 write_info(sampler, ITER, n, tt_,σobs, ρinit, δinit,ρ, δ, perc_acc_pcn,
 updatepars, model, adaptskip, maxnrpaths, initstate_updatetypes, outdir)
 write_observations(xobs0, xobsT, n, nshapes, x0,outdir)
-write_acc(accinfo,accpcn,outdir)
+write_acc(accinfo,accpcn,nshapes,outdir)
 write_params(parsave,subsamples,outdir)
 write_noisefields(P,outdir)
 if make_animation
     fn = string(model)
     gif(anim, outdir*"anim.gif", fps = 50)
     mp4(anim, outdir*"anim.mp4", fps = 50)
-end
-
-if false
-nn = 3
-K = reshape([BL.kernel(x0.q[i]- x0.q[j],P) * one(UncF) for i in 1:nn for j in 1:nn], nn, nn)
-dK = PDMat(BL.deepmat(K))  #chol_dK = cholesky(dK)  # then dK = chol_dk.U' * chol_dk.U
-inv_dK = inv(dK)
-ndistr = MvNormal(inv_dK)
 end

@@ -160,16 +160,21 @@ end
 """
 function update_guidrec!(Q, obs_info)
     for k in 1:Q.nshapes  # for all shapes
+
         gr = Q.guidrec[k]
         # solve backward recursions;
         Lt0₊, Mt⁺0₊, μt0₊ =  guidingbackwards!(Lm(), Q.tt, (gr.Lt, gr.Mt⁺,gr.μt), Q.aux[k], obs_info)
+
         # perform gpupdate step at time zero
         lm_gpupdate!(Lt0₊, Mt⁺0₊, μt0₊, (obs_info.L0, obs_info.Σ0, Q.xobs0),gr.Lt0, gr.Mt⁺0, gr.μt0)
         # compute Cholesky decomposition of Mt at each time on the grid
 
+
         # for ℓ in eachindex(Q.tt)
         #     u = deepmat(gr.Mt⁺[ℓ])
-        #     println(isposdef(u+u'))
+        #    print(u)
+        #    println(isposdef(u+u'))
+        #    println(eigmin(u+u'))
         # end
         # need to symmetrize gr.Mt⁺; else AHS  gives numerical roundoff errors when mT \neq 0
         S = map(X -> 0.5*(X+X'), gr.Mt⁺)
@@ -226,7 +231,6 @@ function guidingbackwards!(::Lm, t, (Lt, Mt⁺, μt), Paux, obs_info; implicit=t
         # println("Rank ",size(aalr[:vectors],2), " approximation to ã")
         sqrt_aalr = deepmat2unc(aalr[:vectors] * diagm(0=> sqrt.(aalr[:values])))
     end
-
     for i in length(t)-1:-1:1
         dt = t[i+1]-t[i]
         if implicit
@@ -234,6 +238,7 @@ function guidingbackwards!(::Lm, t, (Lt, Mt⁺, μt), Paux, obs_info; implicit=t
         else
             Lt[i] .=  Lt[i+1] * (I + BB * dt)
         end
+
         if !lowrank
             #temp = (0.5 * dt) * Lt[i] * aa * Matrix(Lt[i]')  # OLD CORRECT IMPLEMENTATION
             temp = (0.5*dt) * Bridge.outer(Lt[i] * σ̃T)
@@ -272,7 +277,6 @@ function _r!((i,t), x::State, out::State, Q::GuidedProposal!,k)
     out .= vecofpoints2state(Q.guidrec[k].Lt[i]' * (Q.guidrec[k].Mt[i] *(Q.xobsT[k]-Q.guidrec[k].μt[i]-Q.guidrec[k].Lt[i]*vec(x))))
     out
 end
-
 
 """
     Compute log tildeρ(0,x_0,k) for the k-th shape
@@ -497,15 +501,12 @@ function update_initialstate!(X,Xᵒ,W,ll,x,xᵒ,∇x, ∇xᵒ,
                K = reshape([kernel(x0.q[i]- x0.q[j],P) * one(UncF) for i in 1:n for j in 1:n], n, n)
                dK = PDMat(deepmat(K))
                ndistr = MvNormal(stepsize*dK)
-
                xᵒ = copy(x)
-
                # lcholK = lchol(K) # so K = lcholK * lcholK'
                # lvdiff = deepvec(Matrix(lcholK) * randn(PointF, n))
                # lvdrift =  deepmat(K) * ∇x[mask_id]
                # xᵒ[mask_id] = x[mask_id] .+ .5 * stepsize * lvdrift .+ sqrt(stepsize) .* lvdiff                             # should be ".=" or just "="?
-                xᵒ[mask_id] = x[mask_id] .+ .5 * stepsize * dK * ∇x[mask_id] .+ rand(ndistr)
-
+               xᵒ[mask_id] = x[mask_id] .+ .5 * stepsize * dK * ∇x[mask_id] .+ rand(ndistr)
                cfgᵒ = ForwardDiff.GradientConfig(slogρ!(Q, W, Xᵒ,lloutᵒ), xᵒ, ForwardDiff.Chunk{2*d*n}()) # 2*d*P.n is maximal
                ForwardDiff.gradient!(∇xᵒ, slogρ!(Q, W, Xᵒ,lloutᵒ),xᵒ,cfgᵒ) # Xᵒ gets overwritten but does not change
                ll_incl0ᵒ = sum(lloutᵒ)
@@ -672,7 +673,6 @@ function lm_mcmc(tt_, (xobs0,xobsT), σobs, mT, P,
     xobs0, obs_info = set_obsinfo(P.n,obs_atzero,fixinitmomentato0,σobs,xobs0)
     nshapes = length(xobsT)
     guidrec = [init_guidrec(tt_,obs_info,xobs0) for k in 1:nshapes]  # memory allocation for backward recursion for each shape
-
     Paux = [auxiliary(P, State(xobsT[k],mT)) for k in 1:nshapes] # auxiliary process for each shape
     Q = GuidedProposal!(P,Paux,tt_,guidrec,xobs0,xobsT,nshapes,mT)
     update_guidrec!(Q, obs_info)   # compute backwards recursion
@@ -731,7 +731,7 @@ function lm_mcmc(tt_, (xobs0,xobsT), σobs, mT, P,
             push!(accinfo, accinfo_)
             if updatekernel in [:mala_mom, :rmmala_mom]
                 δ[2] = adaptmalastep(i,accinfo,δ[2], η, updatekernel; adaptskip = adaptskip)
-            else
+            else updatekernel in [:mala_pos, :rmmala_pos]
                 δ[1] = adaptmalastep(i,accinfo,δ[1], η, updatekernel; adaptskip = adaptskip)
             end
         end
@@ -821,9 +821,11 @@ function adaptpcnstep(n, accpcn, ρ, nshapes, η; adaptskip = 15, targetaccept=0
         recentvals = accpcn[end-adaptskip*nshapes+1:end]
         recentmean = mean(recentvals)
         if recentmean > targetaccept
-            ρ = sigmoid(invsigmoid(ρ) * exp(-η(n)))
+            #ρ = sigmoid(invsigmoid(ρ) * exp(-η(n)))
+            ρ = sigmoid(invsigmoid(ρ) - η(n))
         else
-            ρ = sigmoid(invsigmoid(ρ) * exp(η(n)))
+            #ρ = sigmoid(invsigmoid(ρ) * exp(η(n)))
+            ρ = sigmoid(invsigmoid(ρ) + η(n))
         end
     end
     ρ

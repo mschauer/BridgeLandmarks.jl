@@ -20,13 +20,10 @@ function write_mcmc_iterates(Xsave, tt_, n, nshapes, subsamples, outdir)
     # 3) for each landmark: q1, q2 p1, p2
     if !(d==2) error("pqtype in write_mcmc_iterates only implemented in case d=2") end
     shapes = repeat(1:nshapes, inner=length(tt_)*2d*n)
-        #times = repeat(tt_,inner=2d*n*nshapes)
+        #times = repeat(tt_,inner=2d*n*nshapes)  # original buggy version when nshapes=1
     times = repeat(tt_, inner=2*d*n, outer=nshapes)
     landmarkid = repeat(1:n, inner=2d, outer=length(tt_)*nshapes)
     pqtype = repeat(["pos1", "pos2", "mom1", "mom2"], outer=length(tt_)*n*nshapes)
-
-
-
 
     out = hcat(times,pqtype,landmarkid,shapes,iterates)
     headline = "time " * "pqtype " * "landmarkid " * "shapes " * prod(map(x -> "iter"*string(x)*" ",subsamples))

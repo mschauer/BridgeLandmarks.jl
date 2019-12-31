@@ -1,8 +1,11 @@
 # ellipse to rotated and shifted ellipse
 # initial and final landmark positions observed
+using Revise
 
 using BridgeLandmarks
+const BL = BridgeLandmarks
 using RCall
+#using Bridge
 using Plots
 using Random
 using Distributions
@@ -22,14 +25,14 @@ include(dirname(dirname(workdir))*"/plotting.jl")
 include(dirname(dirname(workdir))*"/postprocessing.jl")
 outdir = workdir*("/")
 
-Random.seed!(3)
+Random.seed!(41)
 
 ################################# start settings #################################
 models = [:ms, :ahs]
 model = models[1]
 sampler = :mcmc
 
-fixinitmomentato0 = false
+fixinitmomentato0 = true
 if fixinitmomentato0
     initstate_updatetypes = [:rmmala_pos]
 else
@@ -45,9 +48,9 @@ updatepars = true
 
 make_animation = false
 
-ITER = 750
+ITER = 250
 subsamples = 0:1:ITER
-adaptskip = 20  # adapt mcmc tuning pars every adaptskip iters
+adaptskip = 50  # adapt mcmc tuning pars every adaptskip iters
 maxnrpaths = 10 # update at most maxnrpaths Wiener increments at once
 
 #-------- set prior on θ = (a, c, γ) ----------------------------------------------------------
@@ -56,7 +59,7 @@ prior_c = Exponential(1.0)
 prior_γ = Exponential(1.0)
 
 #-------- generate data ----------------------------------------------------------
-dat = load("data_exp2.jld")
+dat = load("data_cardiac.jld")
 xobs0 = dat["xobs0"]
 xobsT = dat["xobsT"]
 n = dat["n"]
@@ -65,19 +68,20 @@ nshapes = dat["nshapes"]
 
 #--------- MCMC tuning pars ---------------------------------------------------------
 
-ρinit = 0.9              # pcN-step
+ρinit = 0.3              # pcN-step
 σ_a = 0.2  # update a to aᵒ as aᵒ = a * exp(σ_a * rnorm())
 σ_c = 0.2  # update c to cᵒ as cᵒ = c * exp(σ_c * rnorm())
 σ_γ = 0.2  # update γ to γᵒ as γᵒ = γ * exp(σ_γ * rnorm())
 if model==:ms
-    δinit = [0.002, 0.1]
+    δinit = [0.0005, 0.1]
 else
     δinit = [0.01, 0.1]
 end
 η(n) = min(0.2, 10/n)  # adaptation rate for adjusting tuning pars
+#η(n) = min(0.2, 10/sqrt(n))  # adaptation rate for adjusting tuning pars
 ################################# end settings #################################
 
-ainit = mean(norm.([x0.q[i]-x0.q[i-1] for i in 2:n]))/2.0
+ainit = 0.2
 if model == :ms
     cinit = 0.2
     γinit = 2.0
@@ -91,13 +95,8 @@ elseif model == :ahs
 end
 
 mT = zeros(PointF,n)   # vector of momenta at time T used for constructing guiding term #mT = randn(PointF,P.n)
-# deliberately take wrong initial landmark configuration
 xinitq = xobsT[1]
-θ, ψ =  π/6, 0.25
-rot =  SMatrix{2,2}(cos(θ), sin(θ), -sin(θ), cos(θ))
-stretch = SMatrix{2,2}(1.0 + ψ, 0.0, 0.0, 1.0 - ψ)
-xinitq_adj = [rot * stretch * xinitq[i] for i in 1:n ]
-xinit = State(xinitq_adj, mT)
+xinit = State(xinitq, mT)
 
 
 start = time() # to compute elapsed time

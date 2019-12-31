@@ -12,12 +12,12 @@ workdir = @__DIR__
 println(workdir)
 cd(workdir)
 
-Random.seed!(19)
+Random.seed!(9)
 
-σobs
+σobs = 0.01
 
 n = 15
-nshapes = 8
+nshapes = 10
 
 a0 = 2.0
 c0 = 0.1
