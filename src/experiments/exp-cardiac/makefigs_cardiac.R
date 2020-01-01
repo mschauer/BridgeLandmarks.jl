@@ -124,13 +124,13 @@ vTouter <- vT %>% dplyr::filter(landmark>7)
 dtime0doubleinner <- dtime0double %>% dplyr::filter(landmark<=7)
 dtime0doubleouter <- dtime0double %>% dplyr::filter(landmark>7)
 initshapes0 <- ggplot()  + 
-  geom_point(data=vTinner, aes(x=pos1,y=pos2), colour='grey',size=0.4)+
-  geom_path(data=vTinner, aes(x=pos1,y=pos2,group=shape), colour='grey', linetype="dashed",size=0.4) +
-  geom_point(data=vTouter, aes(x=pos1,y=pos2), colour='grey',size=0.4)+
-  geom_path(data=vTouter, aes(x=pos1,y=pos2,group=shape), colour='grey', linetype="dashed",size=0.4) +
+  geom_point(data=vTinner, aes(x=pos1,y=pos2), colour='orange',size=0.4)+
+  geom_path(data=vTinner, aes(x=pos1,y=pos2,group=shape), colour='orange', linetype="dashed",size=0.4) +
+  geom_point(data=vTouter, aes(x=pos1,y=pos2), colour='orange',size=0.4)+
+  geom_path(data=vTouter, aes(x=pos1,y=pos2,group=shape), colour='orange', linetype="dashed",size=0.4) +
     geom_path(data=dtime0doubleinner,aes(x=pos1,y=pos2,colour=iterate),size=0.4) +
   geom_path(data=dtime0doubleouter,aes(x=pos1,y=pos2,colour=iterate),size=0.4) +
-#  scale_colour_gradient(low="grey",high="darkblue")
+ # scale_colour_gradient(low="grey",high="darkblue")+
   facet_wrap(~phase,ncol=2)+ xlab("")+ylab("")#coord_fixed()+
 initshapes0
 

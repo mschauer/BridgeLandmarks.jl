@@ -66,17 +66,6 @@ pdf("shapes-noisefields.pdf",width=widthfig,height=4)
 dev.off()
 }
   
-# plot paths of landmarks positions and bridges over various iterations
-p4 <-     dsub %>% ggplot(aes(x=pos1,y=pos2)) + coord_cartesian(xlim = c(-3,3), ylim = c(-2,2))+
-    geom_path(aes(group=interaction(landmarkid,iteratenr),colour=time)) + facet_wrap(~iteratenr) +
-    geom_point(data=v0, aes(x=pos1,y=pos2), colour='black')+geom_point(data=vT, aes(x=pos1,y=pos2), colour='orange')+
-    geom_path(data=v0, aes(x=pos1,y=pos2), colour='black')+geom_path(data=vT, aes(x=pos1,y=pos2,group=shape), colour='orange') +
-    theme(axis.title.x=element_blank(), axis.title.y=element_blank()) 
-p4
-    
-pdf("bridges-faceted.pdf",width=widthfig,height=2)  
-  show(p4)
-dev.off()
 
 landmarkid_subset <- as.character(seq(1,n,by=4)[1:4]) # only plot these paths and momenta
 
@@ -157,8 +146,8 @@ grid.arrange(p1,pmom,ncol=2)#show(pmom)
   accdf <- read_delim("accdf.csv", ";", escape_double = FALSE, trim_ws = TRUE)
   accfig <- accdf %>% mutate(acc=as.factor(acc)) %>% 
       mutate(kernel=recode(kernel, mala_mom="MALA momenta" ))  %>%
-    ggplot(aes(x=iter,y=acc)) +geom_point()+ facet_wrap(~kernel)+xlab("iteration nr")+ylab("accept")
-pdf("acceptance.pdf",width=widthfig,height=1.5)  
+    ggplot(aes(x=iter,y=acc)) +geom_point(shape=124)+ facet_wrap(~kernel)+xlab("iteration nr")+ylab("accept")
+pdf("acceptance.pdf",width=widthfig,height=2.5)  
   show(accfig)
 dev.off()
 accfig
@@ -167,11 +156,18 @@ accfig
 pmomT <-  d %>% dplyr::filter(time==1) %>%
   dplyr::filter(landmarkid %in% landmarkid_subset  )%>%
   ggplot(aes(x=mom1,y=mom2,colour=iterate)) + geom_point(size=0.5) +
-  #  geom_path(aes(group=interaction(landmarkid,iteratenr),colour=iterate)) +
   facet_wrap(~landmarkid)  +scale_colour_gradient(low="grey",high="darkblue")+
   theme(axis.title.x=element_blank(), axis.title.y=element_blank()) +
   geom_hline(yintercept=0, linetype="dashed")+geom_vline(xintercept=0, linetype="dashed")+theme(legend.position='bottom')
 pmomT
+
+ppos0 <-  d %>% dplyr::filter(time==0) %>% mutate(shapes=as.factor(shapes)) %>%
+  dplyr::filter(landmarkid %in% landmarkid_subset  )%>%
+    ggplot(aes(x=pos1,y=pos2,colour=iterate)) + geom_point(size=0.5) +
+  facet_wrap(~landmarkid)  +scale_colour_gradient(low="grey",high="darkblue")+
+  theme(axis.title.x=element_blank(), axis.title.y=element_blank()) +
+  geom_hline(yintercept=0, linetype="dashed")+geom_vline(xintercept=0, linetype="dashed")+theme(legend.position='bottom')
+ppos0
 
 
 if (PARESTIMATION == TRUE)
@@ -198,23 +194,25 @@ dev.off()
 # plot initial positions for all shapes (only interesting in case initial shape is unobserved)
 dtime0 <- d %>% dplyr::filter(time==0)# ,iterate>200) 
 
-# add factor for determining which phase of sampling
-dtime0 <-  dtime0 %>% mutate(phase = 
-                               case_when(iterate < quantile(iterate,1/3) ~ "initial",
-                                         between(iterate,quantile(iterate,1/3),quantile(iterate,2/3)) ~ "middle",
-                                         iterate >= quantile(iterate,1/3) ~ "end")  ) %>% # reorder factor levels
-  mutate(phase = fct_relevel(phase, "initial", "middle"))
-dtimeT <- d %>% dplyr::filter(time==1) 
+# add factor for determining which phase of sampling  
+dtime0 <-  dtime0%>% dplyr::filter(iterate %in% seq(0,max(d$iterate),by=subsamplenr))%>% mutate(phase = 
+                               case_when(iterate < quantile(iterate,1/2) ~ "initial",
+                                         #between(iterate,quantile(iterate,1/3),quantile(iterate,2/3)) ~ "middle",
+                                         iterate >= quantile(iterate,1/2) ~ "final")  ) %>% # reorder factor levels
+  mutate(phase = fct_relevel(phase, "initial"))
+#dtimeT <- d %>% dplyr::filter(time==1) 
 initshapes0 <- ggplot()  + 
-  geom_point(data=vT, aes(x=pos1,y=pos2), colour='grey')+
+  geom_point(data=vT, aes(x=pos1,y=pos2), colour='grey',size=0.4)+
   geom_path(data=vT, aes(x=pos1,y=pos2,group=shape), colour='grey', linetype="dashed",size=0.4) +
+  geom_path(data=bind_rows(dtime0,dtime0),aes(x=pos1,y=pos2,colour=iterate),size=0.4) +
+  geom_path(data=v0, aes(x=pos1,y=pos2), colour='red',size=0.7) +
   geom_point(data=v0, aes(x=pos1,y=pos2), colour='red')+
-  geom_path(data=v0, aes(x=pos1,y=pos2), colour='red',size=0.8,alpha=0.8) +
-  geom_path(data=bind_rows(dtime0,dtime0),aes(x=pos1,y=pos2,colour=iterate)) +
-  facet_wrap(~phase)+ coord_fixed()
+  facet_wrap(~phase,ncol=2)+ xlab("")+ylab("")#coord_fixed()+
 initshapes0
 
 
-pdf("initial-shapes.pdf",width=6,height=2)  
+pdf("initial-shapes.pdf",width=widthfig,height=3)  
 initshapes0
 dev.off()
+
+accdf %>% group_by(kernel)%>%summarise(a=mean(acc))

@@ -29,7 +29,7 @@ outdir = workdir*("/")
 
 ################################# start settings #################################
 models = [:ms, :ahs]
-model = models[2]
+model = models[1]
 sampler = :mcmc
 
 fixinitmomentato0 = false
