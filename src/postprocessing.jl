@@ -18,13 +18,18 @@ function write_mcmc_iterates(Xsave, tt_, n, nshapes, subsamples, outdir)
     # 1) time
     # 2) landmark nr
     # 3) for each landmark: q1, q2 p1, p2
-    if !(d==2) error("pqtype in write_mcmc_iterates only implemented in case d=2") end
+    #if !(d==2) error("pqtype in write_mcmc_iterates only implemented in case d=2") end
     shapes = repeat(1:nshapes, inner=length(tt_)*2d*n)
         #times = repeat(tt_,inner=2d*n*nshapes)  # original buggy version when nshapes=1
     times = repeat(tt_, inner=2*d*n, outer=nshapes)
     landmarkid = repeat(1:n, inner=2d, outer=length(tt_)*nshapes)
-    pqtype = repeat(["pos1", "pos2", "mom1", "mom2"], outer=length(tt_)*n*nshapes)
-
+    if d==1
+        pqtype = repeat(["pos1", "mom1"], outer=length(tt_)*n*nshapes)
+    elseif d==2
+        pqtype = repeat(["pos1", "pos2", "mom1", "mom2"], outer=length(tt_)*n*nshapes)
+    elseif d==3
+        pqtype = repeat(["pos1", "pos2", "pos3", "mom1", "mom2", "mom3"], outer=length(tt_)*n*nshapes)
+    end
     out = hcat(times,pqtype,landmarkid,shapes,iterates)
     headline = "time " * "pqtype " * "landmarkid " * "shapes " * prod(map(x -> "iter"*string(x)*" ",subsamples))
     headline = chop(headline,tail=1) * "\n"
@@ -79,14 +84,26 @@ end
 """
 function write_observations(xobs0, xobsT, n, nshapes, x0,outdir)
     valueT = vcat(map(x->deepvec(x), xobsT)...) # merge all observations at time T in one vector
-    posT = repeat(["pos1","pos2"], n*nshapes)
+    if d==1
+        posT = repeat(["pos1"], n*nshapes)
+    elseif d==2
+        posT = repeat(["pos1","pos2"], n*nshapes)
+    elseif d==3
+        posT = repeat(["pos1","pos2","pos3"], n*nshapes)
+    end
     shT = repeat(1:nshapes, inner=d*n)
     obsTdf = DataFrame(pos=posT,shape=shT, value=valueT,landmark=repeat(1:n,inner=d,outer=nshapes))
 
     q0 = map(x->vec(x),x0.q)
     p0 = map(x->vec(x),x0.p)
-    obs0df = DataFrame(pos1=extractcomp(q0,1), pos2=extractcomp(q0,2), mom1=extractcomp(p0,1) , mom2=extractcomp(p0,2),landmark=1:n)
-
+    if d==1
+        obs0df = DataFrame(pos1=extractcomp(q0,1), mom1=extractcomp(p0,1),landmark=1:n)
+    elseif d==2
+        obs0df = DataFrame(pos1=extractcomp(q0,1), pos2=extractcomp(q0,2), mom1=extractcomp(p0,1) , mom2=extractcomp(p0,2),landmark=1:n)
+    elseif d==3
+        obs0df = DataFrame(pos1=extractcomp(q0,1), pos2=extractcomp(q0,2), pos3=extractcomp(q0,3),
+                            mom1=extractcomp(p0,1) , mom2=extractcomp(p0,2), mom3=extractcomp(p0,3),landmark=1:n)
+    end
     CSV.write(outdir*"obs0.csv", obs0df; delim=";")
     CSV.write(outdir*"obsT.csv", obsTdf; delim=";")
 end

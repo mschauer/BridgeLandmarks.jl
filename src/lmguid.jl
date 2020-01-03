@@ -209,28 +209,20 @@ struct Lm  end
 
     Case lowrank=true still gives an error: fixme!
 """
-function guidingbackwards!(::Lm, t, (Lt, Mt⁺, μt), Paux, obs_info; implicit=true, lowrank=false) #
+function guidingbackwards!(::Lm, t, (Lt, Mt⁺, μt), Paux, obs_info; implicit=true, lowrank=false) #FIXME: add lowrank
     Mt⁺[end] .= obs_info.ΣT
     Lt[end] .= obs_info.LT
     μt[end] .= obs_info.μT
 
     BB = Bridge.B(0, Paux)          # does not depend on time
     β = vec(Bridge.β(0,Paux))       # does not depend on time
-
-    # various ways to compute ã (which does not depend on time);
-    #aa = Bridge.a(0, Paux) # vanilla, no (possibly enclose with Matrix)
     σ̃T = σ̃(0, Paux) # vanilla, no (possibly enclose with Matrix)
     dt = t[2] - t[1]
-
-    if !lowrank
-#        oldtemp = 0.5* Lt[end]* aa * Matrix(Lt[end]') * dt  ## WORKS, ORIGINAL IMPLEMENTATION
-        oldtemp = (0.5*dt) * Bridge.outer(Lt[end] * σ̃T)
-    else
-        #aalr = pheigfact(deepmat(aa), rtol=1e-8)  # control accuracy of lr approx
-        aalr = pheigfact(deepmat(aa))  # control accuracy of lr approx
-        # println("Rank ",size(aalr[:vectors],2), " approximation to ã")
-        sqrt_aalr = deepmat2unc(aalr[:vectors] * diagm(0=> sqrt.(aalr[:values])))
+    oldtemp = (0.5*dt) * Bridge.outer(Lt[end] * σ̃T)
+    if lowrank
+        # TBA lowrank on σ̃T, and write into σ̃T
     end
+
     for i in length(t)-1:-1:1
         dt = t[i+1]-t[i]
         if implicit
@@ -238,13 +230,7 @@ function guidingbackwards!(::Lm, t, (Lt, Mt⁺, μt), Paux, obs_info; implicit=t
         else
             Lt[i] .=  Lt[i+1] * (I + BB * dt)
         end
-
-        if !lowrank
-            #temp = (0.5 * dt) * Lt[i] * aa * Matrix(Lt[i]')  # OLD CORRECT IMPLEMENTATION
-            temp = (0.5*dt) * Bridge.outer(Lt[i] * σ̃T)
-        else
-            temp = (0.5*dt) * Bridge.outer(Lt[i] * sqrt_aalr)
-        end
+        temp = (0.5*dt) * Bridge.outer(Lt[i] * σ̃T)
         Mt⁺[i] .= Mt⁺[i+1] + oldtemp + temp
         oldtemp = temp
         μt[i] .= μt[i+1] + 0.5 * (Lt[i] + Lt[i+1]) * β * dt  # trapezoid rule
@@ -702,11 +688,15 @@ function lm_mcmc(tt_, (xobs0,xobsT), σobs, mT, P,
     ∇x = deepcopy(x)
     ∇xᵒ = deepcopy(x)
 
-    xobs0comp1 = extractcomp(xobs0,1)
-    xobs0comp2 = extractcomp(xobs0,2)
-    xobsTcomp1 = extractcomp(xobsT[1],1)
-    xobsTcomp2 = extractcomp(xobsT[1],2)
-    pp1 = plotshapes(xobs0comp1,xobs0comp2,xobsTcomp1, xobsTcomp2)
+    if d==2
+        xobs0comp1 = extractcomp(xobs0,1)
+        xobs0comp2 = extractcomp(xobs0,2)
+        xobsTcomp1 = extractcomp(xobsT[1],1)
+        xobsTcomp2 = extractcomp(xobsT[1],2)
+        pp1 = plotshapes(xobs0comp1,xobs0comp2,xobsTcomp1, xobsTcomp2)
+    else
+        pp1 = Plots.plot()
+    end
 
     accinfo = []                        # keeps track of accepted parameter and initial state updates
     accpcn = Int64[]                      # keeps track of nr of accepted pCN updates
