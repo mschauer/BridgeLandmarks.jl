@@ -26,21 +26,21 @@ end
     3) obs_atzero=false & fixinitmomentato0=true: case of observing multiple shapes at time T,
         positions at time zero assumed unknown, momenta at time 0 are fixed to zero
 """
-function set_obsinfo(n, obs_atzero::Bool,fixinitmomentato0::Bool, σobs,xobs0)
+function set_obsinfo(n, obs_atzero::Bool,fixinitmomentato0::Bool, Σobs,xobs0)
     if obs_atzero
         L0 = LT = [(i==j) * one(UncF) for i in 1:2:2n, j in 1:2n]  # pick position indices
-        Σ0 = ΣT = [(i==j)*σobs^2 * one(UncF) for i in 1:n, j in 1:n]
+        Σ0 = ΣT = [(i==j) * Σobs[i] for i in 1:n, j in 1:n]
     elseif !obs_atzero & !fixinitmomentato0
         L0 = Array{UncF}(undef,0,2*n)
         Σ0 = Array{UncF}(undef,0,0)
         xobs0 = Array{PointF}(undef,0)
-        LT = [(i==j)*one(UncF) for i in 1:2:2n, j in 1:2n]
-        ΣT = [(i==j)*σobs^2 * one(UncF) for i in 1:n, j in 1:n]
+        LT = [(i==j) * one(UncF) for i in 1:2:2n, j in 1:2n]
+        ΣT = [(i==j) * Σobs[i] for i in 1:n, j in 1:n]
     elseif !obs_atzero & fixinitmomentato0   # only update positions and fix initial state momenta to zero
         xobs0 = zeros(PointF,n)
         L0 = [((i+1)==j) * one(UncF) for i in 1:2:2n, j in 1:2n] # pick momenta indices
         LT = [(i==j) * one(UncF) for i in 1:2:2n, j in 1:2n] # pick position indices
-        Σ0 = ΣT = [(i==j) * σobs^2 * one(UncF) for i in 1:n, j in 1:n]
+        Σ0 = ΣT = [(i==j) * Σobs[i]  for i in 1:n, j in 1:n]
     end
     μT = zeros(PointF,n)
     xobs0, ObsInfo(LT,ΣT,μT,L0,Σ0)
@@ -610,7 +610,7 @@ end
     Perform mcmc or sgd for landmarks model using the LM-parametrisation
     tt_:      time grid
     (xobs0,xobsT): observations at times 0 and T (at time T this is a vector)
-    σobs: standard deviation of Gaussian noise assumed on xobs0 and xobsT
+    Σobs: covariance matrix of Gaussian noise assumed on each element of xobs0 and xobsT
     mT: vector of momenta at time T used for constructing guiding term
     P: target process
 
@@ -646,7 +646,7 @@ end
     objvals: saved values of stochastic approximation to loglikelihood
     perc_acc: acceptance percentages (bridgepath - inital state)
 """
-function lm_mcmc(tt_, (xobs0,xobsT), σobs, mT, P,
+function lm_mcmc(tt_, (xobs0,xobsT), Σobs, mT, P,
          sampler, obs_atzero, fixinitmomentato0,
          xinit, ITER, subsamples,
         (ρinit, maxnrpaths, δinit, prior_a, prior_c, prior_γ, σ_a, σ_c, σ_γ,η), initstate_updatetypes, adaptskip,
@@ -656,7 +656,7 @@ function lm_mcmc(tt_, (xobs0,xobsT), σobs, mT, P,
     StateW = PointF
     dwiener = dimwiener(P)
     # initialisation
-    xobs0, obs_info = set_obsinfo(P.n,obs_atzero,fixinitmomentato0,σobs,xobs0)
+    xobs0, obs_info = set_obsinfo(P.n,obs_atzero,fixinitmomentato0,Σobs,xobs0)
     nshapes = length(xobsT)
     guidrec = [init_guidrec(tt_,obs_info,xobs0) for k in 1:nshapes]  # memory allocation for backward recursion for each shape
     Paux = [auxiliary(P, State(xobsT[k],mT)) for k in 1:nshapes] # auxiliary process for each shape

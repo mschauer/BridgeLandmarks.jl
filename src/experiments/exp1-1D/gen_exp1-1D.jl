@@ -12,7 +12,7 @@ workdir = @__DIR__
 println(workdir)
 cd(workdir)
 
-n = 4
+n = 15
 nshapes = 1
 T = 1.0
 
@@ -22,7 +22,8 @@ c = 0.1     # multiplicative factor in kernel
 
 Ptrue = MarslandShardlow(a, c, γ, 0.0, n)
 
-q0 = [PointF(i*1.0/n) for i in 1:n]
+q0 = [PointF(i*1.0/n) for i in 1:n]# 0.1*rand(PointF,n)#
+#q0 = randn(PointF,n)
 p0 = zeros(PointF,n)
 x0 = State(q0, p0)
 
@@ -32,6 +33,6 @@ xobs0 = x0.q
 
 θ, ψ =  π/4, 0.25
 pb = Lmplotbounds(-3.0,3.0,-3.0,3.0)
-xobsT = [2.0*xobs0[i] + [0.8]  for i in 1:n ]
-
+xobsT = [exp.(xobs0[i])  for i in 1:n ]
+#xobsT = [xobs0[1]  for i in 1:n ]
 save("data_exp1-1D.jld", "xobs0",xobs0, "xobsT", xobsT, "n", n, "x0", x0, "pb", pb, "nshapes", nshapes)

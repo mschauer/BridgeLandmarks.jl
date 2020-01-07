@@ -24,6 +24,15 @@ outdir = workdir*("/")
 
 Random.seed!(3)
 
+#-------- read data ----------------------------------------------------------
+dat = load("data_exp2.jld")
+xobs0 = dat["xobs0"]
+xobsT = dat["xobsT"]
+n = dat["n"]
+x0 = dat["x0"]
+nshapes = dat["nshapes"]
+
+
 ################################# start settings #################################
 models = [:ms, :ahs]
 model = models[1]
@@ -37,7 +46,16 @@ else
 end
 
 obs_atzero = false
-σobs = 0.01   # noise on observations
+
+if model==:ms
+    σobs = 0.01   # noise on observations
+    Σobs = [σobs^2 * one(UncF) for i in 1:n]
+else
+    σobs = 0.01   # noise on observations
+    Σobs = [σobs^2 * one(UncF) for i in 1:n]
+end
+
+
 T = 1.0
 dt = 0.01
 t = 0.0:dt:T; tt_ =  tc(t,T)
@@ -55,13 +73,6 @@ prior_a = Exponential(1.0)
 prior_c = Exponential(1.0)
 prior_γ = Exponential(1.0)
 
-#-------- generate data ----------------------------------------------------------
-dat = load("data_exp2.jld")
-xobs0 = dat["xobs0"]
-xobsT = dat["xobsT"]
-n = dat["n"]
-x0 = dat["x0"]
-nshapes = dat["nshapes"]
 
 #--------- MCMC tuning pars ---------------------------------------------------------
 
@@ -102,7 +113,7 @@ xinit = State(xinitq_adj, mT)
 
 start = time() # to compute elapsed time
 
-    anim, Xsave, parsave, objvals, accpcn, accinfo, δ, ρ = lm_mcmc(tt_, (xobs0,xobsT), σobs, mT, P,
+    anim, Xsave, parsave, objvals, accpcn, accinfo, δ, ρ = lm_mcmc(tt_, (xobs0,xobsT), Σobs, mT, P,
              sampler, obs_atzero, fixinitmomentato0,
              xinit, ITER, subsamples,
             (ρinit, maxnrpaths, δinit, prior_a, prior_c, prior_γ, σ_a, σ_c, σ_γ, η), initstate_updatetypes, adaptskip,
@@ -116,7 +127,7 @@ println("Acceptance percentage pCN step: ", round(perc_acc_pcn;digits=2))
 
 
 write_mcmc_iterates(Xsave, tt_, n, nshapes, subsamples, outdir)
-write_info(sampler, ITER, n, tt_,σobs, ρinit, δinit,ρ, δ, perc_acc_pcn,updatepars, model, adaptskip, maxnrpaths, initstate_updatetypes, outdir)
+write_info(sampler, ITER, n, tt_,Σobs, ρinit, δinit,ρ, δ, perc_acc_pcn,updatepars, model, adaptskip, maxnrpaths, initstate_updatetypes, outdir)
 write_observations(xobs0, xobsT, n, nshapes, x0,outdir)
 write_acc(accinfo,accpcn,nshapes,outdir)
 write_params(parsave,subsamples,outdir)

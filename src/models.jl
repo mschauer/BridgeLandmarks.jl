@@ -315,9 +315,20 @@ end
 """
 function construct_nfs(db, nfstd, γ)
     r1 = -db:2nfstd:db
-    r2 = -db:2nfstd:db
-    nfloc = Point.(collect(product(r1, r2)))[:]
-    nfscales = [2/pi*γ*Point(1.0, 1.0) for x in nfloc]  # intensity
+    if d==1
+        nfloc = Point.(collect(r1))[:]
+        nfscales = [2/pi*γ*Point(1.0) for x in nfloc]  # intensity
+    elseif d==2
+        r2 = -db:2nfstd:db
+        nfloc = Point.(collect(product(r1, r2)))[:]
+        nfscales = [2/pi*γ*Point(1.0, 1.0) for x in nfloc]  # intensity
+    elseif d==3
+        error("first test carefully whether construct_nfs is ok for d=3")
+        r2 = -db:2nfstd:db
+        r3 = -db:2nfstd:db
+        nfloc = Point.(collect(product(r1, r2,r3)))[:]
+        nfscales = [2/pi*γ*Point(1.0, 1.0, 1.0) for x in nfloc]  # intensity
+    end
     [Noisefield(δ, λ, nfstd) for (δ, λ) in zip(nfloc, nfscales)]
 end
 

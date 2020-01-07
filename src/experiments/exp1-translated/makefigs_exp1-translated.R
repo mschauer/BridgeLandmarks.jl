@@ -1,4 +1,4 @@
-PARESTIMATION <- FALSE
+PARESTIMATION <- TRUE
 
 # get directory of source script
 setwd(dirname(rstudioapi::getSourceEditorContext()$path))
@@ -52,7 +52,7 @@ parsdf <- read_delim("parameters.csv", ";", escape_double = FALSE, trim_ws = TRU
 if (ALLPLOTS) {
 # plots shapes and noisefields  
 shapes <- ggplot() +
-    geom_path(data=v0, aes(x=pos1,y=pos2), colour='black')+ coord_cartesian(xlim = c(-3,3), ylim = c(-2,2))+
+    geom_path(data=v0, aes(x=pos1,y=pos2), colour='black')+ coord_cartesian(xlim = c(-1,2.5), ylim = c(-1,2))+
     geom_path(data=vT, aes(x=pos1,y=pos2,group=shape), colour='orange') +
     geom_point(data=nfsdf, aes(x=locx, y=locy), color="Grey")+
     geom_circle(aes(x0 = locx, y0 = locy, r = nfstd), data = nfsdf,color="Grey",linetype="dotted")+ 
@@ -67,7 +67,7 @@ dev.off()
 }
   
 # plot paths of landmarks positions and bridges over various iterations
-p4 <-     dsub %>% ggplot(aes(x=pos1,y=pos2)) + coord_cartesian(xlim = c(-3,3), ylim = c(-2,2))+
+p4 <-     dsub %>% ggplot(aes(x=pos1,y=pos2)) + coord_cartesian(xlim = c(-1,2.5), ylim = c(-1,2))+
     geom_path(aes(group=interaction(landmarkid,iteratenr),colour=time)) + facet_wrap(~iteratenr) +
     geom_point(data=v0, aes(x=pos1,y=pos2), colour='black')+geom_point(data=vT, aes(x=pos1,y=pos2), colour='orange')+
     geom_path(data=v0, aes(x=pos1,y=pos2), colour='black')+geom_path(data=vT, aes(x=pos1,y=pos2,group=shape), colour='orange') +
@@ -95,7 +95,8 @@ p1 <- d1 %>% dplyr::filter(iterate %in% seq(0,max(d$iterate),by=subsamplenr))%>%
   geom_label(data=filter(dlabelT, landmarkid %in% landmarkid_subset), aes(x=pos1,y=pos2,label=landmarkid,hjust="outward",vjust="outward"),colour='orange')+
   geom_point(data=nfsdf, aes(x=locx, y=locy), color="Grey")+
   geom_circle(aes(x0 = locx, y0 = locy, r = nfstd), data = nfsdf,color="Grey",linetype="dotted")+ 
-   coord_fixed(xlim = c(-2.5,2.5), ylim = c(-2.5,2.5))+theme(legend.position='none')#+ coord_fixed()
+   coord_fixed(xlim = c(-0.75,2.25), ylim = c(-0.5,1.5))+
+  theme(legend.position='none')#+ coord_fixed()
 p1  
 pdf("bridges-overlaid.pdf",width=widthfig,height=4)  
   show(p1)
@@ -115,9 +116,9 @@ p1all <- d1 %>% dplyr::filter(iterate %in% seq(0,max(d$iterate),by=subsamplenr))
 p1all  
 
 fracwidhtfig = 0.8 * widthfig
-pdf("bridges-overlaid.pdf",width=fracwidhtfig,height=4)  
-p1all
-dev.off()
+# pdf("bridges-overlaid.pdf",width=fracwidhtfig,height=4)  
+# p1all
+# dev.off()
 
   
 if (ALLPLOTS) {
@@ -145,11 +146,11 @@ pmom <-  d %>% dplyr::filter(time==0) %>%
   ggplot(aes(x=mom1,y=mom2,colour=iterate)) + geom_point(size=0.5) +
   #  geom_path(aes(group=interaction(landmarkid,iteratenr),colour=iterate)) +
     facet_wrap(~landmarkid)  +scale_colour_gradient(low="grey",high="darkblue")+
-  theme(axis.title.x=element_blank(), axis.title.y=element_blank()) +
+  theme(axis.title.x=element_blank(), axis.title.y=element_blank()) + coord_fixed()+
   geom_hline(yintercept=0, linetype="dashed")+geom_vline(xintercept=0, linetype="dashed")+theme(legend.position='bottom')
 pmom
 
-pdf("momenta-faceted.pdf",width=7.5,height=5)  
+pdf("momenta-faceted.pdf",width=7.5,height=4)  
   grid.arrange(p1,pmom,ncol=2)#show(pmom)
 dev.off()
 

@@ -1,9 +1,7 @@
 using StaticArrays
 
 const Point{T} = SArray{Tuple{d},T,1,d}       # point in R2
-#const Unc{T} = SArray{Tuple{d,d},T,d,d*d}     # Matrix presenting uncertainty
 const Unc{T} = SArray{Tuple{d,d},T,2,d*d}     # Matrix presenting uncertainty
-
 const PointF = Point{Float64}
 const UncF = Unc{Float64}
 
