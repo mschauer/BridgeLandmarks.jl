@@ -638,6 +638,13 @@ function dimwiener(P)
     out
 end
 
+"""
+    Gram matrix for kernel with vector of landmarks given by q::Vector(PointF)
+"""
+function gramkernel(q, P)
+    K =  [kernel(q[i]- q[j],P) * one(UncF) for i  in eachindex(q), j in eachindex(q)]
+    PDMat(deepmat(K))
+end
 
 ######################################################################################################
 

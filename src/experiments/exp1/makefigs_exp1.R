@@ -101,6 +101,8 @@ pdf("bridges-overlaid.pdf",width=widthfig,height=4)
   show(p1)
 dev.off()
 
+
+
 # plot overlaid landmark bridges
 p1all <- d1 %>% dplyr::filter(iterate %in% seq(0,max(d$iterate),by=subsamplenr))%>%
     ggplot() + 
@@ -114,8 +116,32 @@ p1all <- d1 %>% dplyr::filter(iterate %in% seq(0,max(d$iterate),by=subsamplenr))
 #coord_cartesian(xlim = c(-2.5,2.5), ylim = c(-2.5,2.5))
 p1all  
 
-fracwidhtfig = 0.8 * widthfig
-pdf("bridges-overlaid.pdf",width=fracwidhtfig,height=4)  
+d1half <- bind_rows(d1,d1) %>% dplyr::filter(time %in% c(0.51)) #%>% filter(iterate==10)
+d1end <- bind_rows(d1,d1) %>% dplyr::filter(time %in% c(1)) #%>% filter(iterate==10)
+ggplot() +  # geom_path(data=d1half, aes(x=pos1,y=pos2,colour=iterate),alpha=0.5,size=0.5)+
+  geom_path(data=d1end, aes(x=pos1,y=pos2,colour=iterate),alpha=0.5,size=0.5)+
+  geom_point(data=v0, aes(x=pos1,y=pos2), colour='black')+geom_point(data=vT, aes(x=pos1,y=pos2), colour='orange')+
+  geom_path(data=v0, aes(x=pos1,y=pos2), colour='black',size=1.1)+geom_path(data=vT, aes(x=pos1,y=pos2,group=shape), colour='orange',size=1.0)
+  
+d1halfend <- bind_rows(d1,d1) %>% dplyr::filter(time %in% c(0,0.51,1))
+
+phalf <- ggplot() +   geom_path(data=d1halfend, aes(x=pos1,y=pos2,colour=iterate,group=time),alpha=0.5,size=0.5)+
+  geom_path(data=d1end, aes(x=pos1,y=pos2,colour=iterate),alpha=0.5,size=0.5)+
+  geom_point(data=v0, aes(x=pos1,y=pos2), colour='black')+
+  geom_point(data=vT, aes(x=pos1,y=pos2), colour='orange')+
+  geom_path(data=v0, aes(x=pos1,y=pos2), colour='black',size=0.6)+
+  geom_path(data=vT, aes(x=pos1,y=pos2,group=shape), colour='orange',size=0.6)+
+  facet_wrap(~time)+theme(axis.title.x=element_blank(), axis.title.y=element_blank())+scale_colour_gradient(low="grey",high="darkblue")+
+  coord_fixed()
+
+fracwidthfig = 0.8 * widthfig
+pdf("shapeshalfway.pdf", width = fracwidthfig, height=3)
+  show(phalf)
+dev.off()
+
+  
+
+pdf("bridges-overlaid.pdf",width=fracwidthfig,height=4)  
 p1all
 dev.off()
 

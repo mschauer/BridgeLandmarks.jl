@@ -99,6 +99,13 @@ elseif model == :ahs
     P = Landmarks(ainit, cinit, n, 2.5, stdev, nfsinit)
 end
 
+#--------- set prior on momenta -------------------------
+κ = 100.0
+prior_momenta = MvNormalCanon(gramkernel(xobs0,P)/κ)
+prior_positions = MvNormal(vcat(xobs0...), σobs)
+logpriormom(x0) = logpdf(prior_momenta, vcat(BL.p(x0)...))# +logpdf(prior_positions, vcat(BL.q(x0)...))
+
+
 mT = zeros(PointF,n)   # vector of momenta at time T used for constructing guiding term #mT = randn(PointF,P.n)
 #mT = rand(PointF,n)
 
@@ -110,7 +117,8 @@ start = time() # to compute elapsed time
     anim, Xsave, parsave, objvals, accpcn, accinfo, δ, ρ = lm_mcmc(tt_, (xobs0,xobsT), Σobs, mT, P,
              sampler, obs_atzero, fixinitmomentato0,
              xinit, ITER, subsamples,
-            (ρinit, maxnrpaths, δinit, prior_a, prior_c, prior_γ, σ_a, σ_c, σ_γ, η), initstate_updatetypes, adaptskip,
+            (ρinit, maxnrpaths, δinit, prior_a, prior_c, prior_γ, σ_a, σ_c, σ_γ, η),
+            logpriormom, initstate_updatetypes, adaptskip,
             outdir,  dat["pb"]; updatepars = updatepars, make_animation=make_animation)
 elapsed = time() - start
 

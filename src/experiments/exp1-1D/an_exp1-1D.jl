@@ -26,6 +26,14 @@ include(dirname(dirname(workdir))*"/postprocessing.jl")
 outdir = workdir*("/")
 
 #Random.seed!(3)
+#-------- read data ----------------------------------------------------------
+dat = load("data_exp1-1D.jld")
+xobs0 = dat["xobs0"]
+xobsT = dat["xobsT"]
+n = dat["n"]
+x0 = dat["x0"]
+nshapes = dat["nshapes"]
+
 
 ################################# start settings #################################
 models = [:ms, :ahs]
@@ -36,8 +44,10 @@ fixinitmomentato0 = false
 obs_atzero = true
 if model==:ms
     σobs = 0.01   # noise on observations
+    Σobs = [σobs^2 * one(UncF) for i in 1:n]
 else
     σobs = 0.01   # noise on observations
+    Σobs = [σobs^2 * one(UncF) for i in 1:n]
 end
 T = 1.0
 dt = 0.01
@@ -46,7 +56,7 @@ updatepars =  false#true#false
 
 make_animation = false
 
-ITER = 50
+ITER = 100
 subsamples = 0:1:ITER
 adaptskip = 20  # adapt mcmc tuning pars every adaptskip iters
 maxnrpaths = 10 # update at most maxnrpaths Wiener increments at once
@@ -56,16 +66,7 @@ prior_a = Exponential(1.0)
 prior_c = Exponential(1.0)
 prior_γ = Exponential(1.0)
 
-#-------- generate data ----------------------------------------------------------
-dat = load("data_exp1-1D.jld")
-xobs0 = dat["xobs0"]
-xobsT = dat["xobsT"]
-n = dat["n"]
-x0 = dat["x0"]
-nshapes = dat["nshapes"]
 
-# import Base:one
-# Base.one(x::SArray{Tuple{1,1},Float64,1,1}) = 1.0
 
 
 #--------- MCMC tuning pars ---------------------------------------------------------
@@ -83,13 +84,14 @@ end
 η(n) = min(0.2, 10/n)  # adaptation rate for adjusting tuning pars
 ################################# end settings #################################
 
-ainit = mean(norm.([x0.q[i]-x0.q[i-1] for i in 2:n]))/2.0   # Let op: door 2 gedeeld
+# ainit = mean(norm.([x0.q[i]-x0.q[i-1] for i in 2:n]))/2.0   # Let op: door 2 gedeeld
 
+ainit = 1.0
 
 
 if model == :ms
     cinit = 0.2
-    γinit = 2.0
+    γinit = 5.0#2.0
     P = MarslandShardlow(ainit, cinit, γinit, 0.0, n)
 elseif model == :ahs
     cinit = 0.02#0.05
@@ -99,6 +101,13 @@ elseif model == :ahs
     P = Landmarks(ainit, cinit, n, 2.5, stdev, nfsinit)
 end
 
+#--------- set prior on momenta -------------------------
+κ = 100.0
+prior_momenta = MvNormalCanon(gramkernel(xobs0,P)/κ)
+prior_positions = MvNormal(vcat(xobs0...), σobs)
+logpriormom(x0) = logpdf(prior_momenta, vcat(BL.p(x0)...))# +logpdf(prior_positions, vcat(BL.q(x0)...))
+
+
 mT = zeros(PointF,n)   # vector of momenta at time T used for constructing guiding term #mT = randn(PointF,P.n)
 #mT = rand(PointF,n)
 
@@ -107,10 +116,11 @@ start = time() # to compute elapsed time
     xinit = State(xobs0, zeros(PointF,P.n))
     #xinit = State(xobs0, rand(PointF,P.n))
 
-    anim, Xsave, parsave, objvals, accpcn, accinfo, δ, ρ = lm_mcmc(tt_, (xobs0,xobsT), σobs, mT, P,
+    anim, Xsave, parsave, objvals, accpcn, accinfo, δ, ρ = lm_mcmc(tt_, (xobs0,xobsT), Σobs, mT, P,
              sampler, obs_atzero, fixinitmomentato0,
              xinit, ITER, subsamples,
-            (ρinit, maxnrpaths, δinit, prior_a, prior_c, prior_γ, σ_a, σ_c, σ_γ, η), initstate_updatetypes, adaptskip,
+            (ρinit, maxnrpaths, δinit, prior_a, prior_c, prior_γ, σ_a, σ_c, σ_γ, η),
+            logpriormom, initstate_updatetypes, adaptskip,
             outdir,  dat["pb"]; updatepars = updatepars, make_animation=make_animation)
 elapsed = time() - start
 
@@ -120,7 +130,7 @@ perc_acc_pcn = mean(accpcn)*100
 println("Acceptance percentage pCN step: ", round(perc_acc_pcn;digits=2))
 
 write_mcmc_iterates(Xsave, tt_, n, nshapes, subsamples, outdir)
-write_info(sampler, ITER, n, tt_,σobs, ρinit, δinit,ρ, δ, perc_acc_pcn,
+write_info(sampler, ITER, n, tt_,Σobs, ρinit, δinit,ρ, δ, perc_acc_pcn,
 updatepars, model, adaptskip, maxnrpaths, initstate_updatetypes, outdir)
 write_observations(xobs0, xobsT, n, nshapes, x0,outdir)
 write_acc(accinfo,accpcn,nshapes,outdir)
@@ -131,3 +141,6 @@ if make_animation
     gif(anim, outdir*"anim.gif", fps = 50)
     mp4(anim, outdir*"anim.mp4", fps = 50)
 end
+
+println(xobs0)
+println(xobsT)

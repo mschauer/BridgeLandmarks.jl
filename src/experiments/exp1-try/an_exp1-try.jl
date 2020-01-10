@@ -28,14 +28,15 @@ outdir = workdir*("/")
 #Random.seed!(3)
 
 #-------- read data ----------------------------------------------------------
-dat = load("data_exp1.jld")
+dat = load("data_exp1-try.jld")
 xobs0 = dat["xobs0"]
 xobsT = dat["xobsT"]
 n = dat["n"]
 x0 = dat["x0"]
 nshapes = dat["nshapes"]
 
-
+xobsT = BL.circshift(xobsT,true)
+xobsT = BL.circshift(xobsT,true)
 ################################# start settings #################################
 models = [:ms, :ahs]
 model = models[1]
@@ -43,26 +44,24 @@ sampler = :mcmc
 
 fixinitmomentato0 = false
 obs_atzero = true
-updatepars =  false
-
 if model==:ms
+    #σobs = 0.01   # noise on observations
+    σobs = 0.01
+    Σobs = [σobs^2 * one(UncF) for i in 1:n]
+    # σobsv = vcat(fill(σobs,9), fill(0.1,n-9))
+    # Σobs = [σobsv[i]^2 * one(UncF) for i in 1:n]
+else
     σobs = 0.01   # noise on observations
     Σobs = [σobs^2 * one(UncF) for i in 1:n]
-else
-    # σobs = 0.01   # noise on observations
-    # Σobs = [σobs^2 * one(UncF) for i in 1:n]
-     σobsv = vcat(fill(σobs,9), fill(0.1,n-9))
-     Σobs = [σobsv[i]^2 * one(UncF) for i in 1:n]
 end
-
 T = 1.0
 dt = 0.01
 t = 0.0:dt:T; tt_ =  tc(t,T)
-
+updatepars =  false#true#false
 
 make_animation = false
 
-ITER = 500
+ITER = 50
 subsamples = 0:1:ITER
 adaptskip = 20  # adapt mcmc tuning pars every adaptskip iters
 maxnrpaths = 10 # update at most maxnrpaths Wiener increments at once
@@ -73,14 +72,14 @@ prior_c = Exponential(1.0)
 prior_γ = Exponential(1.0)
 
 #--------- MCMC tuning pars ---------------------------------------------------------
-initstate_updatetypes =  [:mala_mom] # [:rmmala_mom]
+initstate_updatetypes =  [:mala_mom, :rmmala_pos] #, [:rmmala_mom]
 
 ρinit = 0.9              # pcN-step
 σ_a = 0.2  # update a to aᵒ as aᵒ = a * exp(σ_a * rnorm())
 σ_c = 0.2  # update c to cᵒ as cᵒ = c * exp(σ_c * rnorm())
 σ_γ = 0.2  # update γ to γᵒ as γᵒ = γ * exp(σ_γ * rnorm())
 if model==:ms
-    δinit = [0.001, 0.1] # first comp is not used
+    δinit = [0.01, 0.1] # first comp is not used
 else
     δinit = [0.1, 0.1] # first comp is not used
 end
@@ -109,12 +108,13 @@ prior_momenta = MvNormalCanon(gramkernel(xobs0,P)/κ)
 prior_positions = MvNormal(vcat(xobs0...), σobs)
 logpriormom(x0) = logpdf(prior_momenta, vcat(BL.p(x0)...))# +logpdf(prior_positions, vcat(BL.q(x0)...))
 
-mT = zeros(PointF,n)
+
+mT = zeros(PointF,n)   # vector of momenta at time T used for constructing guiding term #mT = randn(PointF,P.n)
 
 start = time() # to compute elapsed time
     xobsT = [xobsT]
     xinit = State(xobs0, zeros(PointF,P.n))
-
+    #xinit = State(xobs0, rand(PointF,P.n))
 
     anim, Xsave, parsave, objvals, accpcn, accinfo, δ, ρ = lm_mcmc(tt_, (xobs0,xobsT), Σobs, mT, P,
              sampler, obs_atzero, fixinitmomentato0,
