@@ -35,8 +35,7 @@ n = dat["n"]
 x0 = dat["x0"]
 nshapes = dat["nshapes"]
 
-xobsT = BL.circshift(xobsT,true)
-xobsT = BL.circshift(xobsT,true)
+#xobsT = BL.circshift(xobsT,true)
 ################################# start settings #################################
 models = [:ms, :ahs]
 model = models[1]
@@ -61,7 +60,7 @@ updatepars =  false#true#false
 
 make_animation = false
 
-ITER = 50
+ITER = 100
 subsamples = 0:1:ITER
 adaptskip = 20  # adapt mcmc tuning pars every adaptskip iters
 maxnrpaths = 10 # update at most maxnrpaths Wiener increments at once
@@ -111,19 +110,46 @@ logpriormom(x0) = logpdf(prior_momenta, vcat(BL.p(x0)...))# +logpdf(prior_positi
 
 mT = zeros(PointF,n)   # vector of momenta at time T used for constructing guiding term #mT = randn(PointF,P.n)
 
-start = time() # to compute elapsed time
-    xobsT = [xobsT]
-    xinit = State(xobs0, zeros(PointF,P.n))
-    #xinit = State(xobs0, rand(PointF,P.n))
 
-    anim, Xsave, parsave, objvals, accpcn, accinfo, δ, ρ = lm_mcmc(tt_, (xobs0,xobsT), Σobs, mT, P,
+xobsT = [xobsT]
+xinit = State(xobs0, zeros(PointF,P.n))
+# run 10 iterations to get good initialisation
+lm_mcmc(tt_, (xobs0,xobsT), Σobs, mT, P,
              sampler, obs_atzero, fixinitmomentato0,
-             xinit, ITER, subsamples,
+             xinit, 5, subsamples,
+            (ρinit, maxnrpaths, δinit, prior_a, prior_c, prior_γ, σ_a, σ_c, σ_γ, η),
+            logpriormom,
+            initstate_updatetypes, adaptskip,
+            outdir,  dat["pb"]; updatepars = updatepars, make_animation=make_animation,write_at_half=true)
+
+########
+dat2 = load("forwardhalfway.jld")
+Xhalf = dat2["Xhalf"]
+xinit = State(Xhalf.q, zeros(PointF,P.n))
+
+# next, flow forward and backward
+fixinitmomentato0 = true
+obs_atzero = false
+nshapes = 2
+xobsTnew = [xobs0 ,xobsT[1]]
+initstate_updatetypes =  [:rmmala_pos] 
+
+T = 0.5
+dt = 0.01
+t = 0.0:dt:T; tt_ =  tc(t,T)
+
+start = time()
+
+    anim, Xsave, parsave, objvals, accpcn, accinfo, δ, ρ = lm_mcmc(tt_, ([],xobsTnew), Σobs, mT, P,
+             sampler, obs_atzero, fixinitmomentato0,
+             xinit, ITER,
+             subsamples,
             (ρinit, maxnrpaths, δinit, prior_a, prior_c, prior_γ, σ_a, σ_c, σ_γ, η),
             logpriormom,
             initstate_updatetypes, adaptskip,
             outdir,  dat["pb"]; updatepars = updatepars, make_animation=make_animation)
 elapsed = time() - start
+
 
 #----------- post processing -------------------------------------------------
 println("Elapsed time: ",round(elapsed/60;digits=2), " minutes")
@@ -133,7 +159,7 @@ println("Acceptance percentage pCN step: ", round(perc_acc_pcn;digits=2))
 write_mcmc_iterates(Xsave, tt_, n, nshapes, subsamples, outdir)
 write_info(sampler, ITER, n, tt_, Σobs, ρinit, δinit,ρ, δ, perc_acc_pcn,
 updatepars, model, adaptskip, maxnrpaths, initstate_updatetypes, outdir)
-write_observations(xobs0, xobsT, n, nshapes, x0,outdir)
+write_observations(xobs0, xobsTnew, n, nshapes, x0,outdir)
 write_acc(accinfo,accpcn,nshapes,outdir)
 write_params(parsave,subsamples,outdir)
 write_noisefields(P,outdir)

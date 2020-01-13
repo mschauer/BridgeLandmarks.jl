@@ -45,9 +45,9 @@ end
 """
     Write info to txt file
 """
-function write_info(sampler, ITER, n, tt_,σobs, ρinit, δinit, ρ, δ, perc_acc_pcn, updatepars, model, adaptskip, maxnrpaths, initstate_updatetypes, outdir)
+function write_info(sampler, ITER, n, tt_,σobs, ρinit, δinit, ρ, δ, perc_acc_pcn, updatepars, model,
+    adaptskip, maxnrpaths,  outdir)
     f = open(outdir*"info.txt","w")
-    write(f, "Sampler: ", string(sampler), "\n")
     write(f, "Model: ", string(model),"\n")
     write(f, "Number of iterations: ",string(ITER),"\n")
     write(f, "Number of landmarks: ",string(n),"\n")
@@ -64,7 +64,7 @@ function write_info(sampler, ITER, n, tt_,σobs, ρinit, δinit, ρ, δ, perc_ac
     write(f, "updatepars: ", string(updatepars),"\n")
     write(f, "adaptskip (window of iterations used for adapting tuning pars): ", string(adaptskip),"\n")
     write(f, "maxnrpaths (maximum number of Wiener increments that gets simultaneously updated): ", string(maxnrpaths),"\n")
-    write(f, "initstate_updatetypes: ", string(initstate_updatetypes),"\n\n")
+    
     close(f)
 end
 

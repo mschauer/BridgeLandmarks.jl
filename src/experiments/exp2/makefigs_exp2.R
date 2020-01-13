@@ -173,11 +173,14 @@ ppos0
 if (PARESTIMATION == TRUE)
 {
 # plot parameter updates
-ppar1 <- parsdf %>% mutate(cdivgamma2=c/gamma^2) %>% gather(key=par, value=value, a, c, gamma,cdivgamma2) 
-ppar1$par <- factor(ppar1$par, levels=c('a', 'c', 'gamma','cdivgamma2'), labels=c("a","c",expression(gamma),expression(c/gamma^2)))
+ppar1 <- parsdf %>% #mutate(cdivgamma2=c/gamma^2) %>% 
+  #gather(key=par, value=value, a, c, gamma,cdivgamma2)
+  gather(key=par, value=value, a, c,gamma) 
+#ppar1$par <- factor(ppar1$par, levels=c('a', 'c', 'gamma','cdivgamma2'), labels=c("a","c",expression(gamma),expression(c/gamma^2)))
+#ppar1$par <- factor(ppar1$par, levels=c('a', 'c', 'gamma'), labels=c("a","c",expression(gamma),))
 tracepars <- ppar1 %>% ggplot(aes(x=iterate, y=value)) + geom_path() + facet_wrap(~par, scales="free_y",labeller = label_parsed) +
   xlab("iterate") + ylab("") +  theme(strip.text.x = element_text(size = 12))
-pdf("trace-pars.pdf",width=6,height=4)  
+pdf("trace-pars.pdf",width=7.5,height=3)  
 show(tracepars)
 dev.off()
 
@@ -203,9 +206,10 @@ dtime0 <-  dtime0%>% dplyr::filter(iterate %in% seq(0,max(d$iterate),by=subsampl
 #dtimeT <- d %>% dplyr::filter(time==1) 
 initshapes0 <- ggplot()  + 
   geom_point(data=vT, aes(x=pos1,y=pos2), colour='grey',size=0.4)+
-  geom_path(data=vT, aes(x=pos1,y=pos2,group=shape), colour='grey', linetype="dashed",size=0.4) +
+  geom_path(data=vT, aes(x=pos1,y=pos2,group=shape), colour='orange', linetype="dashed",size=0.4) +
   geom_path(data=bind_rows(dtime0,dtime0),aes(x=pos1,y=pos2,colour=iterate),size=0.4) +
   geom_path(data=v0, aes(x=pos1,y=pos2), colour='red',size=0.7) +
+  scale_colour_gradient(low="grey",high="darkblue")+
   geom_point(data=v0, aes(x=pos1,y=pos2), colour='red')+
   facet_wrap(~phase,ncol=2)+ xlab("")+ylab("")#coord_fixed()+
 initshapes0

@@ -63,7 +63,7 @@ updatepars = true
 
 make_animation = false
 
-ITER = 750
+ITER = 1000
 subsamples = 0:1:ITER
 adaptskip = 20  # adapt mcmc tuning pars every adaptskip iters
 maxnrpaths = 10 # update at most maxnrpaths Wiener increments at once

@@ -11,6 +11,7 @@ using SparseArrays
 
 using LinearAlgebra, Base.Iterators
 using PDMats
+using JLD
 
 const d = 2
 const sk = 1  # entries to skip for likelihood evaluation
@@ -19,7 +20,7 @@ const itostrat = true
 export Point, PointF, Unc, UncF, State, deepvec
 
 export Landmarks, LandmarksAux, MarslandShardlow, MarslandShardlowAux
-export landmarksforward, itostrat, construct_nfs, lm_mcmc, gramkernel
+export landmarksforward, itostrat, construct_nfs, lm_mcmc, gramkernel, tuningpars_mcmc
 
 export Lmplotbounds, extractcomp, tc
 

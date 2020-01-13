@@ -12,7 +12,7 @@ workdir = @__DIR__
 println(workdir)
 cd(workdir)
 
-n = 18#18  # in the final experiment we'll take n = 18
+n = 6#18  # in the final experiment we'll take n = 18
 nshapes = 1
 T = 1.0
 
@@ -32,10 +32,9 @@ x0 = State(q0, p0)
 xobs0 = x0.q
 
 θ, ψ =  π/4, 0.25
-pb = Lmplotbounds(-3.0,3.0,-3.0,3.0)
 rot =  SMatrix{2,2}(cos(θ), sin(θ), -sin(θ), cos(θ))
 stretch = SMatrix{2,2}(1.0 + ψ, 0.0, 0.0, 1.0 - ψ)
 shift = [0.5, 0.0]
 xobsT = [rot * stretch * xobs0[i] + shift  for i in 1:n ]
 
-save("data_exp1.jld", "xobs0",xobs0, "xobsT", xobsT, "n", n, "x0", x0, "pb", pb, "nshapes", nshapes)
+save("data_exp1.jld", "xobs0",xobs0, "xobsT", xobsT, "n", n, "x0", x0, "nshapes", nshapes)

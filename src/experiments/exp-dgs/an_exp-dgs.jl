@@ -36,13 +36,16 @@ fixinitmomentato0 = false
 obs_atzero = true
 if model==:ms
     σobs = 0.01   # noise on observations
+    Σobs = [σobs^2 * one(UncF) for i in 1:n]
 else
     σobs = 0.01   # noise on observations
+    Σobs = [σobs^2 * one(UncF) for i in 1:n]
 end
+
 T = 1.0
 dt = 0.01
 t = 0.0:dt:T; tt_ =  tc(t,T)
-updatepars =  true   #false
+updatepars =  false
 
 make_animation = false
 
@@ -95,18 +98,26 @@ elseif model == :ahs
     P = Landmarks(ainit, cinit, n, 2.5, stdev, nfsinit)
 end
 
-mT = zeros(PointF,n)   # vector of momenta at time T used for constructing guiding term #mT = randn(PointF,P.n)
-#mT = rand(PointF,n)
+#--------- set prior on momenta -------------------------
+κ = 100.0
+prior_momenta = MvNormalCanon(gramkernel(xobs0,P)/κ)
+prior_positions = MvNormal(vcat(xobs0...), σobs)
+logpriormom(x0) = logpdf(prior_momenta, vcat(BL.p(x0)...))# +logpdf(prior_positions, vcat(BL.q(x0)...))
+
+
+mT = zeros(PointF,n)
+
 
 start = time() # to compute elapsed time
     xobsT = [xobsT]
     xinit = State(xobs0, zeros(PointF,P.n))
     #xinit = State(xobs0, rand(PointF,P.n))
 
-    anim, Xsave, parsave, objvals, accpcn, accinfo, δ, ρ = lm_mcmc(tt_, (xobs0,xobsT), σobs, mT, P,
+    anim, Xsave, parsave, objvals, accpcn, accinfo, δ, ρ = lm_mcmc(tt_, (xobs0,xobsT), Σobs, mT, P,
              sampler, obs_atzero, fixinitmomentato0,
              xinit, ITER, subsamples,
-            (ρinit, maxnrpaths, δinit, prior_a, prior_c, prior_γ, σ_a, σ_c, σ_γ, η), initstate_updatetypes, adaptskip,
+            (ρinit, maxnrpaths, δinit, prior_a, prior_c, prior_γ, σ_a, σ_c, σ_γ, η),
+            logpriormom, initstate_updatetypes, adaptskip,
             outdir,  dat["pb"]; updatepars = updatepars, make_animation=make_animation)
 elapsed = time() - start
 
@@ -116,7 +127,7 @@ perc_acc_pcn = mean(accpcn)*100
 println("Acceptance percentage pCN step: ", round(perc_acc_pcn;digits=2))
 
 write_mcmc_iterates(Xsave, tt_, n, nshapes, subsamples, outdir)
-write_info(sampler, ITER, n, tt_,σobs, ρinit, δinit,ρ, δ, perc_acc_pcn,
+write_info(sampler, ITER, n, tt_,Σobs, ρinit, δinit,ρ, δ, perc_acc_pcn,
 updatepars, model, adaptskip, maxnrpaths, initstate_updatetypes, outdir)
 write_observations(xobs0, xobsT, n, nshapes, x0,outdir)
 write_acc(accinfo,accpcn,nshapes,outdir)

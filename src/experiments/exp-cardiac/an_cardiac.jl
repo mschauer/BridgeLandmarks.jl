@@ -57,14 +57,14 @@ else
     Σobs = [σobs^2 * one(UncF) for i in 1:n]
 end
 
-T = 1.0
+T = 1.0 
 dt = 0.01
 t = 0.0:dt:T; tt_ =  tc(t,T)
 updatepars = true
 
 make_animation = false
 
-ITER = 250
+ITER = 1000
 subsamples = 0:1:ITER
 adaptskip = 50  # adapt mcmc tuning pars every adaptskip iters
 maxnrpaths = 10 # update at most maxnrpaths Wiener increments at once
