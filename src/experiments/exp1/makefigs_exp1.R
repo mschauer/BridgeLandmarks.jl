@@ -123,7 +123,7 @@ ggplot() +  # geom_path(data=d1half, aes(x=pos1,y=pos2,colour=iterate),alpha=0.5
   geom_point(data=v0, aes(x=pos1,y=pos2), colour='black')+geom_point(data=vT, aes(x=pos1,y=pos2), colour='orange')+
   geom_path(data=v0, aes(x=pos1,y=pos2), colour='black',size=1.1)+geom_path(data=vT, aes(x=pos1,y=pos2,group=shape), colour='orange',size=1.0)
   
-d1halfend <- bind_rows(d1,d1) %>% dplyr::filter(time %in% c(0,0.51,1))
+d1halfend <- bind_rows(d1,d1) %>% dplyr::filter(time %in% c(0.51,1))
 
 phalf <- ggplot() +   geom_path(data=d1halfend, aes(x=pos1,y=pos2,colour=iterate,group=time),alpha=0.5,size=0.5)+
   geom_path(data=d1end, aes(x=pos1,y=pos2,colour=iterate),alpha=0.5,size=0.5)+

@@ -45,26 +45,22 @@ end
 """
     Write info to txt file
 """
-function write_info(sampler, ITER, n, tt_,σobs, ρinit, δinit, ρ, δ, perc_acc_pcn, updatepars, model,
-    adaptskip, maxnrpaths,  outdir)
+function write_info(model,ITER, n, tt_, updatescheme, Σobs, tp, ρ, δ, perc_acc_pcn, elapsed, outdir)
     f = open(outdir*"info.txt","w")
     write(f, "Model: ", string(model),"\n")
     write(f, "Number of iterations: ",string(ITER),"\n")
     write(f, "Number of landmarks: ",string(n),"\n")
     write(f, "Length time grid: ", string(length(tt_)),"\n")
     write(f, "Endpoint: ",string(tt_[end]),"\n")
-    write(f, "Noise Sigma: ",string(σobs),"\n")
-    write(f, "Initialisation of rho (Crank-Nicholsen parameter: ",string(ρinit),"\n")
-    write(f, "Initialisation of MALA parameter (delta): ",string(δinit),"\n")
+    write(f, "updatescheme: ", string(updatescheme),"\n")
+    write(f, "Noise Sigma: ",string(Σobs),"\n")
+    write(f, "tuningpars_mcmc: ", string(tp),"\n")
     write(f, "Final value  of rho (Crank-Nicholsen parameter: ",string(ρ),"\n")
     write(f, "Final value of MALA parameter (delta): ",string(δ),"\n")
 
     write(f, "skip in evaluation of loglikelihood: ",string(sk),"\n")
     write(f, "Average acceptance percentage pCN update steps: ",string(perc_acc_pcn),"\n\n")
-    write(f, "updatepars: ", string(updatepars),"\n")
-    write(f, "adaptskip (window of iterations used for adapting tuning pars): ", string(adaptskip),"\n")
-    write(f, "maxnrpaths (maximum number of Wiener increments that gets simultaneously updated): ", string(maxnrpaths),"\n")
-    
+    write(f, "Elapsed time: ", string(elapsed),"\n")
     close(f)
 end
 

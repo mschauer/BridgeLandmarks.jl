@@ -118,11 +118,13 @@ dtime0 <-  dtime0%>% dplyr::filter(iterate %in% seq(0,max(d$iterate),by=subsampl
 dtime0double <- bind_rows(dtime0,dtime0) %>% mutate(landmark=as.numeric(landmarkid))
 
 
-vTinner <- vT %>% dplyr::filter(landmark<=7)
-vTouter <- vT %>% dplyr::filter(landmark>7)
+cutoff = 11
 
-dtime0doubleinner <- dtime0double %>% dplyr::filter(landmark<=7)
-dtime0doubleouter <- dtime0double %>% dplyr::filter(landmark>7)
+vTinner <- vT %>% dplyr::filter(landmark<=cutoff)
+vTouter <- vT %>% dplyr::filter(landmark>cutoff)
+
+dtime0doubleinner <- dtime0double %>% dplyr::filter(landmark<=cutoff)
+dtime0doubleouter <- dtime0double %>% dplyr::filter(landmark>cutoff)
 initshapes0 <- ggplot()  + 
   geom_point(data=vTinner, aes(x=pos1,y=pos2), colour='orange',size=0.4)+
   geom_path(data=vTinner, aes(x=pos1,y=pos2,group=shape), colour='orange', linetype="dashed",size=0.4) +

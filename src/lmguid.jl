@@ -36,6 +36,8 @@ end
         both positions and momenta at time zero assumed unknown
     3) obs_atzero=false & fixinitmomentato0=true: case of observing multiple shapes at time T,
         positions at time zero assumed unknown, momenta at time 0 are fixed to zero
+
+    Note: the value for xobs0 passed to this function is only relevant in case obs_atzero=true
 """
 function set_obsinfo(n, obs_atzero::Bool,fixinitmomentato0::Bool, Σobs,xobs0)
     if obs_atzero

@@ -1,12 +1,8 @@
-# ellipse to rotated and shifted ellipse
-# initial and final landmark positions observed
 using Revise
 
 using BridgeLandmarks
-const BL = BridgeLandmarks
+const BL=BridgeLandmarks
 using RCall
-#using Bridge
-using Plots
 using Random
 using Distributions
 using DataFrames
@@ -16,16 +12,12 @@ using StaticArrays
 using LinearAlgebra
 using JLD
 
+Random.seed!(9)
+
 workdir = @__DIR__
 cd(workdir)
-
-pyplot()
-
-include(dirname(dirname(workdir))*"/plotting.jl")
 include(dirname(dirname(workdir))*"/postprocessing.jl")
 outdir = workdir*("/")
-
-Random.seed!(41)
 
 #-------- read data ----------------------------------------------------------
 dat = load("data_cardiac.jld")
@@ -37,59 +29,35 @@ nshapes = dat["nshapes"]
 
 
 ################################# start settings #################################
-models = [:ms, :ahs]
-model = models[1]
-sampler = :mcmc
-
-fixinitmomentato0 = true
-if fixinitmomentato0
-    initstate_updatetypes = [:rmmala_pos]
-else
-    initstate_updatetypes = [:mala_mom, :rmmala_pos]
-end
-
-obs_atzero = false
-if model==:ms
-    σobs = 0.01   # noise on observations
-    Σobs = [σobs^2 * one(UncF) for i in 1:n]
-else
-    σobs = 0.01   # noise on observations
-    Σobs = [σobs^2 * one(UncF) for i in 1:n]
-end
-
-T = 1.0 
-dt = 0.01
-t = 0.0:dt:T; tt_ =  tc(t,T)
-updatepars = true
-
-make_animation = false
-
-ITER = 1000
+ITER = 100#00
 subsamples = 0:1:ITER
-adaptskip = 50  # adapt mcmc tuning pars every adaptskip iters
-maxnrpaths = 10 # update at most maxnrpaths Wiener increments at once
-
-#-------- set prior on θ = (a, c, γ) ----------------------------------------------------------
-prior_a = Exponential(1.0)
-prior_c = Exponential(1.0)
-prior_γ = Exponential(1.0)
 
 
-#--------- MCMC tuning pars ---------------------------------------------------------
+model = [:ms, :ahs][1]
+fixinitmomentato0 = true
+obs_atzero = false
+updatescheme =  [:innov, :rmmala_pos, :parameter] # for pars: include :parameter
 
+σobs = 0.01   # noise on observations
+Σobs = [σobs^2 * one(UncF) for i in 1:n]
+
+T = 1.0; dt = 0.01; t = 0.0:dt:T; tt_ =  tc(t,T)
+
+
+################################# MCMC tuning pars #################################
 ρinit = 0.3              # pcN-step
-σ_a = 0.2  # update a to aᵒ as aᵒ = a * exp(σ_a * rnorm())
-σ_c = 0.2  # update c to cᵒ as cᵒ = c * exp(σ_c * rnorm())
-σ_γ = 0.2  # update γ to γᵒ as γᵒ = γ * exp(σ_γ * rnorm())
+covθprop =   [0.04 0. 0.; 0. 0.04 0.; 0. 0. 0.04]
 if model==:ms
     δinit = [0.0005, 0.1]
 else
     δinit = [0.01, 0.1]
 end
 η(n) = min(0.2, 10/n)  # adaptation rate for adjusting tuning pars
-#η(n) = min(0.2, 10/sqrt(n))  # adaptation rate for adjusting tuning pars
-################################# end settings #################################
+adaptskip = 20  # adapt mcmc tuning pars every adaptskip iters
+maxnrpaths = 10 # update at most maxnrpaths Wiener increments at once
+tp = tuningpars_mcmc(ρinit, maxnrpaths, δinit,covθprop,η,adaptskip)
 
+################################# initialise P #################################
 ainit = 0.2
 if model == :ms
     cinit = 0.2
@@ -103,39 +71,30 @@ elseif model == :ahs
     P = Landmarks(ainit, cinit, n, 2.5, stdev, nfsinit)
 end
 
-#--------- set prior on momenta -------------------------
+################## prior specification with θ = (a, c, γ) ########################
+priorθ = product_distribution(fill(Exponential(1.0),3))
 logpriormom(x0) = 0.0
 
-
+#########################
 mT = zeros(PointF,n)   # vector of momenta at time T used for constructing guiding term #mT = randn(PointF,P.n)
 xinitq = xobsT[1]
 xinit = State(xinitq, mT)
 
-
 start = time() # to compute elapsed time
-
-    anim, Xsave, parsave, objvals, accpcn, accinfo, δ, ρ = lm_mcmc(tt_, (xobs0,xobsT), Σobs, mT, P,
-             sampler, obs_atzero, fixinitmomentato0,
-             xinit, ITER, subsamples,
-            (ρinit, maxnrpaths, δinit, prior_a, prior_c, prior_γ, σ_a, σ_c, σ_γ, η),
-            logpriormom, initstate_updatetypes, adaptskip,
-            outdir,  dat["pb"]; updatepars = updatepars, make_animation=make_animation)
+    Xsave, parsave, objvals, accpcn, accinfo, δ, ρ, covθprop =
+    lm_mcmc(tt_, (xobs0,xobsT), Σobs, mT, P,
+              obs_atzero, fixinitmomentato0, ITER, subsamples,
+              xinit, tp, priorθ, logpriormom, updatescheme,
+            outdir)
 elapsed = time() - start
 
 #----------- post processing -------------------------------------------------
 println("Elapsed time: ",round(elapsed/60;digits=2), " minutes")
 perc_acc_pcn = mean(accpcn)*100
 println("Acceptance percentage pCN step: ", round(perc_acc_pcn;digits=2))
-
-
 write_mcmc_iterates(Xsave, tt_, n, nshapes, subsamples, outdir)
-write_info(sampler, ITER, n, tt_,Σobs, ρinit, δinit,ρ, δ, perc_acc_pcn,updatepars, model, adaptskip, maxnrpaths, initstate_updatetypes, outdir)
+write_info(model,ITER, n, tt_, updatescheme, Σobs, tp, ρ, δ, perc_acc_pcn, elapsed, outdir)
 write_observations(xobs0, xobsT, n, nshapes, x0,outdir)
 write_acc(accinfo,accpcn,nshapes,outdir)
 write_params(parsave,subsamples,outdir)
 write_noisefields(P,outdir)
-if make_animation
-    fn = string(model)
-    gif(anim, outdir*"anim.gif", fps = 50)
-    mp4(anim, outdir*"anim.mp4", fps = 50)
-end

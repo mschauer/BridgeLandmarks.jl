@@ -18,13 +18,8 @@ Random.seed!(9)
 
 workdir = @__DIR__
 cd(workdir)
-
-pyplot()
-include(dirname(dirname(workdir))*"/plotting.jl")
 include(dirname(dirname(workdir))*"/postprocessing.jl")
 outdir = workdir*("/")
-
-#Random.seed!(3)
 
 #-------- read data ----------------------------------------------------------
 dat = load("data_exp1.jld")
@@ -36,13 +31,13 @@ nshapes = dat["nshapes"]
 
 
 ################################# start settings #################################
-ITER = 250#0
+ITER = 50#0
 subsamples = 0:1:ITER
 
 model = [:ms, :ahs][1]
 fixinitmomentato0 = false
 obs_atzero = true
-updatescheme =  [:innov, :mala_mom, :parameter] # for pars: include :parameter
+updatescheme =  [:innov, :mala_mom] #, :parameter] # for pars: include :parameter
 
 if model==:ms
     σobs = 0.01   # noise on observations
@@ -59,7 +54,7 @@ T = 1.0; dt = 0.01; t = 0.0:dt:T; tt_ =  tc(t,T)
 
 ################################# MCMC tuning pars #################################
 ρinit = 0.9              # pcN-step
-covθprop =   [0.04 0. 0.; 0. 0.04 0.; 0. 0. 0.04]#@SMatrix [0.04 0. 0.; 0. 0.04 0.; 0. 0. 0.04]
+covθprop =   [0.04 0. 0.; 0. 0.04 0.; 0. 0. 0.04]
 if model==:ms
     δinit = [0.001, 0.1] # first comp is not used
 else
@@ -109,8 +104,7 @@ println("Elapsed time: ",round(elapsed/60;digits=2), " minutes")
 perc_acc_pcn = mean(accpcn)*100
 println("Acceptance percentage pCN step: ", round(perc_acc_pcn;digits=2))
 write_mcmc_iterates(Xsave, tt_, n, nshapes, subsamples, outdir)
-write_info(sampler, ITER, n, tt_, Σobs, tp.ρinit, tp.δinit, ρ, δ, perc_acc_pcn,
-updatescheme, model, tp.adaptskip, tp.maxnrpaths, outdir)
+write_info(model,ITER, n, tt_, updatescheme, Σobs, tp, ρ, δ, perc_acc_pcn, elapsed, outdir)
 write_observations(xobs0, xobsT, n, nshapes, x0,outdir)
 write_acc(accinfo,accpcn,nshapes,outdir)
 write_params(parsave,subsamples,outdir)

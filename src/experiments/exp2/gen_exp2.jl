@@ -34,11 +34,11 @@ for k in 1:nshapes
     # Ptrue = MarslandShardlow(a0 * exp(0.5*randn()), c0 * exp(0.5*randn()),
     #                 γ0 *  exp(0.5*randn()), 0.0, n)
     x0 = State(q0, randn(PointF,n))
+    T = 1.0; dt = 0.01; t = 0.0:dt:T
     Wf, Xf = landmarksforward(t, x0, Ptrue)
     push!(xobsT, [Xf.yy[end].q[i] for i in 1:n ] + σobs * randn(PointF,n))
 end
 xobs0 = []
-pb = Lmplotbounds(-3.0,3.0,-3.0,3.0)
 
 
-save("data_exp2.jld", "xobs0",xobs0, "xobsT", xobsT, "n", n, "x0", x0, "pb", pb, "nshapes", nshapes)
+save("data_exp2.jld", "xobs0",xobs0, "xobsT", xobsT, "n", n, "x0", x0, "nshapes", nshapes)
