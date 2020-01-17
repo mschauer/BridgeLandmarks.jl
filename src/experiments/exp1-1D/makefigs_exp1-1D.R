@@ -18,7 +18,7 @@ theme_set(theme_light())
 v0 <- read_delim("obs0.csv", ";", escape_double = FALSE, trim_ws = TRUE) %>% 
   mutate(landmarkid=as.factor(landmark)) %>% mutate(time=0.0)
 vT <- read_delim("obsT.csv", ";", escape_double = FALSE, trim_ws = TRUE) %>% mutate(landmarkid=as.factor(landmark)) %>%
-    spread(key=pos,value=value)  %>% select(-shape) %>% mutate(time=1.0)
+    spread(key=pos,value=value)  %>% dplyr::select(-shape) %>% mutate(time=1.0)
 n <- max(v0$landmark)
   
 #######  read noisefields

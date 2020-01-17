@@ -181,14 +181,6 @@ function update_guidrec!(Q, obs_info)
         # perform gpupdate step at time zero
         lm_gpupdate!(Lt0₊, Mt⁺0₊, μt0₊, (obs_info.L0, obs_info.Σ0, Q.xobs0),gr.Lt0, gr.Mt⁺0, gr.μt0)
         # compute Cholesky decomposition of Mt at each time on the grid
-
-
-        # for ℓ in eachindex(Q.tt)
-        #     u = deepmat(gr.Mt⁺[ℓ])
-        #    print(u)
-        #    println(isposdef(u+u'))
-        #    println(eigmin(u+u'))
-        # end
         # need to symmetrize gr.Mt⁺; else AHS  gives numerical roundoff errors when mT \neq 0
         S = map(X -> 0.5*(X+X'), gr.Mt⁺)
         gr.Mt = map(X -> InverseCholesky(lchol(X)),S)
@@ -212,8 +204,6 @@ function update_Paux_xT!(Q, mTvec, obs_info)
     update_guidrec!(Q, obs_info)
 end
 
-
-##########################
 struct Lm  end
 
 """
@@ -582,9 +572,9 @@ end
 
 function update_pars!(obs_info,X, Xᵒ,W, Q, Qᵒ, x, ll, priorθ, covθprop)
     θ = getpars(Q)    #(P.a, P.c, getγ(P))
-    distr = MvLogNormal(MvNormal(θ,covθprop))
+    distr = MvLogNormal(MvNormal(log.(θ),covθprop))
     θᵒ = rand(distr)
-    distrᵒ = MvLogNormal(MvNormal(θᵒ,covθprop))
+    distrᵒ = MvLogNormal(MvNormal(log.(θᵒ),covθprop))
     putpars!(Qᵒ,θᵒ)
     update_guidrec!(Qᵒ, obs_info)   # compute backwards recursion
     llᵒ = simguidedlm_llikelihood!(LeftRule(), Xᵒ, deepvec2state(x), W, Qᵒ; skip=sk)
@@ -781,9 +771,10 @@ function lm_mcmc(t, (xobs0,xobsT), Σobs, mT, P,
             # else
                 push!(Xsave, convert_samplepath(X))
             #end
-            push!(parsave, getpars(Q))
-            push!(objvals, obj)
         end
+        push!(parsave, getpars(Q))
+        push!(objvals, obj)
+
 
         println("ρ ", ρ ,",   δ ", δ, ",   covθprop ", covθprop)
 

@@ -7,6 +7,7 @@ using Distributions
 using StaticArrays
 using LinearAlgebra
 using JLD
+using RCall
 using NPZ
 
 workdir = @__DIR__
@@ -17,7 +18,7 @@ cardiac = npzread("cardiac.npy")  # heart data (left ventricles, the one we used
 cardiacx = cardiac[:,:,1]  # x-coordinates of landmarks
 cardiacy = cardiac[:,:,2]  # y-coordinates of landmarks
 
-landmarksset = 1:3:66
+landmarksset = 1:6:66#1:3:66
 nshapes = 14
 
 n = length(landmarksset)
@@ -29,9 +30,8 @@ x0 = State(zeros(PointF,n), zeros(PointF,n))
 
 
 obs_atzero = false
-xobs0 = []
+xobs0 = 0
 
-pb = Lmplotbounds(-0.25,0.25,-0.25,0.25)
 
 if false # some simple visualisation of the data
      Xf = 0
@@ -52,6 +52,4 @@ end
 
 
 
-
-
-save("data_cardiac.jld", "xobs0",xobs0, "xobsT", xobsT, "n", n, "x0", x0, "pb", pb, "nshapes", nshapes)
+save("data_cardiac.jld", "xobs0",xobs0, "xobsT", xobsT, "n", n, "x0", x0, "nshapes", nshapes)

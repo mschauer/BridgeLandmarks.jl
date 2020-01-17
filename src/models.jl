@@ -640,10 +640,11 @@ end
 
 """
     Gram matrix for kernel with vector of landmarks given by q::Vector(PointF)
+    ϵ*I is added to avoid numerical problems that destroy PSDness of the Gram matrix
 """
-function gramkernel(q, P)
+function gramkernel(q, P; ϵ = 10^(-12))
     K =  [kernel(q[i]- q[j],P) * one(UncF) for i  in eachindex(q), j in eachindex(q)]
-    PDMat(deepmat(K))
+    PDMat( deepmat(K) + Diagonal(fill(ϵ,d*length(q))) )
 end
 
 ######################################################################################################

@@ -72,7 +72,7 @@ elseif model == :ahs
 end
 
 ################## prior specification with θ = (a, c, γ) ########################
-priorθ = product_distribution(fill(Exponential(1.0),3))
+priorθ = product_distribution([Exponential(ainit), Exponential(cinit), Exponential(γinit)])
 logpriormom(x0) = 0.0
 
 #########################

@@ -46,9 +46,9 @@ T = 1.0; dt = 0.01; t = 0.0:dt:T; tt_ =  tc(t,T)
 
 ################################# MCMC tuning pars #################################
 ρinit = 0.3              # pcN-step
-covθprop =   [0.04 0. 0.; 0. 0.04 0.; 0. 0. 0.04]
+covθprop =  0.01 *  Diagonal(fill(1.0,3))#[1. 0. 0.; 0. 1. 0.; 0. 0. 1.]
 if model==:ms
-    δinit = [0.0005, 0.1]
+    δinit = [0.0002, 0.1]
 else
     δinit = [0.01, 0.1]
 end
@@ -58,10 +58,10 @@ maxnrpaths = 10 # update at most maxnrpaths Wiener increments at once
 tp = tuningpars_mcmc(ρinit, maxnrpaths, δinit,covθprop,η,adaptskip)
 
 ################################# initialise P #################################
-ainit = 0.2
+ainit = 0.1
 if model == :ms
     cinit = 0.2
-    γinit = 2.0
+    γinit = 1.0
     P = MarslandShardlow(ainit, cinit, γinit, 0.0, n)
 elseif model == :ahs
     cinit = 0.05
@@ -72,7 +72,7 @@ elseif model == :ahs
 end
 
 ################## prior specification with θ = (a, c, γ) ########################
-priorθ = product_distribution(fill(Exponential(1.0),3))
+priorθ = product_distribution([Exponential(ainit), Exponential(cinit), Exponential(γinit)])
 logpriormom(x0) = 0.0
 
 #########################

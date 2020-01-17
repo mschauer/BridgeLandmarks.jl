@@ -120,9 +120,14 @@ end
 function write_noisefields(P,outdir)
     if isa(P,Landmarks)
         nfsloc = [P.nfs[j].δ for j in eachindex(P.nfs)]
-        nfsdf = DataFrame(locx =  extractcomp(nfsloc,1),
+        if d==2
+            nfsdf = DataFrame(locx =  extractcomp(nfsloc,1),
                           locy =  extractcomp(nfsloc,2),
                           nfstd=fill(P.nfstd,length(P.nfs)))
+        elseif d==1
+            nfsdf = DataFrame(locx =  extractcomp(nfsloc,1),
+                          nfstd=fill(P.nfstd,length(P.nfs)))
+        end
     elseif isa(P,MarslandShardlow)
         nfsdf =DataFrame(locx=Int64[], locy=Int64[], nfstd=Int64[])
     end

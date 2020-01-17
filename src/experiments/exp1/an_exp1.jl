@@ -31,13 +31,13 @@ nshapes = dat["nshapes"]
 
 
 ################################# start settings #################################
-ITER = 50#0
-subsamples = 0:1:ITER
+ITER = 750#0
+subsamples = 0:10:ITER
 
-model = [:ms, :ahs][1]
+model = [:ms, :ahs][2]
 fixinitmomentato0 = false
 obs_atzero = true
-updatescheme =  [:innov, :mala_mom] #, :parameter] # for pars: include :parameter
+updatescheme =  [:innov, :mala_mom]#, :parameter] # for pars: include :parameter
 
 if model==:ms
     σobs = 0.01   # noise on observations
@@ -80,7 +80,8 @@ elseif model == :ahs
 end
 
 ################## prior specification with θ = (a, c, γ) ########################
-priorθ = product_distribution(fill(Exponential(1.0),3))
+#priorθ = product_distribution(fill(Exponential(1.0),3))
+priorθ = product_distribution([Exponential(ainit), Exponential(cinit), Exponential(γinit)])
 κ = 100.0
 prior_momenta = MvNormalCanon(gramkernel(xobs0,P)/κ)
 prior_positions = MvNormal(vcat(xobs0...), σobs)

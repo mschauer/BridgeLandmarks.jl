@@ -12,7 +12,7 @@ workdir = @__DIR__
 println(workdir)
 cd(workdir)
 
-n = 15
+n = 25#15
 nshapes = 1
 T = 1.0
 
@@ -33,6 +33,8 @@ xobs0 = x0.q
 
 θ, ψ =  π/4, 0.25
 pb = Lmplotbounds(-3.0,3.0,-3.0,3.0)
-xobsT = [exp.(xobs0[i])  for i in 1:n ]
-#xobsT = [xobs0[1]  for i in 1:n ]
+ xobsT = [exp.(xobs0[i])  for i in 1:n ]
+
+#xobsT = [PointF(1.0), PointF(0.4)]
+
 save("data_exp1-1D.jld", "xobs0",xobs0, "xobsT", xobsT, "n", n, "x0", x0, "pb", pb, "nshapes", nshapes)
