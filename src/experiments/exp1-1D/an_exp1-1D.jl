@@ -31,7 +31,7 @@ nshapes = dat["nshapes"]
 
 
 ################################# start settings #################################
-ITER = 50#0v
+ITER = 100#0v
 subsamples = 0:10:ITER
 
 model = [:ms, :ahs][1]
@@ -42,8 +42,6 @@ updatescheme =  [:innov, :mala_mom]#, :parameter] # for pars: include :parameter
 if model==:ms
     σobs = 0.001   # noise on observations
     Σobs = [σobs^2 * one(UncF) for i in 1:n]
-    # σobsv = vcat(fill(σobs,9), fill(0.1,n-9))
-    # Σobs = [σobsv[i]^2 * one(UncF) for i in 1:n]
 else
     σobs = 0.001   # noise on observations
     Σobs = [σobs^2 * one(UncF) for i in 1:n]
@@ -58,7 +56,7 @@ covθprop =   [0.04 0. 0.; 0. 0.04 0.; 0. 0. 0.04]
 if model==:ms
     δinit = [0.001, 0.1] # first comp is not used
 else
-    δinit = [0.1, 0.1] # first comp is not used
+    δinit = [0.1, 0.5] # first comp is not used
 end
 η(n) = min(0.2, 10/n)  # adaptation rate for adjusting tuning pars
 adaptskip = 20  # adapt mcmc tuning pars every adaptskip iters
@@ -72,10 +70,10 @@ if model == :ms
     γinit = 2.0
     P = MarslandShardlow(ainit, cinit, γinit, 0.0, n)
 elseif model == :ahs
-    cinit = 0.02
-    γinit = 0.2
+    cinit = 0.02*10
+    γinit = 0.2*10
     stdev = 0.75
-    nfsinit = construct_nfs(2.5, stdev, γinit)
+    nfsinit = construct_nfs(9.0, stdev, γinit)
     P = Landmarks(ainit, cinit, n, 2.5, stdev, nfsinit)
 end
 
@@ -89,8 +87,10 @@ logpriormom(x0) = logpdf(prior_momenta, vcat(BL.p(x0)...))# +logpdf(prior_positi
 
 #########################
 xobsT = [xobsT]
-xinit = State(xobs0, zeros(PointF,P.n))
-mT = zeros(PointF,n)
+#xinit = State(xobs0, zeros(PointF,P.n))
+xinitp = [PointF(12.0), PointF(-15.0), PointF(-15.0)]
+xinit = State(xobs0, xinitp)
+mT = zeros(PointF,n)#xinitp#
 
 start = time() # to compute elapsed time
     Xsave, parsave, objvals, accpcn, accinfo, δ, ρ, covθprop =

@@ -29,8 +29,8 @@ nshapes = dat["nshapes"]
 
 
 ################################# start settings #################################
-ITER = 100#00
-subsamples = 0:1:ITER
+ITER = 1000
+subsamples = 0:5:ITER
 
 
 model = [:ms, :ahs][1]
@@ -46,7 +46,7 @@ T = 1.0; dt = 0.01; t = 0.0:dt:T; tt_ =  tc(t,T)
 
 ################################# MCMC tuning pars #################################
 ρinit = 0.3              # pcN-step
-covθprop =  0.01 *  Diagonal(fill(1.0,3))#[1. 0. 0.; 0. 1. 0.; 0. 0. 1.]
+covθprop =  0.001 *  Diagonal(fill(1.0,3))#[1. 0. 0.; 0. 1. 0.; 0. 0. 1.]
 if model==:ms
     δinit = [0.0002, 0.1]
 else
@@ -96,5 +96,5 @@ write_mcmc_iterates(Xsave, tt_, n, nshapes, subsamples, outdir)
 write_info(model,ITER, n, tt_, updatescheme, Σobs, tp, ρ, δ, perc_acc_pcn, elapsed, outdir)
 write_observations(xobs0, xobsT, n, nshapes, x0,outdir)
 write_acc(accinfo,accpcn,nshapes,outdir)
-write_params(parsave,subsamples,outdir)
+write_params(parsave, 0:ITER,outdir)
 write_noisefields(P,outdir)

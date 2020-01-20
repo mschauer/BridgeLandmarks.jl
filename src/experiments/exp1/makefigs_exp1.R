@@ -1,5 +1,3 @@
-PARESTIMATION <- FALSE
-
 # get directory of source script
 setwd(dirname(rstudioapi::getSourceEditorContext()$path))
 
@@ -13,7 +11,7 @@ library(GGally)
 theme_set(theme_light())
 ########  read observations
 
-ALLPLOTS <- FALSE
+
   
 obs0df <- read_delim("obs0.csv", ";", escape_double = FALSE, trim_ws = TRUE)
 obsTdf <- read_delim("obsT.csv", ";", escape_double = FALSE, trim_ws = TRUE) %>% spread(key=pos,value=value) %>%
@@ -80,10 +78,10 @@ dev.off()
 
 landmarkid_subset <- as.character(seq(1,n,by=4)[1:4]) # only plot these paths and momenta
 
-subsamplenr <-  10 # only show every subsamplenr-th iterate
+
 
 # plot overlaid landmark bridges
-p1 <- d1 %>% dplyr::filter(iterate %in% seq(0,max(d$iterate),by=subsamplenr))%>%
+p1 <- d1 %>% 
   dplyr::filter(landmarkid %in% landmarkid_subset  )%>%
  ggplot() + 
     geom_path(aes(pos1,y=pos2,group=interaction(landmarkid,iteratenr),colour=iterate),size=0.5) +
@@ -104,7 +102,7 @@ dev.off()
 
 
 # plot overlaid landmark bridges
-p1all <- d1 %>% dplyr::filter(iterate %in% seq(0,max(d$iterate),by=subsamplenr))%>%
+p1all <- d1 %>% 
     ggplot() + 
   geom_path(aes(pos1,y=pos2,group=interaction(landmarkid,iteratenr),colour=iterate),size=0.5) +
   scale_colour_gradient(low="grey",high="darkblue")+ 
@@ -115,18 +113,17 @@ p1all <- d1 %>% dplyr::filter(iterate %in% seq(0,max(d$iterate),by=subsamplenr))
   geom_circle(aes(x0 = locx, y0 = locy, r = nfstd), data = nfsdf,color="Grey",linetype="dotted")#+ 
 #coord_cartesian(xlim = c(-2.5,2.5), ylim = c(-2.5,2.5))
 p1all  
+pdf("bridges-overlaid.pdf",width=fracwidthfig,height=4)  
+p1all
+dev.off()
 
-d1half <- bind_rows(d1,d1) %>% dplyr::filter(time %in% c(0.51)) #%>% filter(iterate==10)
-d1end <- bind_rows(d1,d1) %>% dplyr::filter(time %in% c(1)) #%>% filter(iterate==10)
-ggplot() +  # geom_path(data=d1half, aes(x=pos1,y=pos2,colour=iterate),alpha=0.5,size=0.5)+
-  geom_path(data=d1end, aes(x=pos1,y=pos2,colour=iterate),alpha=0.5,size=0.5)+
-  geom_point(data=v0, aes(x=pos1,y=pos2), colour='black')+geom_point(data=vT, aes(x=pos1,y=pos2), colour='orange')+
-  geom_path(data=v0, aes(x=pos1,y=pos2), colour='black',size=1.1)+geom_path(data=vT, aes(x=pos1,y=pos2,group=shape), colour='orange',size=1.0)
-  
+
 d1halfend <- bind_rows(d1,d1) %>% dplyr::filter(time %in% c(0.51,1))
 
-phalf <- ggplot() +   geom_path(data=d1halfend, aes(x=pos1,y=pos2,colour=iterate,group=time),alpha=0.5,size=0.5)+
-  geom_path(data=d1end, aes(x=pos1,y=pos2,colour=iterate),alpha=0.5,size=0.5)+
+phalf <-
+  ggplot() +   
+  geom_path(data=d1halfend, aes(x=pos1,y=pos2,colour=iterate,group=iterate),alpha=0.5,size=0.5)+
+  geom_path(data=d1end, aes(x=pos1,y=pos2,colour=iterate,group=iterate),alpha=0.5,size=0.5)+
   geom_point(data=v0, aes(x=pos1,y=pos2), colour='black')+
   geom_point(data=vT, aes(x=pos1,y=pos2), colour='orange')+
   geom_path(data=v0, aes(x=pos1,y=pos2), colour='black',size=0.6)+
@@ -141,18 +138,18 @@ dev.off()
 
   
 
-pdf("bridges-overlaid.pdf",width=fracwidthfig,height=4)  
-p1all
-dev.off()
 
   
-if (ALLPLOTS) {
+
 # plot parameter updates
-ppar1 <- parsdf %>% mutate(cdivgamma2=c/gamma^2) %>% gather(key=par, value=value, a, c, gamma,cdivgamma2) 
-ppar1$par <- factor(ppar1$par, levels=c('a', 'c', 'gamma','cdivgamma2'), labels=c("a","c",expression(gamma),expression(c/gamma^2)))
+ppar1 <- parsdf %>% 
+  #mutate(cdivgamma2=c/gamma^2) %>%
+   gather(key=par, value=value, a, c, gamma)#,cdivgamma2) 
+#ppar1$par <- factor(ppar1$par, levels=c('a', 'c', 'gamma','cdivgamma2'), labels=c("a","c",expression(gamma),expression(c/gamma^2)))
+ppar1$par <- factor(ppar1$par, levels=c('a', 'c', 'gamma'), labels=c("a","c",expression(gamma)))
 tracepars <- ppar1 %>% ggplot(aes(x=iterate, y=value)) + geom_path() + facet_wrap(~par, scales="free_y",labeller = label_parsed) +
  xlab("iterate") + ylab("") +  theme(strip.text.x = element_text(size = 12))
-pdf("trace-pars.pdf",width=6,height=4)  
+pdf("trace-pars.pdf",width=7.5,height=2.5)  
   show(tracepars)
 dev.off()
   
@@ -163,7 +160,7 @@ ppar4 <- parsdf %>% ggplot(aes(x=c,y=gamma,colour=iterate)) + geom_point()+ them
 pdf("scatter-pars.pdf",width=6,height=2)  
   grid.arrange(ppar2,ppar3,ppar4,ncol=3)
 dev.off()
-}  
+
   
 # plot paths of landmarks momenta
 pmom <-  d %>% dplyr::filter(time==0) %>%
@@ -201,22 +198,3 @@ pmomT <-  d %>% dplyr::filter(time==1) %>%
 pmomT
 
 
-if (PARESTIMATION == TRUE)
-{
-# plot parameter updates
-ppar1 <- parsdf %>% mutate(cdivgamma2=c/gamma^2) %>% gather(key=par, value=value, a, c, gamma,cdivgamma2) 
-ppar1$par <- factor(ppar1$par, levels=c('a', 'c', 'gamma','cdivgamma2'), labels=c("a","c",expression(gamma),expression(c/gamma^2)))
-tracepars <- ppar1 %>% ggplot(aes(x=iterate, y=value)) + geom_path() + facet_wrap(~par, scales="free_y",labeller = label_parsed) +
-  xlab("iterate") + ylab("") +  theme(strip.text.x = element_text(size = 12))
-pdf("trace-pars.pdf",width=6,height=4)  
-show(tracepars)
-dev.off()
-
-# pairwise scatter plots for parameter updates  
-ppar2 <- parsdf %>% ggplot(aes(x=a,y=c,colour=iterate)) + geom_point() + theme(legend.position = 'none')  +scale_colour_gradient(low="orange",high="darkblue")
-ppar3 <- parsdf %>% ggplot(aes(x=a,y=gamma,colour=iterate)) + geom_point() + theme(legend.position = 'none') +scale_colour_gradient(low="orange",high="darkblue")
-ppar4 <- parsdf %>% ggplot(aes(x=c,y=gamma,colour=iterate)) + geom_point()+ theme(legend.position = 'none') +scale_colour_gradient(low="orange",high="darkblue")
-pdf("scatter-pars.pdf",width=6,height=2)  
-grid.arrange(ppar2,ppar3,ppar4,ncol=3)
-dev.off()
-}

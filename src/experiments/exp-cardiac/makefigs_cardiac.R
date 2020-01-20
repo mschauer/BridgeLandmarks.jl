@@ -45,8 +45,6 @@ dsub <- d1 %>% dplyr::filter(iterate %in% c(0,50,100)) %>%
 dlabel0 <- obs0df; dlabel0$landmarkid <- unique(d$landmarkid)
 dlabelT <- obsTdf; dlabelT$landmarkid <- unique(d$landmarkid)
 
-####### read parameter updates
-parsdf <- read_delim("parameters.csv", ";", escape_double = FALSE, trim_ws = TRUE) 
   
   #------------------ figures --------------------------------------------------------------
 
@@ -63,7 +61,7 @@ subsamplenr <-  10 # only show every subsamplenr-th iterate
 # plot acc probs
 accdf <- read_delim("accdf.csv", ";", escape_double = FALSE, trim_ws = TRUE)
 accfig <- accdf %>% mutate(acc=as.factor(acc)) %>% 
-      mutate(kernel=recode(kernel, mala_mom="MALA momenta" ))  %>%
+      #mutate(kernel=recode(kernel, mala_mom="MALA momenta" ))  %>%
     ggplot(aes(x=iter,y=acc)) +geom_point(shape=124)+ facet_wrap(~kernel)+xlab("iteration nr")+ylab("accept")
 pdf("acceptance.pdf",width=widthfig,height=2.5)  
   show(accfig)
@@ -71,29 +69,33 @@ dev.off()
 accfig
 
 
-pmomT <-  d %>% dplyr::filter(time==1) %>%
-  dplyr::filter(landmarkid %in% landmarkid_subset  )%>%
-  ggplot(aes(x=mom1,y=mom2,colour=iterate)) + geom_point(size=0.5) +
-  facet_wrap(~landmarkid)  +scale_colour_gradient(low="grey",high="darkblue")+
-  theme(axis.title.x=element_blank(), axis.title.y=element_blank()) +
-  geom_hline(yintercept=0, linetype="dashed")+geom_vline(xintercept=0, linetype="dashed")+theme(legend.position='bottom')
-pmomT
+# pmomT <-  d %>% dplyr::filter(time==1) %>%
+#   dplyr::filter(landmarkid %in% landmarkid_subset  )%>%
+#   ggplot(aes(x=mom1,y=mom2,colour=iterate)) + geom_point(size=0.5) +
+#   facet_wrap(~landmarkid)  +scale_colour_gradient(low="grey",high="darkblue")+
+#   theme(axis.title.x=element_blank(), axis.title.y=element_blank()) +
+#   geom_hline(yintercept=0, linetype="dashed")+geom_vline(xintercept=0, linetype="dashed")+theme(legend.position='bottom')
+# pmomT
+# 
+# ppos0 <-  d %>% dplyr::filter(time==0) %>% mutate(shapes=as.factor(shapes)) %>%
+#   dplyr::filter(landmarkid %in% landmarkid_subset  )%>%
+#     ggplot(aes(x=pos1,y=pos2,colour=iterate)) + geom_point(size=0.5) +
+#   facet_wrap(~landmarkid)  +scale_colour_gradient(low="grey",high="darkblue")+
+#   theme(axis.title.x=element_blank(), axis.title.y=element_blank()) +
+#   geom_hline(yintercept=0, linetype="dashed")+geom_vline(xintercept=0, linetype="dashed")+theme(legend.position='bottom')
+# ppos0
 
-ppos0 <-  d %>% dplyr::filter(time==0) %>% mutate(shapes=as.factor(shapes)) %>%
-  dplyr::filter(landmarkid %in% landmarkid_subset  )%>%
-    ggplot(aes(x=pos1,y=pos2,colour=iterate)) + geom_point(size=0.5) +
-  facet_wrap(~landmarkid)  +scale_colour_gradient(low="grey",high="darkblue")+
-  theme(axis.title.x=element_blank(), axis.title.y=element_blank()) +
-  geom_hline(yintercept=0, linetype="dashed")+geom_vline(xintercept=0, linetype="dashed")+theme(legend.position='bottom')
-ppos0
+
+####### read parameter updates
+parsdf <- read_delim("parameters.csv", ";", escape_double = FALSE, trim_ws = TRUE) 
 
 
 # plot parameter updates
-ppar1 <- parsdf %>% mutate(cdivgamma2=c/gamma^2) %>% gather(key=par, value=value, a, c, gamma,cdivgamma2) 
-ppar1$par <- factor(ppar1$par, levels=c('a', 'c', 'gamma','cdivgamma2'), labels=c("a","c",expression(gamma),expression(c/gamma^2)))
+ppar1 <- parsdf %>% gather(key=par, value=value, a, c, gamma) 
+ppar1$par <- factor(ppar1$par, levels=c('a', 'c', 'gamma'), labels=c("a","c",expression(gamma)))
 tracepars <- ppar1 %>% ggplot(aes(x=iterate, y=value)) + geom_path() + facet_wrap(~par, scales="free_y",labeller = label_parsed) +
   xlab("iterate") + ylab("") +  theme(strip.text.x = element_text(size = 12))
-pdf("trace-pars.pdf",width=6,height=4)  
+pdf("trace-pars.pdf",width=widthfig,height=2.5)  
 show(tracepars)
 dev.off()
 
@@ -118,7 +120,7 @@ dtime0 <-  dtime0%>% dplyr::filter(iterate %in% seq(0,max(d$iterate),by=subsampl
 dtime0double <- bind_rows(dtime0,dtime0) %>% mutate(landmark=as.numeric(landmarkid))
 
 
-cutoff = 11
+cutoff = 5
 
 vTinner <- vT %>% dplyr::filter(landmark<=cutoff)
 vTouter <- vT %>% dplyr::filter(landmark>cutoff)

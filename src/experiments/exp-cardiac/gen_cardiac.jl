@@ -18,7 +18,7 @@ cardiac = npzread("cardiac.npy")  # heart data (left ventricles, the one we used
 cardiacx = cardiac[:,:,1]  # x-coordinates of landmarks
 cardiacy = cardiac[:,:,2]  # y-coordinates of landmarks
 
-landmarksset = 1:6:66#1:3:66
+landmarksset = 1:5:66#1:3:66
 nshapes = 14
 
 n = length(landmarksset)
