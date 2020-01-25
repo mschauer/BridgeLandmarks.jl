@@ -13,7 +13,11 @@ using LinearAlgebra, Base.Iterators
 using PDMats
 using JLD
 
-const d = 1
+using TimerOutputs
+const to = TimerOutput()
+
+
+const d = 2
 const sk = 1  # entries to skip for likelihood evaluation
 const itostrat = true
 
@@ -24,7 +28,7 @@ export landmarksforward, itostrat, construct_nfs, lm_mcmc, gramkernel, tuningpar
 
 export Lmplotbounds, extractcomp, tc
 
-export d, sk
+export d, sk, to
 
 plotlandmarkpositions = Ref{Any}((args...) -> nothing )
 

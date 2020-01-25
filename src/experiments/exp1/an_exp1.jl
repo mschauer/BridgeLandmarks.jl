@@ -3,7 +3,7 @@
 using Revise
 
 using BridgeLandmarks
-const BL=BridgeLandmarks
+const BL = BridgeLandmarks
 using RCall
 using Random
 using Distributions
@@ -31,13 +31,17 @@ nshapes = dat["nshapes"]
 
 
 ################################# start settings #################################
-ITER = 750#0
+ITER = 40#0
 subsamples = 0:10:ITER
 
 model = [:ms, :ahs][2]
 fixinitmomentato0 = false
 obs_atzero = true
-updatescheme =  [:innov, :mala_mom]#, :parameter] # for pars: include :parameter
+
+using TimerOutputs
+reset_timer!(to::TimerOutput)
+updatescheme =  [:innov, :mala_mom, :parameter] # for pars: include :parameter
+updatescheme =  [:innov,   :parameter] # for pars: include :parameter
 
 if model==:ms
     σobs = 0.01   # noise on observations
@@ -83,9 +87,13 @@ end
 #priorθ = product_distribution(fill(Exponential(1.0),3))
 priorθ = product_distribution([Exponential(ainit), Exponential(cinit), Exponential(γinit)])
 κ = 100.0
-prior_momenta = MvNormalCanon(gramkernel(xobs0,P)/κ)
-prior_positions = MvNormal(vcat(xobs0...), σobs)
-logpriormom(x0) = logpdf(prior_momenta, vcat(BL.p(x0)...))# +logpdf(prior_positions, vcat(BL.q(x0)...))
+# prior_momenta = MvNormalCanon(gramkernel(xobs0,P)/κ)
+# prior_positions = MvNormal(vcat(xobs0...), σobs)
+# logpriormom = MvNormalCanon(gramkernel(xobs0,P)/κ)
+#
+#  logpdf(prior_momenta, vcat(BL.p(x0)...))# +logpdf(prior_positions, vcat(BL.q(x0)...))
+
+priormom = MvNormalCanon( vcat(BL.p(x0)...), gramkernel(x0.q,P)/κ)
 
 #########################
 xobsT = [xobsT]
@@ -96,7 +104,7 @@ start = time() # to compute elapsed time
     Xsave, parsave, objvals, accpcn, accinfo, δ, ρ, covθprop =
     lm_mcmc(tt_, (xobs0,xobsT), Σobs, mT, P,
               obs_atzero, fixinitmomentato0, ITER, subsamples,
-              xinit, tp, priorθ, logpriormom, updatescheme,
+              xinit, tp, priorθ, priormom, updatescheme,
             outdir)
 elapsed = time() - start
 
@@ -108,5 +116,7 @@ write_mcmc_iterates(Xsave, tt_, n, nshapes, subsamples, outdir)
 write_info(model,ITER, n, tt_, updatescheme, Σobs, tp, ρ, δ, perc_acc_pcn, elapsed, outdir)
 write_observations(xobs0, xobsT, n, nshapes, x0,outdir)
 write_acc(accinfo,accpcn,nshapes,outdir)
-write_params(parsave,subsamples,outdir)
+write_params(parsave,0:ITER,outdir)
 write_noisefields(P,outdir)
+
+show(to; compact = true, allocations = true, linechars = :ascii)

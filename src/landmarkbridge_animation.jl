@@ -15,3 +15,7 @@ if make_animation
     gif(anim, outdir*"anim.gif", fps = 50)
     mp4(anim, outdir*"anim.mp4", fps = 50)
 end
+
+# plotting
+#Pdeterm = MarslandShardlow(0.1, 0.1, 0.0, 0.0, P.n)
+#plotlandmarkpositions[](initSamplePath(0:0.01:0.1,x0),Pdeterm,x0.q,deepvec2state(xᵒ).q;db=.5)

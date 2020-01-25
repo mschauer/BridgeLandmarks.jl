@@ -647,6 +647,16 @@ function gramkernel(q, P; ϵ = 10^(-12))
     PDMat( deepmat(K) + Diagonal(fill(ϵ,d*length(q))) )
 end
 
+
+function hamiltonian(x::NState, P::MarslandShardlow)
+    s = 0.0
+    for i in 1:P.n, j in 1:P.n
+        s += dot(x.p[i], x.p[j])*kernel(x.q[i] - x.q[j], P)
+    end
+    0.5 * s
+end
+
+
 ######################################################################################################
 
 
