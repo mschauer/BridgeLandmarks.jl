@@ -31,17 +31,18 @@ nshapes = dat["nshapes"]
 
 
 ################################# start settings #################################
-ITER = 40#0
+ITER = 205#0
 subsamples = 0:10:ITER
 
-model = [:ms, :ahs][2]
+model = [:ms, :ahs][1]
 fixinitmomentato0 = false
 obs_atzero = true
 
 using TimerOutputs
 reset_timer!(to::TimerOutput)
-updatescheme =  [:innov, :mala_mom, :parameter] # for pars: include :parameter
-updatescheme =  [:innov,   :parameter] # for pars: include :parameter
+#updatescheme =  [:innov, :mala_mom, :parameter] # for pars: include :parameter
+# updatescheme =  [:innov,   :parameter] # for pars: include :parameter
+ updatescheme =  [:innov, :sgd] # for pars: include :parameter
 
 if model==:ms
     σobs = 0.01   # noise on observations
@@ -119,4 +120,4 @@ write_acc(accinfo,accpcn,nshapes,outdir)
 write_params(parsave,0:ITER,outdir)
 write_noisefields(P,outdir)
 
-show(to; compact = true, allocations = true, linechars = :ascii)
+#show(to; compact = true, allocations = true, linechars = :ascii)

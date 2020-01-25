@@ -47,7 +47,7 @@ dlabelT <- obsTdf; dlabelT$landmarkid <- unique(d$landmarkid)
 parsdf <- read_delim("parameters.csv", ";", escape_double = FALSE, trim_ws = TRUE) 
   
   #------------------ figures --------------------------------------------------------------
-if (ALLPLOTS) {
+
 # plots shapes and noisefields  
 shapes <- ggplot() +
     geom_path(data=v0, aes(x=pos1,y=pos2), colour='black')+ coord_cartesian(xlim = c(-3,3), ylim = c(-2,2))+
@@ -62,7 +62,7 @@ shapes
 pdf("shapes-noisefields.pdf",width=widthfig,height=4)  
   show(shapes)
 dev.off()
-}
+
   
 # plot paths of landmarks positions and bridges over various iterations
 p4 <-     dsub %>% ggplot(aes(x=pos1,y=pos2)) + coord_cartesian(xlim = c(-3,3), ylim = c(-2,2))+

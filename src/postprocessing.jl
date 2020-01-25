@@ -68,7 +68,7 @@ function write_acc(accinfo,accpcn,nshapes,outdir)
     # extract number of distinct update steps in accinfo
     nunique = length(unique(map(x->x[1], accinfo)))
     niterates = div(length(accinfo),nunique)
-    accdf = DataFrame(kernel = map(x->x.kernel, accinfo), acc = map(x->x.acc, accinfo), iter = repeat(1:niterates, inner= nunique))
+    accdf = DataFrame(kernel = map(x->Symbol(x.kernel), accinfo), acc = map(x->x.acc, accinfo), iter = repeat(1:niterates, inner= nunique))
     accpcndf = DataFrame(kernel = fill(Symbol("pCN"),length(accpcn)), acc=accpcn, iter=repeat(1:niterates,inner=nshapes))
     append!(accdf, accpcndf)
     CSV.write(outdir*"accdf.csv", accdf; delim=";")

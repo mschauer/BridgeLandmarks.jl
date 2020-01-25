@@ -456,10 +456,15 @@ function update_initialstate!(X,Xᵒ,W,ll,x,xᵒ,∇x, ∇xᵒ,
 
     if sampler ==:sgd  # CHECK VALIDITY LATER
         mask = deepvec(State(0*x0.q, 1 .- 0*x0.p))
-        sample!(W, Wiener{Vector{StateW}}())
+        # StateW = PointF
+        # sample!(W, Wiener{Vector{StateW}}())
         ForwardDiff.gradient!(∇x, u, x, cfg) # X gets overwritten but does not chang
-        x .+= δ * mask .* ∇x
-        obj = simguidedlm_llikelihood!(LeftRule(), X, deepvec2state(x), W, Q; skip=sk)
+        xᵒ = x .+ δ[2] * mask .* ∇x
+        slogρ!(Q, W, X, priormom, llout)(xᵒ)
+
+        obj = sum(llout)
+        #obj = simguidedlm_llikelihood!(LeftRule(), X, deepvec2state(x), W, Q; skip=sk)
+        accepted = 1
     end
     if sampler==:mcmc
         accinit = 0.0
@@ -575,7 +580,7 @@ function update_pars!(obs_info,X, Xᵒ,W, Q, Qᵒ, x, ll, priorθ, covθprop)
     else
         accept = 0
     end
-    (kernel = "parameterupdate", acc = accept)
+    (kernel = ":parameterupdate", acc = accept)
 end
 
 """
@@ -601,7 +606,7 @@ end
 """
 function adaptparstep(n,accinfo,covθprop, η;  adaptskip = 15, targetaccept=0.5)
     if mod(n,adaptskip)==0
-        ind1 =  findall(first.(accinfo).=="parameterupdate")[end-adaptskip+1:end]
+        ind1 =  findall(first.(accinfo).==":parameterupdate")[end-adaptskip+1:end]
         recent_mean = mean(last.(accinfo)[ind1])
         if recent_mean > targetaccept
             covθprop *= exp(2*η(n))
@@ -734,6 +739,8 @@ function lm_mcmc(t, (xobs0,xobsT), Σobs, mT, P,
                 accinfo_ = update_pars!(obs_info,X, Xᵒ,W, Q, Qᵒ, x, ll, priorθ, covθprop)
                 push!(accinfo, accinfo_)
                 covθprop = adaptparstep(i,accinfo,covθprop, tp.η;  adaptskip = tp.adaptskip)
+            elseif update == :sgd
+                obj, accinfo_ = update_initialstate!(X,Xᵒ,W,ll,x,xᵒ,∇x, ∇xᵒ,:sgd, Q, δ, update,priormom)
             end
         end
 
