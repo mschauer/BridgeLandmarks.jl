@@ -73,7 +73,11 @@ end
 
 ################## prior specification with θ = (a, c, γ) ########################
 priorθ = product_distribution([Exponential(ainit), Exponential(cinit), Exponential(γinit)])
-logpriormom(x0) = 0.0
+# make flat prior for which logpdf=
+struct FlatPrior end
+import Distributions.logpdf
+logpdf(::FlatPrior, _x) = 0.0
+priormom = FlatPrior()
 
 #########################
 mT = zeros(PointF,n)   # vector of momenta at time T used for constructing guiding term #mT = randn(PointF,P.n)
@@ -90,7 +94,7 @@ start = time() # to compute elapsed time
     Xsave, parsave, objvals, accpcn, accinfo, δ, ρ, covθprop =
     lm_mcmc(tt_, (xobs0,xobsT), Σobs, mT, P,
               obs_atzero, fixinitmomentato0, ITER, subsamples,
-              xinit, tp, priorθ, logpriormom, updatescheme,
+              xinit, tp, priorθ, priormom, updatescheme,
             outdir)
 elapsed = time() - start
 

@@ -194,3 +194,28 @@ pdf("scatter-pars.pdf",width=6,height=2)
 grid.arrange(ppar2,ppar3,ppar4,ncol=3)
 dev.off()
 }
+
+
+### animation
+ds <-  d %>% dplyr::filter(iterate %in% c(0, 100,200))
+
+
+
+panim <- ds %>% 
+  ggplot() + 
+  geom_path(aes(pos1,y=pos2,colour=time),size=1.0) +
+  geom_point(data=vT, aes(x=pos1,y=pos2), colour='orange') +
+  geom_path(data=vT, aes(x=pos1,y=pos2,group=shape), colour='orange',size=1.0) +
+  geom_point(data=v0, aes(x=pos1,y=pos2), colour='black') +
+  geom_path(data=v0, aes(x=pos1,y=pos2), colour='black',size=1.0)+
+  theme(axis.title.x=element_blank(), axis.title.y=element_blank()) +
+  #geom_point(data=nfsdf, aes(x=locx, y=locy), color="Grey")+
+  #geom_circle(aes(x0 = locx, y0 = locy, r = nfstd), data = nfsdf,color="Grey",linetype="dotted")+ 
+  coord_fixed(xlim = c(-2,2), ylim = c(-1,1))+
+  theme(legend.position='none')+ facet_wrap(~iteratenr,ncol=1) 
+panim
+
+theme_set(theme_bw())
+u <- panim + transition_reveal(time)
+animate(u, renderer = ffmpeg_renderer())
+anim_save("animate_dgs.mp4", u, renderer = ffmpeg_renderer())

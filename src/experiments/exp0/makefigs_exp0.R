@@ -103,3 +103,44 @@ show(accfig)
 dev.off()
 accfig
 
+################ shape evolution plots
+
+p3 <- dcomb %>% 
+  ggplot() + 
+  geom_path(aes(pos1,y=pos2,colour=time),size=1.0) +
+  geom_point(data=vT, aes(x=pos1,y=pos2), colour='orange') +
+  geom_path(data=vT, aes(x=pos1,y=pos2,group=shape), colour='orange',size=1.0) +
+  geom_point(data=v0, aes(x=pos1,y=pos2), colour='black') +
+  geom_path(data=v0, aes(x=pos1,y=pos2), colour='black',size=1.0)+
+  theme(axis.title.x=element_blank(), axis.title.y=element_blank()) +
+  geom_label(data=filter(dlabel0, landmarkid %in% landmarkid_subset), aes(x=pos1,y=pos2,label=landmarkid,hjust="outward",vjust="outward"))+
+  geom_label(data=filter(dlabelT, landmarkid %in% landmarkid_subset), aes(x=pos1,y=pos2,label=landmarkid,hjust="outward",vjust="outward"),colour='orange')+
+  geom_point(data=nfsdf, aes(x=locx, y=locy), color="Grey")+
+  geom_circle(aes(x0 = locx, y0 = locy, r = nfstd), data = nfsdf,color="Grey",linetype="dotted")+ 
+  coord_fixed(xlim = c(-2.3,2.5), ylim = c(-2.1,2))+
+  theme(legend.position='none')+ facet_wrap(~iteratenr,ncol=3) 
+
+pdf('landmarks_evolution.pdf',width=widthfig,height=4)
+show(p3)
+dev.off()
+
+
+### animation
+
+panim <- dcomb %>% 
+  ggplot() + 
+  geom_path(aes(pos1,y=pos2,colour=time),size=1.0) +
+  geom_point(data=vT, aes(x=pos1,y=pos2), colour='orange') +
+  geom_path(data=vT, aes(x=pos1,y=pos2,group=shape), colour='orange',size=1.0) +
+  geom_point(data=v0, aes(x=pos1,y=pos2), colour='black') +
+  geom_path(data=v0, aes(x=pos1,y=pos2), colour='black',size=1.0)+
+  theme(axis.title.x=element_blank(), axis.title.y=element_blank()) +
+    #geom_point(data=nfsdf, aes(x=locx, y=locy), color="Grey")+
+  #geom_circle(aes(x0 = locx, y0 = locy, r = nfstd), data = nfsdf,color="Grey",linetype="dotted")+ 
+  coord_fixed(xlim = c(-2.3,2.5), ylim = c(-2.1,2))+
+  theme(legend.position='none')+ facet_wrap(~iteratenr,ncol=3) 
+
+theme_set(theme_bw())
+u <- panim + transition_reveal(time)
+animate(u, renderer = ffmpeg_renderer())
+anim_save("animate_introexample.mp4", u, renderer = ffmpeg_renderer())

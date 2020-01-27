@@ -643,8 +643,8 @@ end
     ϵ*I is added to avoid numerical problems that destroy PSDness of the Gram matrix
 """
 function gramkernel(q, P; ϵ = 10^(-12))
-    K =  [kernel(q[i]- q[j],P) * one(UncF) for i  in eachindex(q), j in eachindex(q)]
-    PDMat( deepmat(K) + Diagonal(fill(ϵ,d*length(q))) )
+    K =  [(kernel(q[i]- q[j],P) + (i==j)*ϵ) * one(UncF)   for i  in eachindex(q), j in eachindex(q)]
+    PDMat(deepmat(K))
 end
 
 

@@ -496,7 +496,7 @@ function update_initialstate!(X,Xᵒ,W,ll,x,xᵒ,∇x, ∇xᵒ,
                mask = deepvec(State(1 .- 0*x0.q,  0*x0.p))
                stepsize = δ[1]
                mask_id = (mask .> 0.1) # get indices that correspond to positions or momenta
-               dK = gramkernel(x0.q,P)  #reshape([kernel(x0.q[i]- x0.q[j],P) * one(UncF) for i in 1:n for j in 1:n], n, n)
+               dK = gramkernel(x0.q,P)
                ndistr = MvNormal(stepsize*dK)
                xᵒ = copy(x)
                xᵒ[mask_id] = x[mask_id] .+ .5 * stepsize * dK * ∇x[mask_id] .+ rand(ndistr)
@@ -511,7 +511,7 @@ function update_initialstate!(X,Xᵒ,W,ll,x,xᵒ,∇x, ∇xᵒ,
                accinit = ll_incl0ᵒ - ll_incl0 -
                          logpdf(ndistr,xᵒ[mask_id] - x[mask_id] - .5*stepsize * dK * ∇x[mask_id]) +
                         logpdf(ndistrᵒ,x[mask_id] - xᵒ[mask_id] - .5*stepsize * dKᵒ * ∇xᵒ[mask_id])
-            elseif update == :rmmala_mom
+        elseif update == :rmmala_mom
              ForwardDiff.gradient!(∇x, u, x, cfg) # X gets overwritten but does not change
              ll_incl0 = sum(llout)
              mask = deepvec(State(0*x0.q, 1 .- 0*x0.p))
@@ -534,9 +534,27 @@ function update_initialstate!(X,Xᵒ,W,ll,x,xᵒ,∇x, ∇xᵒ,
              accinit = ll_incl0ᵒ - ll_incl0 -
                         logpdf(ndistr,xᵒ[mask_id] - x[mask_id] - .5*stepsize * inv_dK * ∇x[mask_id]) +
                        logpdf(ndistrᵒ,x[mask_id] - xᵒ[mask_id] - .5*stepsize * inv_dK * ∇xᵒ[mask_id])
+       elseif update == :rmrw_mom
+            u(x) # writes into llout
+            ll_incl0 = sum(llout)
+            mask = deepvec(State(0*x0.q, 1 .- 0*x0.p))
+            stepsize = δ[2]
+            mask_id = (mask .> 0.1) # get indices that correspond to positions or momenta
+
+            # proposal step
+            dK = gramkernel(x0.q,P)
+            inv_dK = inv(dK)
+            ndistr = MvNormal(stepsize*inv_dK)
+            xᵒ = copy(x)
+            xᵒ[mask_id] = x[mask_id]  .+  rand(ndistr)
+            # reverse step
+            uᵒ(xᵒ)  # writes int lloutᵒ
+            ll_incl0ᵒ = sum(lloutᵒ)
+            accinit = ll_incl0ᵒ - ll_incl0
+            # proposal is symmetric           logpdf(ndistr,xᵒ[mask_id]) + logpdf(ndistr,x[mask_id])
          end
 
-        # MH step
+        # MH acceptance decision
         if log(rand()) <= accinit
             #println("update initial state ", update, " accinit: ", round(accinit;digits=3), "  accepted")
             obj = ll_incl0ᵒ
@@ -724,7 +742,7 @@ function lm_mcmc(t, (xobs0,xobsT), Σobs, mT, P,
                 #@timeit to "path update"
                 accpcn = update_path!(X, Xᵒ, W, Wᵒ, Wnew, ll, x, Q, ρ, accpcn, tp.maxnrpaths)
                 ρ = adaptpcnstep(i, accpcn, ρ, Q.nshapes, tp.η; adaptskip = tp.adaptskip)
-            elseif update in [:mala_mom, :rmmala_mom]
+            elseif update in [:mala_mom, :rmmala_mom, :rmrw_mom]
                 #@timeit to "update mom"
                  obj, accinfo_ = update_initialstate!(X,Xᵒ,W,ll,x,xᵒ,∇x, ∇xᵒ,:mcmc, Q, δ, update,priormom)
                 push!(accinfo, accinfo_)
@@ -750,7 +768,7 @@ function lm_mcmc(t, (xobs0,xobsT), Σobs, mT, P,
             update_Paux_xT!(Q, mTvec, obs_info)
         end
 
-
+        # don't remove
         # update matching
         # direction, accinfo_ = update_matching(obs_info, X, Xᵒ,W, Q, Qᵒ, x, ll)
         # push!(accinfo, accinfo_)
