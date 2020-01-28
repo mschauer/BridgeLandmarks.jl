@@ -1,8 +1,7 @@
 using StaticArrays
 
 const Point{T} = SArray{Tuple{d},T,1,d}       # point in R2
-const Unc{T} = SArray{Tuple{d,d},T,d,d*d}     # Matrix presenting uncertainty
-
+const Unc{T} = SArray{Tuple{d,d},T,2,d*d}     # Matrix presenting uncertainty
 const PointF = Point{Float64}
 const UncF = Unc{Float64}
 
@@ -13,6 +12,8 @@ end
 const State = NState
 
 NState(x::Vector) = NState(reshape(x, (2, length(x)>>1)))
+
+
 
 import Base: axes, #=iterate,=# eltype, copy, copyto!, zero, eachindex, getindex, setindex!, size, vec
 
@@ -48,9 +49,6 @@ function NState(q::AbstractVector, p::AbstractVector)
     NState([((q,p)[i])[j] for i in 1:2, j in 1:length(p)])
 end
 
-function NState(x::Vector)
-    NState(reshape(x, (2, length(x)>>1)))
-end
 vec(x::NState) = vec(x.x)
 Base.broadcastable(x::NState) = x
 Broadcast.BroadcastStyle(::Type{<:NState}) = Broadcast.Style{NState}()
@@ -112,3 +110,5 @@ end
 
 q(i::Int) = 2i - 1
 p(i::Int) = 2i
+
+flipmomenta(x::NState) = NState(x.q, -x.p)
