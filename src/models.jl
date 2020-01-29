@@ -1,5 +1,5 @@
 #### Landmarks specification
-import Bridge: _b, _b!, B!, σ!, b!, σ, b
+import Bridge: _b, _b!, B!, σ!, b!, σ, b, auxiliary
 
 struct MarslandShardlow{T} <: ContinuousTimeProcess{State{PointF}}
     a::T # kernel std parameter

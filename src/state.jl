@@ -22,12 +22,6 @@ function deepmat2unc(A::Matrix)  # d is the dimension of the square subblocks
 end
 
 
-function outer(x::State, y::State)
-    [outer(x[i],y[j]) for i in eachindex(x), j in eachindex(y)]
-end
-
-norm(x::State) = norm(vec(x))
-
 
 """
 Good display of variable of type State

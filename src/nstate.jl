@@ -95,6 +95,11 @@ import Base: *, +, /, -
 import LinearAlgebra: dot
 
 #    import Bridge: outer, inner
+
+function outer(x::NState, y::NState)
+    [outer(x[i],y[j]) for i in eachindex(x), j in eachindex(y)]
+end
+
 *(c::Number, x::NState) = NState(c*x.x)
 *(x::NState, c::Number) = NState(x.x*c)
 +(x::NState, y::NState) = NState(x.x + y.x)
