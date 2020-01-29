@@ -12,7 +12,7 @@ using DelimitedFiles
 using CSV
 using StaticArrays
 using LinearAlgebra
-using JLD
+using JLD2
 
 Random.seed!(9)
 
@@ -25,7 +25,7 @@ mkpath(joinpath(outdir, "forward"))
 
 
 #-------- read data ----------------------------------------------------------
-dat = load("data_exp1.jld")
+dat = load("data_exp1.jld2")
 xobs0 = dat["xobs0"]
 xobsT = dat["xobsT"]
 n = dat["n"]
