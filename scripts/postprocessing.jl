@@ -8,6 +8,7 @@
         outdir: output directory
 """
 function write_mcmc_iterates(Xsave, tt_, n, nshapes, subsamples, outdir)
+    outdir[end] == "/" && error("provide pathname without trailing '/'")
     nshapes = length(xobsT)
     iterates = reshape(vcat(Xsave...),2*d*length(tt_)*n*nshapes, length(subsamples)) # each column contains samplepath of an iteration
 
@@ -34,7 +35,7 @@ function write_mcmc_iterates(Xsave, tt_, n, nshapes, subsamples, outdir)
     headline = "time " * "pqtype " * "landmarkid " * "shapes " * prod(map(x -> "iter"*string(x)*" ",subsamples))
     headline = chop(headline,tail=1) * "\n"
 
-    fn = outdir*"iterates.csv"
+    fn = joinpath(outdir, "iterates.csv")
     f = open(fn,"w")
     write(f, headline)
     writedlm(f,out)
@@ -46,7 +47,9 @@ end
     Write info to txt file
 """
 function write_info(model,ITER, n, tt_, updatescheme, Σobs, tp, ρ, δ, perc_acc_pcn, elapsed, outdir)
-    f = open(outdir*"info.txt","w")
+    outdir[end] == "/" && error("provide pathname without trailing '/'")
+
+    f = open(joinpath(outdir,"info.txt"),"w")
     write(f, "Model: ", string(model),"\n")
     write(f, "Number of iterations: ",string(ITER),"\n")
     write(f, "Number of landmarks: ",string(n),"\n")
@@ -65,13 +68,15 @@ function write_info(model,ITER, n, tt_, updatescheme, Σobs, tp, ρ, δ, perc_ac
 end
 
 function write_acc(accinfo,accpcn,nshapes,outdir)
+    outdir[end] == "/" && error("provide pathname without trailing '/'")
+
     # extract number of distinct update steps in accinfo
     nunique = length(unique(map(x->x[1], accinfo)))
     niterates = div(length(accinfo),nunique)
     accdf = DataFrame(kernel = map(x->Symbol(x.kernel), accinfo), acc = map(x->x.acc, accinfo), iter = repeat(1:niterates, inner= nunique))
     accpcndf = DataFrame(kernel = fill(Symbol("pCN"),length(accpcn)), acc=accpcn, iter=repeat(1:niterates,inner=nshapes))
     append!(accdf, accpcndf)
-    CSV.write(outdir*"accdf.csv", accdf; delim=";")
+    CSV.write(joinpath(outdir, "accdf.csv"), accdf; delim=";")
 end
 
 
@@ -79,6 +84,8 @@ end
     Write observations to file
 """
 function write_observations(xobs0, xobsT, n, nshapes, x0,outdir)
+    outdir[end] == "/" && error("provide pathname without trailing '/'")
+
     valueT = vcat(map(x->deepvec(x), xobsT)...) # merge all observations at time T in one vector
     if d==1
         posT = repeat(["pos1"], n*nshapes)
@@ -100,8 +107,8 @@ function write_observations(xobs0, xobsT, n, nshapes, x0,outdir)
         obs0df = DataFrame(pos1=extractcomp(q0,1), pos2=extractcomp(q0,2), pos3=extractcomp(q0,3),
                             mom1=extractcomp(p0,1) , mom2=extractcomp(p0,2), mom3=extractcomp(p0,3),landmark=1:n)
     end
-    CSV.write(outdir*"obs0.csv", obs0df; delim=";")
-    CSV.write(outdir*"obsT.csv", obsTdf; delim=";")
+    CSV.write(joinpath(outdir, "obs0.csv"), obs0df; delim=";")
+    CSV.write(joinpath(outdir, "obsT.csv"), obsTdf; delim=";")
 end
 
 
@@ -109,15 +116,19 @@ end
     Write parameter iterates to file
 """
 function write_params(parsave,subsamples,outdir)
+    outdir[end] == "/" && error("provide pathname without trailing '/'")
+
     parsdf = DataFrame(a=extractcomp(parsave,1),c=extractcomp(parsave,2),
             gamma=extractcomp(parsave,3), iterate=subsamples)
-    CSV.write(outdir*"parameters.csv", parsdf; delim=";")
+    CSV.write(joinpath(outdir, "parameters.csv"), parsdf; delim=";")
 end
 
 """
     Write noisefields to file (empty in case of MS-model)
 """
 function write_noisefields(P,outdir)
+    outdir[end] == "/" && error("provide pathname without trailing '/'")
+
     if isa(P,Landmarks)
         nfsloc = [P.nfs[j].δ for j in eachindex(P.nfs)]
         if d==2
@@ -131,5 +142,5 @@ function write_noisefields(P,outdir)
     elseif isa(P,MarslandShardlow)
         nfsdf =DataFrame(locx=Int64[], locy=Int64[], nfstd=Int64[])
     end
-    CSV.write(outdir*"noisefields.csv", nfsdf; delim=";")
+    CSV.write(joinpath(outdir, "noisefields.csv"), nfsdf; delim=";")
 end

@@ -16,6 +16,7 @@ using JLD
 using TimerOutputs
 const to = TimerOutput()
 
+dir() = joinpath(@__DIR__, "..")
 
 const d = 2
 const sk = 1  # entries to skip for likelihood evaluation
