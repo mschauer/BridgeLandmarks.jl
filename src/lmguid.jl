@@ -230,7 +230,7 @@ function guidingbackwards!(::Lm, t, (Lt, Mt⁺, μt), Paux, obs_info; implicit=t
     for i in length(t)-1:-1:1
         dt = t[i+1]-t[i]
         if implicit
-            Lt[i] .= Lt[i+1]/lu(I - dt* B̃, Val(false))
+            Lt[i] .= Lt[i+1]/lu(I - dt* B̃, Val(false)) # should we use pivoting?
         else
             Lt[i] .=  Lt[i+1] * (I + B̃ * dt)
         end
