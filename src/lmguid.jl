@@ -224,12 +224,13 @@ function guidingbackwards!(::Lm, t, (Lt, Mt⁺, μt), Paux, obs_info; implicit=t
     oldtemp = (0.5*dt) * Bridge.outer(Lt[end] * σ̃T)
     if lowrank
         # TBA lowrank on σ̃T, and write into σ̃T
+        error("not implemented")
     end
 
     for i in length(t)-1:-1:1
         dt = t[i+1]-t[i]
         if implicit
-            Lt[i] .= Lt[i+1]/(I - dt* B̃)
+            Lt[i] .= Lt[i+1]/lu(I - dt* B̃, Val(false))
         else
             Lt[i] .=  Lt[i+1] * (I + B̃ * dt)
         end
@@ -455,7 +456,7 @@ function update_initialstate!(X,Xᵒ,W,ll,x,xᵒ,∇x, ∇xᵒ,
 
 
     if sampler ==:sgd  # CHECK VALIDITY LATER
-        mask = deepvec(State(0*x0.q, 1 .- 0*x0.p))
+        mask = deepvec(State(0*x0.q, onemask(x0.p)))
         # StateW = PointF
         # sample!(W, Wiener{Vector{StateW}}())
         ForwardDiff.gradient!(∇x, u, x, cfg) # X gets overwritten but does not chang

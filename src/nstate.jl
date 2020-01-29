@@ -117,3 +117,6 @@ q(i::Int) = 2i - 1
 p(i::Int) = 2i
 
 flipmomenta(x::NState) = NState(x.q, -x.p)
+
+onemask(x) = onemask.(x)
+onemask(x::Number) = one(x)
