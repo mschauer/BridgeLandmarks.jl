@@ -6,7 +6,7 @@ using Random
 using Distributions
 using StaticArrays
 using LinearAlgebra
-using JLD
+using JLD2
 
 workdir = @__DIR__
 println(workdir)
@@ -41,4 +41,4 @@ end
 xobs0 = []
 
 
-save("data_exp2.jld", "xobs0",xobs0, "xobsT", xobsT, "n", n, "x0", x0, "nshapes", nshapes)
+JLD2.@save "data_exp2.jld2" xobs0 xobsT n x0 nshapes
