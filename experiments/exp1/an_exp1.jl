@@ -18,8 +18,11 @@ Random.seed!(9)
 
 workdir = @__DIR__
 cd(workdir)
-include(dirname(dirname(workdir))*"/postprocessing.jl")
-outdir = workdir*("/")
+include(joinpath(BL.dir(),"scripts", "postprocessing.jl"))
+outdir = workdir
+mkpath(joinpath(outdir, "forward"))
+
+
 
 #-------- read data ----------------------------------------------------------
 dat = load("data_exp1.jld")
@@ -99,7 +102,7 @@ priormom = MvNormalCanon( vcat(BL.p(x0)...), gramkernel(x0.q,P)/κ)
 #########################
 xobsT = [xobsT]
 xinit = State(xobs0, zeros(PointF,P.n))
-mT = zeros(PointF,n)
+mT = zeros(PointF, n)
 
 start = time() # to compute elapsed time
     Xsave, parsave, objvals, accpcn, accinfo, δ, ρ, covθprop =
@@ -116,8 +119,8 @@ println("Acceptance percentage pCN step: ", round(perc_acc_pcn;digits=2))
 write_mcmc_iterates(Xsave, tt_, n, nshapes, subsamples, outdir)
 write_info(model,ITER, n, tt_, updatescheme, Σobs, tp, ρ, δ, perc_acc_pcn, elapsed, outdir)
 write_observations(xobs0, xobsT, n, nshapes, x0,outdir)
-write_acc(accinfo,accpcn,nshapes,outdir)
-write_params(parsave,0:ITER,outdir)
-write_noisefields(P,outdir)
+write_acc(accinfo, accpcn, nshapes,outdir)
+write_params(parsave, 0:ITER, outdir)
+write_noisefields(P, outdir)
 
 #show(to; compact = true, allocations = true, linechars = :ascii)
