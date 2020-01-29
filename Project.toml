@@ -1,7 +1,7 @@
 name = "BridgeLandmarks"
 uuid = "83b8d07e-fbc4-11e9-24cb-23d125ee72bd"
 authors = ["fmeulen, mschauer <moritzschauer@web.de>"]
-version = "0.1.0"
+version = "0.2.0"
 
 [deps]
 Bridge = "2d3116d5-4b8f-5680-861c-71f149790274"
