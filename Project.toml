@@ -22,6 +22,7 @@ TimerOutputs = "a759f4b9-e2f1-59dc-863e-4aeb61b1ea8f"
 
 [compat]
 DataFrames = "0.20"
+Bridge = "0.10"
 julia = "1"
 
 [extras]
