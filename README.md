@@ -17,3 +17,10 @@ are made available for general use, additionally it contains the scripts require
 > Abstract: Stochastically evolving geometric systems are studied in geometric mechanics for modelling turbulence parts of multi-scale fluid flows and in shape analysis for stochastic evolutions of shapes of e.g. human organs. Recently introduced models involve stochastic differential equations that govern the dynamics of a diffusion process X. In applications X is only partially observed at times 0 and T > 0. Conditional on these observations, interest lies in inferring parameters in the dynamics of the dif- fusion and reconstructing the path (Xt, t ∈ [0,T]). The latter problem is known as bridge simulation. We develop a general scheme for bridge sampling in the case of fi- nite dimensional systems of shape landmarks and singular solutions in fluid dynamics. This scheme allows for subsequent statistical inference of properties of the fluid flow or the evolution of observed shapes. It covers stochastic landmark models for which no suitable prior simulation method has been proposed in the literature, that removes restrictions of earlier approaches, improves the handling of the nonlinearity of the con- figuration space leading to more effective sampling schemes, and allows to generalise the common inexact matching scheme to the stochastic setting.
 
 
+# Requirements
+Some of the experiements depend on addition packages. You can install a number of them with 
+
+```
+pkg> add RCall Distributions DataFrames CSV StaticArrays JLD2 TimerOutputs FileIO
+```
+(open the package manager with ])
