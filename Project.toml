@@ -21,8 +21,8 @@ Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 TimerOutputs = "a759f4b9-e2f1-59dc-863e-4aeb61b1ea8f"
 
 [compat]
-Bridge = "0.10"
-DataFrames = "0.20" 
+Bridge = "0.10, 0.11"
+DataFrames = "0.20"
 Distributions = "0.22"
 ForwardDiff = "0.10"
 GaussianDistributions = "0.3"
@@ -31,7 +31,7 @@ PDMats = "0.9"
 Plots = "0.28"
 RecursiveArrayTools = "2.0"
 StaticArrays = "0.12"
-TimerOutputs = "0.5" 
+TimerOutputs = "0.5"
 julia = "1"
 
 [extras]
