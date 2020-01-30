@@ -224,12 +224,13 @@ function guidingbackwards!(::Lm, t, (Lt, Mt⁺, μt), Paux, obs_info; implicit=t
     oldtemp = (0.5*dt) * Bridge.outer(Lt[end] * σ̃T)
     if lowrank
         # TBA lowrank on σ̃T, and write into σ̃T
+        error("not implemented")
     end
 
     for i in length(t)-1:-1:1
         dt = t[i+1]-t[i]
         if implicit
-            Lt[i] .= Lt[i+1]/(I - dt* B̃)
+            Lt[i] .= Lt[i+1]/lu(I - dt* B̃, Val(false)) # should we use pivoting?
         else
             Lt[i] .=  Lt[i+1] * (I + B̃ * dt)
         end
@@ -455,7 +456,7 @@ function update_initialstate!(X,Xᵒ,W,ll,x,xᵒ,∇x, ∇xᵒ,
 
 
     if sampler ==:sgd  # CHECK VALIDITY LATER
-        mask = deepvec(State(0*x0.q, 1 .- 0*x0.p))
+        mask = deepvec(State(0*x0.q, onemask(x0.p)))
         # StateW = PointF
         # sample!(W, Wiener{Vector{StateW}}())
         ForwardDiff.gradient!(∇x, u, x, cfg) # X gets overwritten but does not chang
@@ -475,10 +476,10 @@ function update_initialstate!(X,Xᵒ,W,ll,x,xᵒ,∇x, ∇xᵒ,
             ForwardDiff.gradient!(∇x, u, x, cfg) # X gets overwritten but does not change
             ll_incl0 = sum(llout)
             if update==:mala_pos
-                mask = deepvec(State(1 .- 0*x0.q,  0*x0.p))
+                mask = deepvec(State(onemask(x0.q),  0*x0.p))
                 stepsize = δ[1]
             elseif update==:mala_mom
-                mask = deepvec(State(0*x0.q, 1 .- 0*x0.p))
+                mask = deepvec(State(0*x0.q, onemask(x0.p)))
                 stepsize = δ[2]
             end
             mask_id = (mask .> 0.1) # get indices that correspond to positions or momenta
@@ -493,7 +494,7 @@ function update_initialstate!(X,Xᵒ,W,ll,x,xᵒ,∇x, ∇xᵒ,
         elseif update == :rmmala_pos
                ForwardDiff.gradient!(∇x, u, x, cfg) # X gets overwritten but does not change
                ll_incl0 = sum(llout)
-               mask = deepvec(State(1 .- 0*x0.q,  0*x0.p))
+               mask = deepvec(State(onemask(x0.q),  0*x0.p))
                stepsize = δ[1]
                mask_id = (mask .> 0.1) # get indices that correspond to positions or momenta
                dK = gramkernel(x0.q,P)
@@ -514,7 +515,7 @@ function update_initialstate!(X,Xᵒ,W,ll,x,xᵒ,∇x, ∇xᵒ,
         elseif update == :rmmala_mom
              ForwardDiff.gradient!(∇x, u, x, cfg) # X gets overwritten but does not change
              ll_incl0 = sum(llout)
-             mask = deepvec(State(0*x0.q, 1 .- 0*x0.p))
+             mask = deepvec(State(0*x0.q, onemask(x0.p)))
              stepsize = δ[2]
              mask_id = (mask .> 0.1) # get indices that correspond to positions or momenta
 
@@ -537,7 +538,7 @@ function update_initialstate!(X,Xᵒ,W,ll,x,xᵒ,∇x, ∇xᵒ,
        elseif update == :rmrw_mom
             u(x) # writes into llout
             ll_incl0 = sum(llout)
-            mask = deepvec(State(0*x0.q, 1 .- 0*x0.p))
+            mask = deepvec(State(0*x0.q, onemask(x0.p)))
             stepsize = δ[2]
             mask_id = (mask .> 0.1) # get indices that correspond to positions or momenta
 
@@ -845,10 +846,10 @@ if false
                         ForwardDiff.gradient!(∇x, u, x,cfg) # X gets overwritten but does not change
                         ll_incl0 = sum(llout)
                         if update==:mala_pos
-                            mask = deepvec(State(1 .- 0*x0.q,  0*x0.p))
+                            mask = deepvec(State(onemask(x0.q),  0*x0.p))
                             stepsize = δ[1]
                         elseif update==:mala_mom
-                            mask = deepvec(State(0*x0.q, 1 .- 0*x0.p))
+                            mask = deepvec(State(0*x0.q, onemask(x0.p)))
                             stepsize = δ[2]
                         end
                         mask_id = (mask .> 0.1) # get indices that correspond to positions or momenta
@@ -867,7 +868,7 @@ if false
                            cfg = ForwardDiff.GradientConfig(slogρ!(Q, W, X,priormom,llout), x, ForwardDiff.Chunk{2*d*n}()) # 2*d*P.n is maximal
                            ForwardDiff.gradient!(∇x, slogρ!(Q, W, X,priormom,llout),x,cfg) # X gets overwritten but does not change
                            ll_incl0 = sum(llout)
-                           mask = deepvec(State(1 .- 0*x0.q,  0*x0.p))
+                           mask = deepvec(State(onemask(x0.q),  0*x0.p))
                            stepsize = δ[1]
                            mask_id = (mask .> 0.1) # get indices that correspond to positions or momenta
                            dK = gramkernel(x0.q,P)  #reshape([kernel(x0.q[i]- x0.q[j],P) * one(UncF) for i in 1:n for j in 1:n], n, n)
@@ -892,7 +893,7 @@ if false
                          cfg = ForwardDiff.GradientConfig(slogρ!(Q, W, X,priormom,llout), x, ForwardDiff.Chunk{2*d*n}()) # 2*d*P.n is maximal
                          ForwardDiff.gradient!(∇x, slogρ!(Q, W, X,priormom,llout),x,cfg) # X gets overwritten but does not change
                          ll_incl0 = sum(llout)
-                         mask = deepvec(State(0*x0.q, 1 .- 0*x0.p))
+                         mask = deepvec(State(0*x0.q, onemask(x0.p)))
                          stepsize = δ[2]
                          mask_id = (mask .> 0.1) # get indices that correspond to positions or momenta
 

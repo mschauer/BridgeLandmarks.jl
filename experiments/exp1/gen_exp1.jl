@@ -6,7 +6,7 @@ using Random
 using Distributions
 using StaticArrays
 using LinearAlgebra
-using JLD
+using JLD2
 
 workdir = @__DIR__
 println(workdir)
@@ -37,4 +37,4 @@ stretch = SMatrix{2,2}(1.0 + ψ, 0.0, 0.0, 1.0 - ψ)
 shift = [0.5, 0.0]
 xobsT = [rot * stretch * xobs0[i] + shift  for i in 1:n ]
 
-save("data_exp1.jld", "xobs0",xobs0, "xobsT", xobsT, "n", n, "x0", x0, "nshapes", nshapes)
+JLD2.@save "data_exp1.jld2" xobs0 xobsT n x0 nshapes

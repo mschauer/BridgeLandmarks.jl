@@ -19,8 +19,9 @@ Random.seed!(3)
 
 workdir = @__DIR__
 cd(workdir)
-include(dirname(dirname(workdir))*"/postprocessing.jl")
-outdir = workdir*("/")
+include(joinpath(BL.dir(),"scripts", "postprocessing.jl"))
+outdir = workdir
+mkpath(joinpath(outdir, "forward"))
 
 model = [:ms, :ahs][1]
 T = 1.0; dt = 0.005; t = 0.0:dt:T; tt_ =  tc(t,T)
@@ -55,7 +56,7 @@ xobsT =[ BL.q(Xf.yy[end])] # [Xf.yy[end].q[i] for i in 1:n ]
 
 Xfsave = []# typeof(zeros(length(tt_) * P.n * 2 * d * nshapes))[]
 push!(Xfsave, BL.convert_samplepath(Xf))
-write_mcmc_iterates(Xfsave, tt_, n, nshapes, [1], outdir*"forward/")
+write_mcmc_iterates(Xfsave, tt_, n, nshapes, [1], joinpath(outdir,"forward"))
 
 #--------- MCMC tuning pars ---------------------------------------------------------
 
@@ -91,8 +92,9 @@ xobs0 = BL.q(x0)
 #priorθ = product_distribution(fill(Exponential(1.0),3))
 priorθ = product_distribution([Exponential(ainit), Exponential(cinit), Exponential(γinit)])
 κ = 100.0
-prior_momenta = MvNormalCanon(gramkernel(xobs0,P)/κ)
-logpriormom(x0) = logpdf(prior_momenta, vcat(BL.p(x0)...))# +logpdf(prior_positions, vcat(BL.q(x0)...))
+priormom = prior_momenta = MvNormalCanon(gramkernel(xobs0,P)/κ)
+#logpriormom(x0) = logpdf(prior_momenta, vcat(BL.p(x0)...))# +logpdf(prior_positions, vcat(BL.q(x0)...))
+
 
 #########################
 
@@ -104,7 +106,7 @@ start = time() # to compute elapsed time
     Xsave, parsave, objvals, accpcn, accinfo, δ, ρ, covθprop =
     lm_mcmc(tt_, (xobs0,xobsT), Σobs, mT, P,
               obs_atzero, fixinitmomentato0, ITER, subsamples,
-              xinit, tp, priorθ, logpriormom, updatescheme,
+              xinit, tp, priorθ, priormom, updatescheme,
             outdir)
 elapsed = time() - start
 
@@ -114,9 +116,9 @@ perc_acc_pcn = mean(accpcn)*100
 println("Acceptance percentage pCN step: ", round(perc_acc_pcn;digits=2))
 write_mcmc_iterates(Xsave, tt_, n, nshapes, subsamples, outdir)
 write_info(model,ITER, n, tt_, updatescheme, Σobs, tp, ρ, δ, perc_acc_pcn, elapsed, outdir)
-write_acc(accinfo,accpcn,nshapes,outdir)
+write_acc(accinfo, accpcn, nshapes, outdir)
 
 v0 = Vector(xobs0)
 vT = [Vector(xobsT[1])]
 write_observations(v0, vT, n, nshapes, x0,outdir)
-write_noisefields(P,outdir)
+write_noisefields(P, outdir)

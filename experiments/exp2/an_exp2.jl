@@ -10,14 +10,17 @@ using DelimitedFiles
 using CSV
 using StaticArrays
 using LinearAlgebra
-using JLD
+using JLD2
+using FileIO
 
 Random.seed!(9)
 
 workdir = @__DIR__
 cd(workdir)
-include(dirname(dirname(workdir))*"/postprocessing.jl")
-outdir = workdir*("/")
+include(joinpath(BL.dir(),"scripts", "postprocessing.jl"))
+outdir = workdir
+mkpath(joinpath(outdir, "forward"))
+
 
 #-------- read data ----------------------------------------------------------
 dat = load("data_exp2.jld")

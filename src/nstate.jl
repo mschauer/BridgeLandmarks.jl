@@ -95,6 +95,11 @@ import Base: *, +, /, -
 import LinearAlgebra: dot
 
 #    import Bridge: outer, inner
+
+function outer(x::NState, y::NState)
+    [outer(x[i],y[j]) for i in eachindex(x), j in eachindex(y)]
+end
+
 *(c::Number, x::NState) = NState(c*x.x)
 *(x::NState, c::Number) = NState(x.x*c)
 +(x::NState, y::NState) = NState(x.x + y.x)
@@ -112,3 +117,6 @@ q(i::Int) = 2i - 1
 p(i::Int) = 2i
 
 flipmomenta(x::NState) = NState(x.q, -x.p)
+
+onemask(x) = onemask.(x)
+onemask(x::Number) = one(x)

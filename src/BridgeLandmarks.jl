@@ -16,6 +16,7 @@ using JLD
 using TimerOutputs
 const to = TimerOutput()
 
+dir() = joinpath(@__DIR__, "..")
 
 const d = 2
 const sk = 1  # entries to skip for likelihood evaluation
@@ -39,6 +40,6 @@ include("patches.jl")
 #include("plotlandmarks.jl")  # keep, but presently unused as all is transferred to plotting in R
 include("plotting.jl")
 include("lmguid.jl")  # replacing lmguiding_mv and update_initialstate
-
+include("updatematching.jl")
 
 end # module
