@@ -15,6 +15,7 @@ using JLD
 using StaticArrays
 using LinearAlgebra
 
+const d = 2
 Random.seed!(3)
 
 workdir = @__DIR__
@@ -29,10 +30,10 @@ T = 1.0; dt = 0.005; t = 0.0:dt:T; tt_ =  tc(t,T)
 n = 10
 nshapes = 1
 
-q0 = [PointF(2.0cos(t), sin(t))  for t in collect(0:(2pi/n):2pi)[2:end]]
+q0 = [pointf(2.0cos(t), sin(t))  for t in collect(0:(2pi/n):2pi)[2:end]]
 fac = model==:ms ? 1.0 : 45.0
-p0 = fac*[PointF(1.0, -3.0) for i in 1:n]
-#p0 = zeros(PointF,n)
+p0 = fac*[pointf(1.0, -3.0) for i in 1:n]
+#p0 = zeros(F,n)
 x0 = State(q0, p0)
 
 
@@ -40,13 +41,13 @@ ainit = mean(norm.([x0.q[i]-x0.q[i-1] for i in 2:n]))/2.0   # Let op: door 2 ged
 if model == :ms
     cinit = 0.2
     γinit = .2
-    P = MarslandShardlow(ainit, cinit, γinit, 0.0, n)
+    P = MarslandShardlow{d}(ainit, cinit, γinit, 0.0, n)
 elseif model == :ahs
     cinit = 0.02
     γinit = 0.2
     stdev = 0.75
     nfsinit = construct_nfs(2.5, stdev, γinit)
-    P = Landmarks(ainit, cinit, n, 2.5, stdev, nfsinit)
+    P = Landmarks{d}(ainit, cinit, n, 2.5, stdev, nfsinit)
 end
 
 
@@ -71,7 +72,7 @@ obs_atzero = true
 updatescheme =  [:innov, :mala_mom]#, :parameter] # for pars: include :parameter
 
 σobs = 0.01   # noise on observations
-Σobs = [σobs^2 * one(UncF) for i in 1:n]
+Σobs = [σobs^2 * one(UncF{d,d*d}) for i in 1:n]
 
 ################################# MCMC tuning pars #################################
 ρinit = 0.9              # pcN-step
@@ -98,8 +99,8 @@ priormom = prior_momenta = MvNormalCanon(gramkernel(xobs0,P)/κ)
 
 #########################
 
-xinit = State(x0.q, zeros(PointF,n))#x0
-mT = zeros(PointF,n)
+xinit = State(x0.q, zeros(PointF{d},n))#x0
+mT = zeros(PointF{d},n)
 
 
 start = time() # to compute elapsed time

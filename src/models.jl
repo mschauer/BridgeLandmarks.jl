@@ -1,30 +1,32 @@
 #### Landmarks specification
 import Bridge: _b, _b!, B!, σ!, b!, σ, b, auxiliary
 
-struct MarslandShardlow{T} <: ContinuousTimeProcess{State{PointF}}
+struct MarslandShardlow{d,T} <: ContinuousTimeProcess{State{PointF{d}}}
     a::T # kernel std parameter
     c::T # kernel multiplicate parameter
     γ::T # noise level
     λ::T # mean reversion
     n::Int
 end
+MarslandShardlow{d}(a::T, c, γ, α, n) where {d,T} = MarslandShardlow{d,T}(a, c, γ, α, n)
 
-struct MarslandShardlowAux{S,T} <: ContinuousTimeProcess{State{PointF}}
+struct MarslandShardlowAux{d,S,T} <: ContinuousTimeProcess{State{PointF{d}}}
     a::T # kernel std parameter
     c::T # kernel multiplicate parameter
     γ::T # noise level
     λ::T # mean reversion
-    xT::State{Point{S}}  # use x = State(P.v, zero(P.v)) where v is conditioning vector
+    xT::State{Point{S,d}}  # use x = State(P.v, zero(P.v)) where v is conditioning vector
     n::Int
 end
+#MarslandShardlowAux{d}(a::T, c, γ, α, xt, n) where {d,T} = MarslandShardlowAux{d,T}(a, c, γ, α, xT, n)
 
-struct Noisefield{T}
-    δ::Point{T}   # locations of noise field
-    γ::Point{T}  # scaling at noise field (used to be called lambda)
+struct Noisefield{d,T}
+    δ::Point{T,d}   # locations of noise field
+    γ::Point{T,d}  # scaling at noise field (used to be called lambda)
     τ::T # std of Gaussian kernel noise field
 end
 
-struct  Landmarks{S,T} <: ContinuousTimeProcess{State{PointF}}
+struct  Landmarks{d,S,T} <: ContinuousTimeProcess{State{PointF{d}}}
     a::T # kernel std
     c::T # kernel multiplicate parameter
     n::Int64   # numer of landmarks
@@ -32,15 +34,19 @@ struct  Landmarks{S,T} <: ContinuousTimeProcess{State{PointF}}
     nfstd::Float64
     nfs::Vector{Noisefield{S}}  # vector containing pars of noisefields
 end
+Landmarks{d}(a::T, c, n, db, nfstd, nfs) where {d,T} = Landmarks{d,T}(a, c, n, db, nfstd, nfs)
 
-struct LandmarksAux{S,T} <: ContinuousTimeProcess{State{PointF}}
+struct LandmarksAux{d,S,T} <: ContinuousTimeProcess{State{PointF{d}}}
     a::T # kernel std
     c::T # kernel multiplicate parameter
-    xT::State{Point{S}}  # use x = State(P.v, zero(P.v)) where v is conditioning vector
+    xT::State{Point{S,d}}  # use x = State(P.v, zero(P.v)) where v is conditioning vector
     n::Int64   # numer of landmarks
     nfs::Vector{Noisefield{S}}  # vector containing pars of noisefields
 end
 
+
+UncF(P::ContinuousTimeProcess{State{PointF{d}}}) where {d} = UncF{d,d*d}
+PointF(P::ContinuousTimeProcess{State{Pt}}) where Pt = Pt
 
 MarslandShardlowAux(P::MarslandShardlow, xT) = MarslandShardlowAux(P.a,P.c, P.γ, P.λ, xT, P.n)
 LandmarksAux(P::Landmarks, xT) = LandmarksAux(P.a,P.c, xT, P.n, P.nfs)
@@ -149,11 +155,11 @@ end
 Compute tildeB(t) for landmarks auxiliary process
 """
 function Bridge.B(t, Paux::MarslandShardlowAux) # not AD safe
-    X = zeros(UncF, 2Paux.n, 2Paux.n)
+    X = zeros(UncF(Paux), 2Paux.n, 2Paux.n)
     for i in 1:Paux.n
         for j in 1:Paux.n
-            X[2i-1,2j] =  kernel(q(Paux.xT,i) - q(Paux.xT,j), Paux) * one(UncF)
-            X[2i,2j] = -Paux.λ*kernel(q(Paux.xT,i) - q(Paux.xT,j), Paux)*one(UncF)
+            X[2i-1,2j] =  kernel(q(Paux.xT,i) - q(Paux.xT,j), Paux) * one(UncF(Paux))
+            X[2i,2j] = -Paux.λ*kernel(q(Paux.xT,i) - q(Paux.xT,j), Paux)*one(UncF(Paux))
         end
     end
     X
@@ -177,8 +183,8 @@ function Bridge.B!(t,X,out, Paux::MarslandShardlowAux)
     out
 end
 
-function Bridge.β(t, Paux::MarslandShardlowAux) # Not AD save
-    State(zeros(PointF,Paux.n), zeros(PointF,Paux.n))
+function Bridge.β(t, Paux::MarslandShardlowAux{d}) where {d}# Not AD save
+    State(zeros(PointF{d},Paux.n), zeros(PointF{d},Paux.n))
 end
 
 """
@@ -197,11 +203,11 @@ Returns matrix a(t) for Marsland-Shardlow model
 """
 function Bridge.a(t,  P::Union{MarslandShardlow, MarslandShardlowAux})
     I = Int[]
-    X = UncF[]
+    X = UncF(P)[]
     γ2 = P.γ^2
     for i in 1:P.n
             push!(I, 2i)
-            push!(X, γ2*one(UncF))
+            push!(X, γ2*one(UncF(P)))
     end
     sparse(I, I, X, 2P.n, 2P.n)
 end
@@ -215,12 +221,12 @@ Bridge.a(t, x, P::Union{MarslandShardlow, MarslandShardlowAux}) = Bridge.a(t, P)
 function σ̃(t,  P::Union{MarslandShardlow, MarslandShardlowAux})
     Iind = Int[]
     Jind = Int[]
-    X = UncF[]
+    X = UncF(P)[]
     γ = P.γ
     for i in 1:P.n
         push!(Iind, 2i)
         push!(Jind,i)
-        push!(X, γ*one(UncF))
+        push!(X, γ*one(UncF(P)))
     end
     sparse(Iind, Jind, X, 2P.n, P.n)
 end
@@ -637,13 +643,14 @@ function dimwiener(P)
     end
     out
 end
+pointwiener(P) = PointF(P)
 
 """
     Gram matrix for kernel with vector of landmarks given by q::Vector(PointF)
     ϵ*I is added to avoid numerical problems that destroy PSDness of the Gram matrix
 """
 function gramkernel(q, P; ϵ = 10^(-12))
-    K =  [(kernel(q[i]- q[j],P) + (i==j)*ϵ) * one(UncF)   for i  in eachindex(q), j in eachindex(q)]
+    K =  [(kernel(q[i]- q[j],P) + (i==j)*ϵ) * one(outer(q[i]))   for i  in eachindex(q), j in eachindex(q)]
     PDMat(deepmat(K))
 end
 

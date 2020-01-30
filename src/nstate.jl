@@ -1,10 +1,12 @@
 using StaticArrays
 
-const Point{T} = SArray{Tuple{d},T,1,d}       # point in R2
-const Unc{T} = SArray{Tuple{d,d},T,2,d*d}     # Matrix presenting uncertainty
-const PointF = Point{Float64}
-const UncF = Unc{Float64}
+const Point{T,d} = SArray{Tuple{d},T,1,d}       # point in R2
+const Unc{T,d,dd} = SArray{Tuple{d,d},T,2,dd}     # Matrix presenting uncertainty
+const PointF{d} = Point{Float64,d}
+const UncF{d,dd} = Unc{Float64,d,dd}
 
+pointf(a,b) = Point{Float64,2}(a,b)
+point(a,b) = SVector(a,b)
 
 struct NState{P, M<:AbstractMatrix{P}}
     x::M
@@ -33,9 +35,29 @@ size(s::NState) = size(s.x)
 axes(s::NState, i) = axes(s.x, i)
 deepvec(x::NState) = vec(reinterpret(deepeltype(x), x.x))
 deepvec(x::Vector) = reinterpret(deepeltype(x), x)
+function NState{P}(x::AbstractMatrix) where {P}
+    NState(x)
+end
 
-function deepvec2state(x::Vector)
-    x = reinterpret(Point{eltype(x)}, x)
+function NState{P}(x::Vector{T}) where {T<:Number,P<:SArray}
+    x = reinterpret(P, x)
+    NState(reshape(x, (2, length(x)>>1)))
+end
+
+function NState{P}(x::Vector{T}) where {T,S,P<:SArray{S,T}}
+    x = reinterpret(P, x)
+    NState(reshape(x, (2, length(x)>>1)))
+end
+function NState(x::Base.ReshapedArray{<:Any,1,<:Base.ReinterpretArray{T,d,P}}) where {T,d,P}
+    NState{P}(x.parent.parent)
+end
+function NState{P}(x::Base.ReshapedArray{<:Any,1,<:Base.ReinterpretArray}) where {P}
+    NState{P}(x.parent.parent)
+end
+
+
+function deepvec2state(::Val{d}, x::Vector) where {d}
+    x = reinterpret(Point{eltype(x),d}, x)
     #dump(length(x))
     NState(reshape(x, (2, length(x)>>1)))
 end
@@ -94,7 +116,7 @@ eachindex(x::NState) = CartesianIndices(axes(x.x))
 import Base: *, +, /, -
 import LinearAlgebra: dot
 
-#    import Bridge: outer, inner
+
 
 function outer(x::NState, y::NState)
     [outer(x[i],y[j]) for i in eachindex(x), j in eachindex(y)]
