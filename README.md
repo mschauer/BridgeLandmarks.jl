@@ -5,7 +5,12 @@
 
 
 # BridgeLandmarks 
-## Image analysis and stochastic processes on shape and landmark manifolds.
+
+   ![temp](bridges-overlaid.png)
+   
+*Fig.:* Starting from an ellipse (initial shape, black), 16 landmarks are transformed representing points on the outline of a human *corpus callosum* (final shape, orange). Here we used the Trouve-Vialard model (Example 4 of the paper.) 
+
+## Image analysis and stochastic processes on shape and landmark manifolds
 
 In this Julia package makes the algorithms from the following paper
 are made available for general use, additionally it contains the scripts required to reproduce the numerical experiments in that paper:
