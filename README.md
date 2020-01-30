@@ -21,6 +21,6 @@ are made available for general use, additionally it contains the scripts require
 Some of the experiements depend on addition packages. You can install a number of them with 
 
 ```
-pkg> add RCall Distributions DataFrames CSV StaticArrays JLD
+pkg> add RCall Distributions DataFrames CSV StaticArrays JLD2 TimerOutputs FileIO
 ```
 (open the package manager with ])
