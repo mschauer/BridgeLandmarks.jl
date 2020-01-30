@@ -1,7 +1,9 @@
+# ellipse to rotated and shifted ellipse
+# initial and final landmark positions observed
 using Revise
 
 using BridgeLandmarks
-const BL=BridgeLandmarks
+const BL = BridgeLandmarks
 using RCall
 using Random
 using Distributions
@@ -10,17 +12,21 @@ using DelimitedFiles
 using CSV
 using StaticArrays
 using LinearAlgebra
-using JLD
+using JLD2
+using FileIO
 
 Random.seed!(9)
 
 workdir = @__DIR__
 cd(workdir)
-include(dirname(dirname(workdir))*"/postprocessing.jl")
-outdir = workdir*("/")
+include(joinpath(BL.dir(),"scripts", "postprocessing.jl"))
+outdir = workdir
+mkpath(joinpath(outdir, "forward"))
+
+
 
 #-------- read data ----------------------------------------------------------
-dat = load("data_exp2.jld")
+dat = load("data_exp1.jld2")
 xobs0 = dat["xobs0"]
 xobsT = dat["xobsT"]
 n = dat["n"]
@@ -29,28 +35,39 @@ nshapes = dat["nshapes"]
 
 
 ################################# start settings #################################
-ITER = 10#00
-subsamples = 0:1:ITER
-
+ITER = 205#0
+subsamples = 0:10:ITER
 
 model = [:ms, :ahs][1]
-fixinitmomentato0 = true
-obs_atzero = false
-updatescheme =  [:innov, :rmmala_pos, :parameter] # for pars: include :parameter
+fixinitmomentato0 = false
+obs_atzero = true
 
-σobs = 0.01   # noise on observations
-Σobs = [σobs^2 * one(UncF) for i in 1:n]
+using TimerOutputs
+reset_timer!(to::TimerOutput)
+#updatescheme =  [:innov, :mala_mom, :parameter] # for pars: include :parameter
+# updatescheme =  [:innov,   :parameter] # for pars: include :parameter
+ updatescheme =  [:innov, :sgd] # for pars: include :parameter
+
+if model==:ms
+    σobs = 0.01   # noise on observations
+    Σobs = [σobs^2 * one(UncF) for i in 1:n]
+    # σobsv = vcat(fill(σobs,9), fill(0.1,n-9))
+    # Σobs = [σobsv[i]^2 * one(UncF) for i in 1:n]
+else
+    σobs = 0.01   # noise on observations
+    Σobs = [σobs^2 * one(UncF) for i in 1:n]
+end
 
 T = 1.0; dt = 0.01; t = 0.0:dt:T; tt_ =  tc(t,T)
 
 
 ################################# MCMC tuning pars #################################
-ρinit = 0.7              # pcN-step
+ρinit = 0.9              # pcN-step
 covθprop =   [0.04 0. 0.; 0. 0.04 0.; 0. 0. 0.04]
 if model==:ms
-    δinit = [0.002, 0.1]
+    δinit = [0.001, 0.1] # first comp is not used
 else
-    δinit = [0.01, 0.1]
+    δinit = [0.1, 0.1] # first comp is not used
 end
 η(n) = min(0.2, 10/n)  # adaptation rate for adjusting tuning pars
 adaptskip = 20  # adapt mcmc tuning pars every adaptskip iters
@@ -64,31 +81,29 @@ if model == :ms
     γinit = 2.0
     P = MarslandShardlow(ainit, cinit, γinit, 0.0, n)
 elseif model == :ahs
-    cinit = 0.05
-    γinit = 0.5
+    cinit = 0.02
+    γinit = 0.2
     stdev = 0.75
     nfsinit = construct_nfs(2.5, stdev, γinit)
     P = Landmarks(ainit, cinit, n, 2.5, stdev, nfsinit)
 end
 
 ################## prior specification with θ = (a, c, γ) ########################
+#priorθ = product_distribution(fill(Exponential(1.0),3))
 priorθ = product_distribution([Exponential(ainit), Exponential(cinit), Exponential(γinit)])
-# make flat prior for which logpdf=
-struct FlatPrior end
-import Distributions.logpdf
-logpdf(::FlatPrior, _x) = 0.0
-priormom = FlatPrior()
+κ = 100.0
+# prior_momenta = MvNormalCanon(gramkernel(xobs0,P)/κ)
+# prior_positions = MvNormal(vcat(xobs0...), σobs)
+# logpriormom = MvNormalCanon(gramkernel(xobs0,P)/κ)
+#
+#  logpdf(prior_momenta, vcat(BL.p(x0)...))# +logpdf(prior_positions, vcat(BL.q(x0)...))
+
+priormom = MvNormalCanon( vcat(BL.p(x0)...), gramkernel(x0.q,P)/κ)
 
 #########################
-mT = zeros(PointF,n)   # vector of momenta at time T used for constructing guiding term #mT = randn(PointF,P.n)
-# deliberately take wrong initial landmark configuration
-xinitq = xobsT[1]
-θ, ψ =  π/6, 0.25
-rot =  SMatrix{2,2}(cos(θ), sin(θ), -sin(θ), cos(θ))
-stretch = SMatrix{2,2}(1.0 + ψ, 0.0, 0.0, 1.0 - ψ)
-xinitq_adj = [rot * stretch * xinitq[i] for i in 1:n ]
-xinit = State(xinitq_adj, mT)
-
+xobsT = [xobsT]
+xinit = State(xobs0, zeros(PointF,P.n))
+mT = zeros(PointF, n)
 
 start = time() # to compute elapsed time
     Xsave, parsave, objvals, accpcn, accinfo, δ, ρ, covθprop =
@@ -105,6 +120,8 @@ println("Acceptance percentage pCN step: ", round(perc_acc_pcn;digits=2))
 write_mcmc_iterates(Xsave, tt_, n, nshapes, subsamples, outdir)
 write_info(model,ITER, n, tt_, updatescheme, Σobs, tp, ρ, δ, perc_acc_pcn, elapsed, outdir)
 write_observations(xobs0, xobsT, n, nshapes, x0,outdir)
-write_acc(accinfo,accpcn,nshapes,outdir)
-write_params(parsave,subsamples,outdir)
-write_noisefields(P,outdir)
+write_acc(accinfo, accpcn, nshapes,outdir)
+write_params(parsave, 0:ITER, outdir)
+write_noisefields(P, outdir)
+
+#show(to; compact = true, allocations = true, linechars = :ascii)

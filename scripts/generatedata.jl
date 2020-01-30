@@ -21,7 +21,7 @@ function generatedata(dataset,P,t,σobs)
     n = P.n
     if dataset=="forwardsimulated"
         q0 = [PointF(2.0cos(t), sin(t)) for t in (0:(2pi/n):2pi)[1:n]]  #q0 = circshift(q0, (1,))
-        p0 = [Point(1.0, -3.0) for i in 1:n]/n  # #p0 = [randn(Point) for i in 1:n]
+        p0 = [5*Point(1.0, -3.0) for i in 1:n]/n  # #p0 = [randn(Point) for i in 1:n]
         x0 = State(q0, p0)
         Wf, Xf = landmarksforward(t, x0, P)
         xobs0 = x0.q + σobs * randn(PointF,n)
@@ -50,8 +50,8 @@ function generatedata(dataset,P,t,σobs)
         obs_atzero = true
     end
     if dataset=="bear"
-        bear0 = readdlm(joinpath(@__DIR__,"data-stefan", "bear1.csv"), ',')
-        bearT = readdlm(joinpath(@__DIR__,"data-stefan", "bear2.csv"), ',')
+        bear0 = readdlm(joinpath(@__DIR__, "..", "data-stefan", "bear1.csv"), ',')
+        bearT = readdlm(joinpath(@__DIR__, "..", "data-stefan", "bear2.csv"), ',')
         nb = size(bear0)[1]
         avePoint = Point(414.0, 290.0)  # average of (x,y)-coords for bear0 to center figure at origin
         xobs0 = [Point(bear0[i,1], bear0[i,2]) - avePoint for i in 1:nb]/200.
@@ -94,7 +94,7 @@ function generatedata(dataset,P,t,σobs)
         obs_atzero = true
     end
     if dataset=="generatedstefan"
-        testshapes = npzread(joinpath(@__DIR__,"data-stefan", "match.npy.npz"))
+        testshapes = npzread(joinpath(@__DIR__, "..", "data-stefan", "match.npy.npz"))
         xobs0vec =  get(testshapes,"q0",0)
         xobsTvec =  get(testshapes,"v",0)
         p0vec = get(testshapes,"p",0)
@@ -155,7 +155,7 @@ function generatedata(dataset,P,t,σobs)
         # for i in range(N_samples):
         #      plt.plot(qs[i,:,0],qs[i,:,1])
 
-        cardiac = npzread(joinpath(@__DIR__,"data-stefan","cardiac.npy"))  # heart data (left ventricles, the one we used in https://arxiv.org/abs/1705.10943
+        cardiac = npzread(joinpath(@__DIR__, "..", "data-stefan","cardiac.npy"))  # heart data (left ventricles, the one we used in https://arxiv.org/abs/1705.10943
         cardiacx = cardiac[:,:,1]  # x-coordinates of landmarks
         cardiacy = cardiac[:,:,2]  # y-coordinates of landmarks
         nshapes = 14
@@ -189,7 +189,7 @@ function generatedata(dataset,P,t,σobs)
 end
 
 if false
-    cc = npzread(joinpath(@__DIR__,"data-stefan","cc.npy")) # corpus callosum data
+    cc = npzread(joinpath(@__DIR__, "..", "data-stefan","cc.npy")) # corpus callosum data
 
                     # there are 14 cardiac images, in https://arxiv.org/pdf/1705.10943.pdf 17 landmarks are chosen
 end
