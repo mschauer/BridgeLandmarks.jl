@@ -1,5 +1,5 @@
 #### Landmarks specification
-import Bridge: _b, _b!, B!, σ!, b!, σ, b
+import Bridge: _b, _b!, B!, σ!, b!, σ, b, auxiliary
 
 struct MarslandShardlow{T} <: ContinuousTimeProcess{State{PointF}}
     a::T # kernel std parameter
@@ -207,6 +207,26 @@ function Bridge.a(t,  P::Union{MarslandShardlow, MarslandShardlowAux})
 end
 Bridge.a(t, x, P::Union{MarslandShardlow, MarslandShardlowAux}) = Bridge.a(t, P)
 
+
+
+"""
+    Return matrix σ̃(t)
+"""
+function σ̃(t,  P::Union{MarslandShardlow, MarslandShardlowAux})
+    Iind = Int[]
+    Jind = Int[]
+    X = UncF[]
+    γ = P.γ
+    for i in 1:P.n
+        push!(Iind, 2i)
+        push!(Jind,i)
+        push!(X, γ*one(UncF))
+    end
+    sparse(Iind, Jind, X, 2P.n, P.n)
+end
+
+
+
 """
 Multiply a(t,x) times xin (which is of type state)
 Returns variable of type State
@@ -295,9 +315,20 @@ end
 """
 function construct_nfs(db, nfstd, γ)
     r1 = -db:2nfstd:db
-    r2 = -db:2nfstd:db
-    nfloc = Point.(collect(product(r1, r2)))[:]
-    nfscales = [2/pi*γ*Point(1.0, 1.0) for x in nfloc]  # intensity
+    if d==1
+        nfloc = Point.(collect(r1))[:]
+        nfscales = [2/pi*γ*Point(1.0) for x in nfloc]  # intensity
+    elseif d==2
+        r2 = -db:2nfstd:db
+        nfloc = Point.(collect(product(r1, r2)))[:]
+        nfscales = [2/pi*γ*Point(1.0, 1.0) for x in nfloc]  # intensity
+    elseif d==3
+        error("first test carefully whether construct_nfs is ok for d=3")
+        r2 = -db:2nfstd:db
+        r3 = -db:2nfstd:db
+        nfloc = Point.(collect(product(r1, r2,r3)))[:]
+        nfscales = [2/pi*γ*Point(1.0, 1.0, 1.0) for x in nfloc]  # intensity
+    end
     [Noisefield(δ, λ, nfstd) for (δ, λ) in zip(nfloc, nfscales)]
 end
 
@@ -411,6 +442,8 @@ function Bridge.β(t, Paux::LandmarksAux)
 end
 
 
+
+
 """
 Compute sigma(t,x) * dm where dm is a vector and sigma is the diffusion coefficient of landmarks
 write to out which is of type State
@@ -450,6 +483,24 @@ function σtmul(t, x_, y::State{Pnt}, P::Union{Landmarks,LandmarksAux}) where Pn
     end
     out
 end
+
+"""
+    Return matrix σ̃(t) for LandmarksAux
+"""
+function σ̃(t,  Paux::LandmarksAux)
+    x = Paux.xT
+    out = zeros(UncF, 2Paux.n, length(Paux.nfs))
+    for i in 1:Paux.n
+        for j in 1:length(Paux.nfs)
+            out[2i-1,j] = σq(q(x, i), Paux.nfs[j])
+            out[2i,j] = σp(q(x, i), p(x, i), Paux.nfs[j])
+        end
+    end
+    out
+end
+
+
+
 
 """
     compute σ(t,x)' y, where y::State
@@ -585,6 +636,24 @@ function dimwiener(P)
         out = length(P.nfs)
     end
     out
+end
+
+"""
+    Gram matrix for kernel with vector of landmarks given by q::Vector(PointF)
+    ϵ*I is added to avoid numerical problems that destroy PSDness of the Gram matrix
+"""
+function gramkernel(q, P; ϵ = 10^(-12))
+    K =  [(kernel(q[i]- q[j],P) + (i==j)*ϵ) * one(UncF)   for i  in eachindex(q), j in eachindex(q)]
+    PDMat(deepmat(K))
+end
+
+
+function hamiltonian(x::NState, P::MarslandShardlow)
+    s = 0.0
+    for i in 1:P.n, j in 1:P.n
+        s += dot(x.p[i], x.p[j])*kernel(x.q[i] - x.q[j], P)
+    end
+    0.5 * s
 end
 
 

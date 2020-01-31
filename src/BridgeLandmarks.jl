@@ -7,19 +7,29 @@ using RecursiveArrayTools
 using DataFrames
 using Distributions
 using GaussianDistributions
+using SparseArrays
 
 using LinearAlgebra, Base.Iterators
+using PDMats
+using JLD
+
+using TimerOutputs
+const to = TimerOutput()
+
+dir() = joinpath(@__DIR__, "..")
 
 const d = 2
-const sk=1  # entries to skip for likelihood evaluation
+const sk = 1  # entries to skip for likelihood evaluation
 const itostrat = true
 
 export Point, PointF, Unc, UncF, State, deepvec
 
 export Landmarks, LandmarksAux, MarslandShardlow, MarslandShardlowAux
-export landmarksforward, itostrat, construct_nfs, lm_mcmc
+export landmarksforward, itostrat, construct_nfs, lm_mcmc, gramkernel, tuningpars_mcmc
 
-export Lmplotbounds, extractcomp
+export Lmplotbounds, extractcomp, tc
+
+export d, sk, to
 
 plotlandmarkpositions = Ref{Any}((args...) -> nothing )
 
@@ -30,6 +40,6 @@ include("patches.jl")
 #include("plotlandmarks.jl")  # keep, but presently unused as all is transferred to plotting in R
 include("plotting.jl")
 include("lmguid.jl")  # replacing lmguiding_mv and update_initialstate
-
+include("updatematching.jl")
 
 end # module

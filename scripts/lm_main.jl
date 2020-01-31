@@ -1,43 +1,36 @@
-#] add StaticArrays Distributions DelimitedFiles DataFrames CSV RCall SparseArrays LowRankApprox Trajectories
-#] add ForwardDiff DiffResults TimerOutputs Plots RecursiveArrayTools NPZ
+# using Bridge, StaticArrays, Distributions
+# using Bridge:logpdfnormal
+# using Test, Statistics, Random, LinearAlgebra
+# using Bridge.Models
+# using DelimitedFiles, DataFrames, RCall
+# using CSV
+# # install.packages(ggforce)
+# using Base.Iterators, SparseArrays, LowRankApprox, Trajectories
+# using ForwardDiff
+# using Plots,  PyPlot #using Makie
+# using RecursiveArrayTools
+# using NPZ # for reading python datafiles
+# using Random
 
 using BridgeLandmarks
-const LM = BridgeLandmarks
-using Bridge, StaticArrays, Distributions
-using Bridge: logpdfnormal
 
-using Test, Statistics, Random, LinearAlgebra
-using Bridge.Models
-using DelimitedFiles, DataFrames, RCall
-using CSV
-# install.packages(ggforce)
-using Base.Iterators, SparseArrays, LowRankApprox, Trajectories
-using ForwardDiff
+workdir = @__DIR__
+println(workdir)
+cd(workdir)
+
+using RCall
 using Plots
-using RecursiveArrayTools
-using NPZ # for reading python datafiles
 using Random
-
-#workdir = @__DIR__
-#println(workdir)
-#cd(workdir)
+using Distributions
+using NPZ # for reading python datafiles
+using DataFrames
+using DelimitedFiles
+using CSV
 
 pyplot()
 
-
-const d = 2
-const TEST = false
-
-#include("nstate.jl")
-#include("state.jl")
-#include("models.jl")
-#include("patches.jl")
-include("plotlandmarks.jl")  # keep, but presently unused as all is transferred to plotting in R
 include("generatedata.jl")
-#include("lmguiding_mv.jl")
-#include("update_initialstate.jl")
-#include("lmguid.jl")  # replacing lmguiding_mv and update_initialstate
-
+include("plotting.jl")
 
 
 Random.seed!(3)
@@ -45,7 +38,7 @@ Random.seed!(3)
 ################################# start settings #################################
 n = 6  # nr of landmarks
 models = [:ms, :ahs]
-model = models[2]
+model = models[1]
 println("model: ",model)
 
 ITER = 5
@@ -66,7 +59,7 @@ prior_γ = Exponential(5.0)
 datasets =["forwardsimulated", "shifted","shiftedextreme",
             "bear","heart","peach",
             "generatedstefan","forwardsimulated_multiple", "cardiac"]
-dataset = datasets[3]
+dataset = datasets[7]
 println("dataset: ",dataset)
 
 fixinitmomentato0 = true#false
@@ -84,13 +77,15 @@ fixinitmomentato0 = true#false
 σ_c = 0.2  # update c to cᵒ as cᵒ = c * exp(σ_c * rnorm())
 σ_γ = 0.2  # update γ to γᵒ as γᵒ = γ * exp(σ_γ * rnorm())
 
+η(n) = min(0.1, 10/sqrt(n))  # adaptation rate for adjusting tuning pars
+
 #------------------------------------------------------------------
 σobs = 0.01   # noise on observations
 
 #------------------------------------------------------------------
 # set time grids
 dt = 0.01
-T = 1.0; t = 0.0:dt:T; tt_ = LM.tc(t,T)
+T = 1.0; t = 0.0:dt:T; tt_ =  BridgeLandmarks.tc(t,T)
 
 outdir = "./figs/"
 if false # to use later on, when plotting is transferred from R to Julia
@@ -104,6 +99,10 @@ a = 2.0     # Hamiltonian kernel parameter (the larger, the stronger landmarks b
 c = 0.1     # multiplicative factor in kernel
 γ = 1.0     # Noise level
 
+# a = 0.2
+# c = 0.1
+# γ = 0.002
+
 if model == :ms
     λ = 0.0;    # Mean reversion par in MS-model = not the lambda of noise fields  =#
     nfs = 0 # needs to have value for plotting purposes
@@ -111,7 +110,7 @@ if model == :ms
 else
     db = 2.0 # domainbound
     nfstd = 1.0 # tau , width of noisefields
-    nfs = LM.construct_nfs(db, nfstd, γ) # 3rd argument gives average noise of positions (with superposition)
+    nfs = construct_nfs(db, nfstd, γ) # 3rd argument gives average noise of positions (with superposition)
     Ptrue = Landmarks(a, c, n, db, nfstd, nfs)
 end
 
@@ -123,12 +122,12 @@ x0, xobs0, xobsT, Xf, Ptrue, pb, obs_atzero  = generatedata(dataset,Ptrue,t,σob
 
 # step-size on mala steps for initial state
 if obs_atzero
-    δ = [0.0, 0.1] # in this case first comp is not used
+    δ = [0.0, 0.01] # in this case first comp is not used
 else
     δ = [0.0005, 0.005]
 end
 
-(ainit, cinit, γinit) = (0.1, 0.1, 0.1)
+(ainit, cinit, γinit) = (1.0, 1.0, 1.0) #(0.1, 0.1, 0.1) # (a,c,γ)
 if model == :ms
     P = MarslandShardlow(ainit, cinit, γinit, Ptrue.λ, Ptrue.n)
 elseif model == :ahs
@@ -141,7 +140,6 @@ mT = zeros(PointF,P.n)   # vector of momenta at time T used for constructing gui
 #mT = randn(PointF,P.n)
 
 start = time() # to compute elapsed time
-
 
 if obs_atzero     # only update mom
     xobsT = [xobsT]  # should be a vector
@@ -163,17 +161,16 @@ elseif !obs_atzero & fixinitmomentato0   # multiple shapes only update pos, so i
     initstate_updatetypes = [:rmmala_pos]
 end
 
-LM.plotlandmarkpositions[] = plotlandmarkpositions
 
-anim, Xsave, parsave, objvals, perc_acc_pcn, accinfo = lm_mcmc(tt_, (xobs0,xobsT), σobs, mT, P,
+anim, Xsave, parsave, objvals, acc_pcn, accinfo = lm_mcmc(tt_, (xobs0,xobsT), σobs, mT, P,
          sampler, obs_atzero, fixinitmomentato0,
          xinit, ITER, subsamples,
-        (ρ, δ, prior_a, prior_c, prior_γ, σ_a, σ_c, σ_γ), initstate_updatetypes,
+        (ρ, δ, prior_a, prior_c, prior_γ, σ_a, σ_c, σ_γ, η), initstate_updatetypes, adaptskip,
         outdir,  pb; updatepars = true, makefig=true, showmomenta=false)
 
 elapsed = time() - start
 
 println("Elapsed    time: ",round(elapsed/60;digits=2), " minutes")
-println("Acceptance percentage pCN step: ",perc_acc_pcn)
+println("Acceptance percentage pCN step: ",acc_pcn)
 
 include("./postprocessing.jl")
