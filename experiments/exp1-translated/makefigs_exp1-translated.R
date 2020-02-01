@@ -1,5 +1,3 @@
-PARESTIMATION <- TRUE
-
 # get directory of source script
 setwd(dirname(rstudioapi::getSourceEditorContext()$path))
 
@@ -176,22 +174,20 @@ pmomT <-  d %>% dplyr::filter(time==1) %>%
 pmomT
 
 
-if (PARESTIMATION == TRUE)
-{
-# plot parameter updates
-ppar1 <- parsdf %>% mutate(cdivgamma2=c/gamma^2) %>% gather(key=par, value=value, a, c, gamma,cdivgamma2) 
-ppar1$par <- factor(ppar1$par, levels=c('a', 'c', 'gamma','cdivgamma2'), labels=c("a","c",expression(gamma),expression(c/gamma^2)))
-tracepars <- ppar1 %>% ggplot(aes(x=iterate, y=value)) + geom_path() + facet_wrap(~par, scales="free_y",labeller = label_parsed) +
-  xlab("iterate") + ylab("") +  theme(strip.text.x = element_text(size = 12))
-pdf("trace-pars.pdf",width=6,height=4)  
-show(tracepars)
-dev.off()
+d1halfend <- bind_rows(d1,d1) %>% dplyr::filter(time %in% c(0.51,1))
 
-# pairwise scatter plots for parameter updates  
-ppar2 <- parsdf %>% ggplot(aes(x=a,y=c,colour=iterate)) + geom_point() + theme(legend.position = 'none')  +scale_colour_gradient(low="orange",high="darkblue")
-ppar3 <- parsdf %>% ggplot(aes(x=a,y=gamma,colour=iterate)) + geom_point() + theme(legend.position = 'none') +scale_colour_gradient(low="orange",high="darkblue")
-ppar4 <- parsdf %>% ggplot(aes(x=c,y=gamma,colour=iterate)) + geom_point()+ theme(legend.position = 'none') +scale_colour_gradient(low="orange",high="darkblue")
-pdf("scatter-pars.pdf",width=6,height=2)  
-grid.arrange(ppar2,ppar3,ppar4,ncol=3)
+phalf <-
+  ggplot() +   
+  geom_path(data=d1halfend, aes(x=pos1,y=pos2,colour=iterate,group=iterate),alpha=0.5,size=0.5)+
+  #geom_path(data=d1end, aes(x=pos1,y=pos2,colour=iterate,group=iterate),alpha=0.5,size=0.5)+
+  geom_point(data=v0, aes(x=pos1,y=pos2), colour='black')+
+  geom_point(data=vT, aes(x=pos1,y=pos2), colour='orange')+
+  geom_path(data=v0, aes(x=pos1,y=pos2), colour='black',size=0.6)+
+  geom_path(data=vT, aes(x=pos1,y=pos2,group=shape), colour='orange',size=0.6)+
+  facet_wrap(~time)+theme(axis.title.x=element_blank(), axis.title.y=element_blank())+scale_colour_gradient(low="grey",high="darkblue")+
+  coord_fixed()
+
+fracwidthfig = 0.8 * widthfig
+pdf("shapeshalfway.pdf", width = fracwidthfig, height=3)
+show(phalf)
 dev.off()
-}

@@ -9,6 +9,7 @@ library(stringr)
 library(gridExtra)
 library(ggforce)
 library(GGally)
+library(gganimate)
 theme_set(theme_light())
 ########  read observations
 obs0df <- read_delim("obs0.csv", ";", escape_double = FALSE, trim_ws = TRUE)

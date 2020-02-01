@@ -40,20 +40,23 @@ end
     Note: the value for xobs0 passed to this function is only relevant in case obs_atzero=true
 """
 function set_obsinfo(n, obs_atzero::Bool,fixinitmomentato0::Bool, Σobs,xobs0)
+    Σobs0 = Σobs[1]; ΣobsT = Σobs[2]
     if obs_atzero
         L0 = LT = [(i==j) * one(UncF) for i in 1:2:2n, j in 1:2n]  # pick position indices
-        Σ0 = ΣT = [(i==j) * Σobs[i] for i in 1:n, j in 1:n]
+        Σ0 = [(i==j) * Σobs0[i] for i in 1:n, j in 1:n]
+        ΣT = [(i==j) * ΣobsT[i] for i in 1:n, j in 1:n]
     elseif !obs_atzero & !fixinitmomentato0
         L0 = Array{UncF}(undef,0,2*n)
         Σ0 = Array{UncF}(undef,0,0)
         xobs0 = Array{PointF}(undef,0)
         LT = [(i==j) * one(UncF) for i in 1:2:2n, j in 1:2n]
-        ΣT = [(i==j) * Σobs[i] for i in 1:n, j in 1:n]
+        ΣT = [(i==j) * ΣobsT[i] for i in 1:n, j in 1:n]
     elseif !obs_atzero & fixinitmomentato0   # only update positions and fix initial state momenta to zero
         xobs0 = zeros(PointF,n)
         L0 = [((i+1)==j) * one(UncF) for i in 1:2:2n, j in 1:2n] # pick momenta indices
         LT = [(i==j) * one(UncF) for i in 1:2:2n, j in 1:2n] # pick position indices
-        Σ0 = ΣT = [(i==j) * Σobs[i]  for i in 1:n, j in 1:n]
+        Σ0 = [(i==j) * Σobs0[i] for i in 1:n, j in 1:n]
+        ΣT = [(i==j) * ΣobsT[i] for i in 1:n, j in 1:n]
     end
     μT = zeros(PointF,n)
     xobs0, ObsInfo(LT,ΣT,μT,L0,Σ0)
@@ -664,7 +667,7 @@ end
     Perform mcmc or sgd for landmarks model using the LM-parametrisation
     tt_:      time grid
     (xobs0,xobsT): observations at times 0 and T (at time T this is a vector)
-    Σobs: covariance matrix of Gaussian noise assumed on each element of xobs0 and xobsT
+    Σobs: array with covariance matrix of Gaussian noise assumed on each element of xobs0 and xobsT
     mT: vector of momenta at time T used for constructing guiding term
     P: target process
 

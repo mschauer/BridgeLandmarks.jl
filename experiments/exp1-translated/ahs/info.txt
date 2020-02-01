@@ -1,0 +1,14 @@
+Model: ahs
+Number of iterations: 500
+Number of landmarks: 5
+Length time grid: 101
+Endpoint: 1.0
+updatescheme: Symbol[:innov, :mala_mom]
+Noise Sigma: Array{SArray{Tuple{2,2},Float64,2,4},1}[[[0.0001 0.0; 0.0 0.0001], [0.0001 0.0; 0.0 0.0001], [0.0001 0.0; 0.0 0.0001], [0.0001 0.0; 0.0 0.0001], [0.0001 0.0; 0.0 0.0001]], [[0.0001 0.0; 0.0 0.0001], [0.0001 0.0; 0.0 0.0001], [0.0001 0.0; 0.0 0.0001], [0.0001 0.0; 0.0 0.0001], [0.0001 0.0; 0.0 0.0001]]]
+tuningpars_mcmc: tuningpars_mcmc(0.9, 10, [0.1, 0.5], [0.04 0.0 0.0; 0.0 0.04 0.0; 0.0 0.0 0.04], η, 20)
+Final value  of rho (Crank-Nicholsen parameter: 0.7350111402372382
+Final value of MALA parameter (delta): [0.1, 1.14054]
+skip in evaluation of loglikelihood: 1
+Average acceptance percentage pCN update steps: 69.8
+
+Elapsed time: 888.9512071609497
