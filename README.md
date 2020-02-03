@@ -8,7 +8,7 @@
 
    ![temp](bridges-overlaid.png)
    
-*Fig.:* Starting from an ellipse (initial shape, black), 16 landmarks are transformed representing points on the outline of a human *corpus callosum* (final shape, orange). Here we used the Trouve-Vialard model (Example 4 of the paper.) 
+*Fig.:* Starting from an ellipse (initial shape, black), 16 landmarks are transformed representing points on the outline of a human *corpus callosum* (final shape, orange). Here we used the Trouve-Vialard model (Example 4 of the paper.) The landmarks move along randomized ergodesics, the variation of the samples of these curves capture the uncertainty about the actual deformation that took place.
 
 ## Image analysis and stochastic processes on shape and landmark manifolds
 
@@ -28,4 +28,4 @@ Some of the experiements depend on addition packages. You can install a number o
 ```
 pkg> add RCall Distributions DataFrames CSV StaticArrays JLD2 TimerOutputs FileIO
 ```
-(open the package manager with ])
+(open the package manager with `]`)
