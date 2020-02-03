@@ -83,7 +83,7 @@ end
 """
     Write observations to file
 """
-function write_observations(xobs0, xobsT, n, nshapes, x0,outdir)
+function write_observations(xobs0, xobsT, n, nshapes, outdir)
     outdir[end] == "/" && error("provide pathname without trailing '/'")
 
     valueT = vcat(map(x->deepvec(x), xobsT)...) # merge all observations at time T in one vector
@@ -97,16 +97,14 @@ function write_observations(xobs0, xobsT, n, nshapes, x0,outdir)
     shT = repeat(1:nshapes, inner=d*n)
     obsTdf = DataFrame(pos=posT,shape=shT, value=valueT,landmark=repeat(1:n,inner=d,outer=nshapes))
 
-    q0 = map(x->vec(x),x0.q)
-    p0 = map(x->vec(x),x0.p)
     if d==1
-        obs0df = DataFrame(pos1=extractcomp(q0,1), mom1=extractcomp(p0,1),landmark=1:n)
+        obs0df = DataFrame(pos1=extractcomp(xobs0,1),landmark=1:n)
     elseif d==2
-        obs0df = DataFrame(pos1=extractcomp(q0,1), pos2=extractcomp(q0,2), mom1=extractcomp(p0,1) , mom2=extractcomp(p0,2),landmark=1:n)
+        obs0df = DataFrame(pos1=extractcomp(xobs0,1), pos2=extractcomp(xobs0,2),landmark=1:n)
     elseif d==3
-        obs0df = DataFrame(pos1=extractcomp(q0,1), pos2=extractcomp(q0,2), pos3=extractcomp(q0,3),
-                            mom1=extractcomp(p0,1) , mom2=extractcomp(p0,2), mom3=extractcomp(p0,3),landmark=1:n)
+        obs0df = DataFrame(pos1=extractcomp(xobs0,1), pos2=extractcomp(xobs0,2), pos3=extractcomp(xobs0,3),landmark=1:n)
     end
+
     CSV.write(joinpath(outdir, "obs0.csv"), obs0df; delim=";")
     CSV.write(joinpath(outdir, "obsT.csv"), obsTdf; delim=";")
 end

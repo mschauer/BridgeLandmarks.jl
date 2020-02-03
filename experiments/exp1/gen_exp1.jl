@@ -12,29 +12,20 @@ workdir = @__DIR__
 println(workdir)
 cd(workdir)
 
-n = 49#18  # in the final experiment we'll take n = 18
+n = 18  # in the final experiment we'll take n = 18
 nshapes = 1
 T = 1.0
 
 a = 2.0     # Hamiltonian kernel parameter (the larger, the stronger landmarks behave similarly)
 c = 0.1     # multiplicative factor in kernel
-γ = 1.0     # Noise level
+γ = 0.7     # Noise level
 
-Ptrue = MarslandShardlow(a, c, γ, 0.0, n)
+xobs0 = [PointF(2.0cos(t), sin(t))  for t in collect(0:(2pi/n):2pi)[2:end]]
 
-q0 = [PointF(2.0cos(t), sin(t))  for t in collect(0:(2pi/n):2pi)[2:end]]
-#p0 = [PointF(1.0, -3.0) for i in 1:n]/n
-p0 = zeros(PointF,n)
-x0 = State(q0, p0)
-
-#Wf, Xf = landmarksforward(0.0:0.001:T, x0, Ptrue)
-
-xobs0 = x0.q
-
-θ, ψ =  π/4, 0.25
+θ, ψ =  π/4, 0.2
 rot =  SMatrix{2,2}(cos(θ), sin(θ), -sin(θ), cos(θ))
 stretch = SMatrix{2,2}(1.0 + ψ, 0.0, 0.0, 1.0 - ψ)
 shift = [0.5, 0.0]
 xobsT = [rot * stretch * xobs0[i] + shift  for i in 1:n ]
 
-JLD2.@save "data_exp1.jld2" xobs0 xobsT n x0 nshapes
+JLD2.@save "data_exp1.jld2" xobs0 xobsT n nshapes

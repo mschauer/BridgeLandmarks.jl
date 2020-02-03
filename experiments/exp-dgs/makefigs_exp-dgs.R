@@ -216,6 +216,26 @@ panim <- ds %>%
 panim
 
 theme_set(theme_bw())
-u <- panim + transition_reveal(time)
-animate(u, renderer = ffmpeg_renderer())
-anim_save("animate_dgs.mp4", u, renderer = ffmpeg_renderer())
+# `u <- panim + transition_reveal(time)
+# animate(u, renderer = ffmpeg_renderer())
+# anim_save("animate_dgs.mp4", u, renderer = ffmpeg_renderer())
+
+
+theme_set(theme_light())
+d1halfend <- bind_rows(d1,d1) %>% dplyr::filter(time %in% c(0.2604, 0.51, 0.75, 1))
+
+phalf <-
+  ggplot() +   
+  geom_path(data=d1halfend, aes(x=pos1,y=pos2,colour=iterate,group=iterate),alpha=0.5,size=0.5)+
+  #geom_path(data=d1end, aes(x=pos1,y=pos2,colour=iterate,group=iterate),alpha=0.5,size=0.5)+
+  geom_point(data=v0, aes(x=pos1,y=pos2), colour='black')+
+  geom_point(data=vT, aes(x=pos1,y=pos2), colour='orange')+
+  geom_path(data=v0, aes(x=pos1,y=pos2), colour='black',size=0.6)+
+  geom_path(data=vT, aes(x=pos1,y=pos2,group=shape), colour='orange',size=0.6)+
+  facet_wrap(~time)+theme(axis.title.x=element_blank(), axis.title.y=element_blank())+scale_colour_gradient(low="grey",high="darkblue")+
+  coord_fixed()
+
+fracwidthfig =  widthfig
+pdf("shapeshalfway.pdf", width = fracwidthfig, height=4)
+show(phalf)
+dev.off()

@@ -9,14 +9,11 @@ library(gridExtra)
 library(ggforce)
 library(GGally)
 theme_set(theme_light())
+
 ########  read observations
-
-
-  
 obs0df <- read_delim("obs0.csv", ";", escape_double = FALSE, trim_ws = TRUE)
 obsTdf <- read_delim("obsT.csv", ";", escape_double = FALSE, trim_ws = TRUE) %>% spread(key=pos,value=value) %>%
     mutate(shape=as.factor(shape))
-
 
 v0 <- bind_rows(obs0df, obs0df)
 vT <- bind_rows(obsTdf, obsTdf)

@@ -1,19 +1,14 @@
-Sampler: mcmc
 Model: ms
 Number of iterations: 500
 Number of landmarks: 18
 Length time grid: 101
 Endpoint: 1.0
-Noise Sigma: 0.01
-Initialisation of rho (Crank-Nicholsen parameter: 0.9
-Initialisation of MALA parameter (delta): [0.0, 0.1]
-Final value  of rho (Crank-Nicholsen parameter: 0.9731187810905468
-Final value of MALA parameter (delta): [0.0, 0.343073]
+updatescheme: Symbol[:innov, :mala_mom]
+Noise Sigma: Array{SArray{Tuple{2,2},Float64,2,4},1}[[[0.0001 0.0; 0.0 0.0001], [0.0001 0.0; 0.0 0.0001], [0.0001 0.0; 0.0 0.0001], [0.0001 0.0; 0.0 0.0001], [0.0001 0.0; 0.0 0.0001], [0.0001 0.0; 0.0 0.0001], [0.0001 0.0; 0.0 0.0001], [0.0001 0.0; 0.0 0.0001], [0.0001 0.0; 0.0 0.0001], [0.0001 0.0; 0.0 0.0001], [0.0001 0.0; 0.0 0.0001], [0.0001 0.0; 0.0 0.0001], [0.0001 0.0; 0.0 0.0001], [0.0001 0.0; 0.0 0.0001], [0.0001 0.0; 0.0 0.0001], [0.0001 0.0; 0.0 0.0001], [0.0001 0.0; 0.0 0.0001], [0.0001 0.0; 0.0 0.0001]], [[0.0001 0.0; 0.0 0.0001], [0.0001 0.0; 0.0 0.0001], [0.0001 0.0; 0.0 0.0001], [0.0001 0.0; 0.0 0.0001], [0.0001 0.0; 0.0 0.0001], [0.0001 0.0; 0.0 0.0001], [0.0001 0.0; 0.0 0.0001], [0.0001 0.0; 0.0 0.0001], [0.0001 0.0; 0.0 0.0001], [0.0001 0.0; 0.0 0.0001], [0.0001 0.0; 0.0 0.0001], [0.0001 0.0; 0.0 0.0001], [0.0001 0.0; 0.0 0.0001], [0.0001 0.0; 0.0 0.0001], [0.0001 0.0; 0.0 0.0001], [0.0001 0.0; 0.0 0.0001], [0.0001 0.0; 0.0 0.0001], [0.0001 0.0; 0.0 0.0001]]]
+tuningpars_mcmc: tuningpars_mcmc(0.9, 10, [0.001, 0.1], [0.04 0.0 0.0; 0.0 0.04 0.0; 0.0 0.0 0.04], η, 20)
+Final value  of rho (Crank-Nicholsen parameter: 0.9648288778775918
+Final value of MALA parameter (delta): [0.001, 0.394553]
 skip in evaluation of loglikelihood: 1
-Average acceptance percentage pCN update steps: 53.0
+Average acceptance percentage pCN update steps: 37.6
 
-updatepars: false
-adaptskip (window of iterations used for adapting tuning pars): 20
-maxnrpaths (maximum number of Wiener increments that gets simultaneously updated): 10
-initstate_updatetypes: Symbol[:mala_mom]
-
+Elapsed time: 243.38634300231934

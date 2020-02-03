@@ -40,20 +40,23 @@ end
     Note: the value for xobs0 passed to this function is only relevant in case obs_atzero=true
 """
 function set_obsinfo(n, obs_atzero::Bool,fixinitmomentato0::Bool, Σobs,xobs0)
+    Σobs0 = Σobs[1]; ΣobsT = Σobs[2]
     if obs_atzero
         L0 = LT = [(i==j) * one(UncF) for i in 1:2:2n, j in 1:2n]  # pick position indices
-        Σ0 = ΣT = [(i==j) * Σobs[i] for i in 1:n, j in 1:n]
+        Σ0 = [(i==j) * Σobs0[i] for i in 1:n, j in 1:n]
+        ΣT = [(i==j) * ΣobsT[i] for i in 1:n, j in 1:n]
     elseif !obs_atzero & !fixinitmomentato0
         L0 = Array{UncF}(undef,0,2*n)
         Σ0 = Array{UncF}(undef,0,0)
         xobs0 = Array{PointF}(undef,0)
         LT = [(i==j) * one(UncF) for i in 1:2:2n, j in 1:2n]
-        ΣT = [(i==j) * Σobs[i] for i in 1:n, j in 1:n]
+        ΣT = [(i==j) * ΣobsT[i] for i in 1:n, j in 1:n]
     elseif !obs_atzero & fixinitmomentato0   # only update positions and fix initial state momenta to zero
         xobs0 = zeros(PointF,n)
         L0 = [((i+1)==j) * one(UncF) for i in 1:2:2n, j in 1:2n] # pick momenta indices
         LT = [(i==j) * one(UncF) for i in 1:2:2n, j in 1:2n] # pick position indices
-        Σ0 = ΣT = [(i==j) * Σobs[i]  for i in 1:n, j in 1:n]
+        Σ0 = [(i==j) * Σobs0[i] for i in 1:n, j in 1:n]
+        ΣT = [(i==j) * ΣobsT[i] for i in 1:n, j in 1:n]
     end
     μT = zeros(PointF,n)
     xobs0, ObsInfo(LT,ΣT,μT,L0,Σ0)
@@ -498,7 +501,7 @@ function update_initialstate!(X,Xᵒ,W,ll,x,xᵒ,∇x, ∇xᵒ,
                stepsize = δ[1]
                mask_id = (mask .> 0.1) # get indices that correspond to positions or momenta
                dK = gramkernel(x0.q,P)
-               ndistr = MvNormal(stepsize*dK)
+               ndistr = MvNormal(zeros(d*n),stepsize*dK)
                xᵒ = copy(x)
                xᵒ[mask_id] = x[mask_id] .+ .5 * stepsize * dK * ∇x[mask_id] .+ rand(ndistr)
                cfgᵒ = ForwardDiff.GradientConfig(uᵒ, xᵒ, ForwardDiff.Chunk{2*d*n}())
@@ -507,7 +510,7 @@ function update_initialstate!(X,Xᵒ,W,ll,x,xᵒ,∇x, ∇xᵒ,
 
                x0ᵒ = deepvec2state(xᵒ)
                dKᵒ = gramkernel(x0ᵒ.q,P) #reshape([kernel(x0ᵒ.q[i]- x0ᵒ.q[j],P) * one(UncF) for i in 1:n for j in 1:n], n, n)
-               ndistrᵒ = MvNormal(stepsize*dKᵒ)  #     ndistrᵒ = MvNormal(stepsize*deepmat(Kᵒ))
+               ndistrᵒ = MvNormal(zeros(d*n),stepsize*dKᵒ)  #     ndistrᵒ = MvNormal(stepsize*deepmat(Kᵒ))
 
                accinit = ll_incl0ᵒ - ll_incl0 -
                          logpdf(ndistr,xᵒ[mask_id] - x[mask_id] - .5*stepsize * dK * ∇x[mask_id]) +
@@ -522,7 +525,7 @@ function update_initialstate!(X,Xᵒ,W,ll,x,xᵒ,∇x, ∇xᵒ,
              # proposal step
              dK = gramkernel(x0.q,P)
              inv_dK = inv(dK)
-             ndistr = MvNormal(stepsize*inv_dK)
+             ndistr = MvNormal(zeros(d*n),stepsize*inv_dK)
              xᵒ = copy(x)
              xᵒ[mask_id] = x[mask_id] .+ .5 * stepsize * inv_dK * ∇x[mask_id] .+  rand(ndistr)
 
@@ -545,7 +548,7 @@ function update_initialstate!(X,Xᵒ,W,ll,x,xᵒ,∇x, ∇xᵒ,
             # proposal step
             dK = gramkernel(x0.q,P)
             inv_dK = inv(dK)
-            ndistr = MvNormal(stepsize*inv_dK)
+            ndistr = MvNormal(zeros(d*n),stepsize*inv_dK)
             xᵒ = copy(x)
             xᵒ[mask_id] = x[mask_id]  .+  rand(ndistr)
             # reverse step
@@ -664,7 +667,7 @@ end
     Perform mcmc or sgd for landmarks model using the LM-parametrisation
     tt_:      time grid
     (xobs0,xobsT): observations at times 0 and T (at time T this is a vector)
-    Σobs: covariance matrix of Gaussian noise assumed on each element of xobs0 and xobsT
+    Σobs: array with covariance matrix of Gaussian noise assumed on each element of xobs0 and xobsT
     mT: vector of momenta at time T used for constructing guiding term
     P: target process
 
@@ -802,135 +805,4 @@ function lm_mcmc(t, (xobs0,xobsT), Σobs, mT, P,
 
 
     Xsave, parsave, objvals, accpcn, accinfo, δ, ρ, covθprop
-end
-
-
-
-
-if false
-
-            function slogρtest!(x0deepv, Q, W,X,priormom,llout) # stochastic approx to log(ρ)
-                @timeit to "2state" x0 = deepvec2state(x0deepv)
-                @timeit to  "simguidedlm" lltemp = simguidedlm_llikelihood!(LeftRule(), X, x0, W, Q; skip=sk)   #overwrites X
-                @timeit to  "extract val" llout .= ForwardDiff.value.(lltemp)
-
-                sum(lltemp) + logpdf(priormom, vcat(p(x0)...))
-            end
-            slogρtest!(Q, W, X,priormom, llout) = (x) -> slogρtest!(x, Q, W,X,priormom,llout)
-
-
-
-            function update_initialstatetest!(X,Xᵒ,W,ll,x,xᵒ,∇x, ∇xᵒ,
-                            sampler, Q::GuidedProposal!, δ, update,priormom)
-                n = Q.target.n
-                x0 = deepvec2state(x)
-                P = Q.target
-                llout = copy(ll)
-                lloutᵒ = copy(ll)
-
-                if sampler ==:sgd  # ADJUST LATER
-                    sample!(W, Wiener{Vector{StateW}}())
-                    cfg = ForwardDiff.GradientConfig(slogρ(Q, W, X), x, ForwardDiff.Chunk{2*d*n}()) # 2*d*P.n is maximal
-                    ForwardDiff.gradient!(∇x, slogρ(Q, W, X),x,cfg) # X gets overwritten but does not chan
-                    x .+= δ * mask .* ∇x
-                    obj = simguidedlm_llikelihood!(LeftRule(), X, deepvec2state(x), W, Q; skip=sk)
-                end
-                if sampler==:mcmc
-                    accinit = 0.0
-                    ll_incl0 = 0,0
-                    ll_incl0ᵒ = 0.0 # define because of scoping rules
-
-                    if update in [:mala_pos, :mala_mom]
-                        u(x) = slogρtest!(x, Q, W,X,priormom,llout)
-                        cfg = ForwardDiff.GradientConfig(u, x, ForwardDiff.Chunk{2*d*n}()) # 2*d*P.n is maximal
-                        ForwardDiff.gradient!(∇x, u, x,cfg) # X gets overwritten but does not change
-                        ll_incl0 = sum(llout)
-                        if update==:mala_pos
-                            mask = deepvec(State(onemask(x0.q),  0*x0.p))
-                            stepsize = δ[1]
-                        elseif update==:mala_mom
-                            mask = deepvec(State(0*x0.q, onemask(x0.p)))
-                            stepsize = δ[2]
-                        end
-                        mask_id = (mask .> 0.1) # get indices that correspond to positions or momenta
-                        xᵒ .= x .+ .5 * stepsize * mask.* ∇x .+ sqrt(stepsize) .* mask .* randn(length(x))                              # should be ".=" or just "="?
-                        cfgᵒ = ForwardDiff.GradientConfig(slogρ!(Q, W, Xᵒ,priormom,lloutᵒ), xᵒ, ForwardDiff.Chunk{2*d*n}()) # 2*d*P.n is maximal
-                        ForwardDiff.gradient!(∇xᵒ, u, xᵒ,cfg) # Xᵒ gets overwritten but does not change
-                        ll_incl0ᵒ = sum(lloutᵒ)
-                        ndistr = MvNormal(d * n,sqrt(stepsize))
-                        accinit = ll_incl0ᵒ - ll_incl0 -
-                                  logpdf(ndistr,(xᵒ - x - .5*stepsize .* mask.* ∇x)[mask_id]) +
-                                 logpdf(ndistr,(x - xᵒ - .5*stepsize .* mask.* ∇xᵒ)[mask_id])
-                         # plotting
-                         #Pdeterm = MarslandShardlow(0.1, 0.1, 0.0, 0.0, P.n)
-                         #plotlandmarkpositions[](initSamplePath(0:0.01:0.1,x0),Pdeterm,x0.q,deepvec2state(xᵒ).q;db=.5)
-                    elseif update == :rmmala_pos
-                           cfg = ForwardDiff.GradientConfig(slogρ!(Q, W, X,priormom,llout), x, ForwardDiff.Chunk{2*d*n}()) # 2*d*P.n is maximal
-                           ForwardDiff.gradient!(∇x, slogρ!(Q, W, X,priormom,llout),x,cfg) # X gets overwritten but does not change
-                           ll_incl0 = sum(llout)
-                           mask = deepvec(State(onemask(x0.q),  0*x0.p))
-                           stepsize = δ[1]
-                           mask_id = (mask .> 0.1) # get indices that correspond to positions or momenta
-                           dK = gramkernel(x0.q,P)  #reshape([kernel(x0.q[i]- x0.q[j],P) * one(UncF) for i in 1:n for j in 1:n], n, n)
-                           ndistr = MvNormal(stepsize*dK)
-                           xᵒ = copy(x)
-                           xᵒ[mask_id] = x[mask_id] .+ .5 * stepsize * dK * ∇x[mask_id] .+ rand(ndistr)
-                           cfgᵒ = ForwardDiff.GradientConfig(slogρ!(Q, W, Xᵒ,priormom,lloutᵒ), xᵒ, ForwardDiff.Chunk{2*d*n}()) # 2*d*P.n is maximal
-                           ForwardDiff.gradient!(∇xᵒ, slogρ!(Q, W, Xᵒ,priormom,lloutᵒ),xᵒ,cfgᵒ) # Xᵒ gets overwritten but does not change
-                           ll_incl0ᵒ = sum(lloutᵒ)
-
-                           x0ᵒ = deepvec2state(xᵒ)
-                           dKᵒ = gramkernel(x0ᵒ.q,P) #reshape([kernel(x0ᵒ.q[i]- x0ᵒ.q[j],P) * one(UncF) for i in 1:n for j in 1:n], n, n)
-                           ndistrᵒ = MvNormal(stepsize*dKᵒ)  #     ndistrᵒ = MvNormal(stepsize*deepmat(Kᵒ))
-
-                           accinit = ll_incl0ᵒ - ll_incl0 -
-                                     logpdf(ndistr,xᵒ[mask_id] - x[mask_id] - .5*stepsize * dK * ∇x[mask_id]) +
-                                    logpdf(ndistrᵒ,x[mask_id] - xᵒ[mask_id] - .5*stepsize * dKᵒ * ∇xᵒ[mask_id])
-                            # plotting
-                            #Pdeterm = MarslandShardlow(0.1, 0.1, 0.0, 0.0, P.n)
-                            #plotlandmarkpositions[](initSamplePath(0:0.01:0.1,x0),Pdeterm,x0.q,deepvec2state(xᵒ).q;db=.5)
-                    elseif update == :rmmala_mom
-                         cfg = ForwardDiff.GradientConfig(slogρ!(Q, W, X,priormom,llout), x, ForwardDiff.Chunk{2*d*n}()) # 2*d*P.n is maximal
-                         ForwardDiff.gradient!(∇x, slogρ!(Q, W, X,priormom,llout),x,cfg) # X gets overwritten but does not change
-                         ll_incl0 = sum(llout)
-                         mask = deepvec(State(0*x0.q, onemask(x0.p)))
-                         stepsize = δ[2]
-                         mask_id = (mask .> 0.1) # get indices that correspond to positions or momenta
-
-                         # proposal step
-                         dK = gramkernel(x0.q,P)
-                         inv_dK = inv(dK)
-                         ndistr = MvNormal(stepsize*inv_dK)
-                         xᵒ = copy(x)
-                         xᵒ[mask_id] = x[mask_id] .+ .5 * stepsize * inv_dK * ∇x[mask_id] .+  rand(ndistr)
-
-                         # reverse step
-                         cfgᵒ = ForwardDiff.GradientConfig(slogρ!(Q, W, Xᵒ,priormom,lloutᵒ), xᵒ, ForwardDiff.Chunk{2*d*n}()) # 2*d*P.n is maximal
-                         ForwardDiff.gradient!(∇xᵒ, slogρ!(Q, W, Xᵒ,priormom,lloutᵒ),xᵒ,cfgᵒ) # Xᵒ gets overwritten but does not change
-                         ll_incl0ᵒ = sum(lloutᵒ)
-                         ndistrᵒ = ndistr
-
-                         accinit = ll_incl0ᵒ - ll_incl0 -
-                                    logpdf(ndistr,xᵒ[mask_id] - x[mask_id] - .5*stepsize * inv_dK * ∇x[mask_id]) +
-                                   logpdf(ndistrᵒ,x[mask_id] - xᵒ[mask_id] - .5*stepsize * inv_dK * ∇xᵒ[mask_id])
-                     end
-
-                    # MH step
-                    if log(rand()) <= accinit
-                        #println("update initial state ", update, " accinit: ", round(accinit;digits=3), "  accepted")
-                        obj = ll_incl0ᵒ
-                        deepcopyto!(X, Xᵒ)
-                        x .= xᵒ
-                        ∇x .= ∇xᵒ
-                        ll .= lloutᵒ
-                        accepted = 1
-                    else
-                        #println("update initial state ", update, " accinit: ", round(accinit;digits=3), "  rejected")
-                        obj = ll_incl0
-                        #ll .= llout
-                        accepted = 0
-                    end
-                end
-                obj, (kernel = update, acc = accepted)
-            end
 end
