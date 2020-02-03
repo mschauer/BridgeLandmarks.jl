@@ -235,7 +235,7 @@ phalf <-
   facet_wrap(~time)+theme(axis.title.x=element_blank(), axis.title.y=element_blank())+scale_colour_gradient(low="grey",high="darkblue")+
   coord_fixed()
 
-fracwidthfig = 0.8 * widthfig
-pdf("shapeshalfway.pdf", width = fracwidthfig, height=3)
+fracwidthfig =  widthfig
+pdf("shapeshalfway.pdf", width = fracwidthfig, height=4)
 show(phalf)
 dev.off()

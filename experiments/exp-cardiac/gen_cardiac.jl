@@ -16,7 +16,7 @@ cardiac = npzread("cardiac.npy")  # heart data (left ventricles, the one we used
 cardiacx = cardiac[:,:,1]  # x-coordinates of landmarks
 cardiacy = cardiac[:,:,2]  # y-coordinates of landmarks
 
-landmarksset = 1:5:66
+landmarksset = 1:6:66
 nshapes = 14
 
 n = length(landmarksset)
@@ -25,7 +25,6 @@ for i in 1:nshapes # for each image
     xobsT[i] = [PointF(cardiacx[i,j], cardiacy[i,j]) for j in landmarksset ]
 end
 
-obs_atzero = false
 xobs0 = 0
 
 JLD2.@save "data_cardiac.jld2" xobs0 xobsT n nshapes

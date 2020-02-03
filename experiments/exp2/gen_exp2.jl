@@ -9,7 +9,6 @@ using LinearAlgebra
 using JLD2
 
 workdir = @__DIR__
-println(workdir)
 cd(workdir)
 
 Random.seed!(9)
@@ -24,9 +23,6 @@ c0 = 0.1
 γ0 = 0.7
 
 q0 = [PointF(2.0cos(t), sin(t))  for t in collect(0:(2pi/n):2pi)[2:end]]
-#p0 = [PointF(1.0, -3.0) for i in 1:n]/n
-p0 = zeros(PointF,n)
-x0 = State(q0, p0)
 xobsT = Vector{PointF}[]
 Ptrue = MarslandShardlow(a0, c0, γ0, 0.0, n)
 
@@ -41,4 +37,4 @@ end
 xobs0 = []
 
 
-JLD2.@save "data_exp2.jld2" xobs0 xobsT n x0 nshapes
+JLD2.@save "data_exp2.jld2" xobs0 xobsT n nshapes q0

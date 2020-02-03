@@ -1,4 +1,4 @@
-# ellipse to rotated and shifted ellipse
+# ellipse to corpus callosum like shape
 # initial and final landmark positions observed
 using Revise
 
@@ -13,7 +13,7 @@ using DelimitedFiles
 using CSV
 using StaticArrays
 using LinearAlgebra
-using JLD
+using JLD2
 
 Random.seed!(9)
 
@@ -58,7 +58,8 @@ maxnrpaths = 10 # update at most maxnrpaths Wiener increments at once
 tp = tuningpars_mcmc(ρinit, maxnrpaths, δinit,covθprop,η,adaptskip)
 
 ################################# initialise P #################################
-ainit = mean(norm.([xobs0[i]-xobs0[i-1] for i in 2:n]))/2.0
+#ainit = mean(norm.([xobs0[i]-xobs0[i-1] for i in 2:n]))/2.0
+ainit = mean(norm.([xobs0[i]-xobs0[i-1] for i in 2:n]))
 if model == :ms
     cinit = 0.2
     γinit = 2.0
