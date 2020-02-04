@@ -2,6 +2,7 @@
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.3629353.svg)](https://doi.org/10.5281/zenodo.3629353)
 [![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://mschauer.github.io/BridgeLandmarks.jl/stable)
 [![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://mschauer.github.io/BridgeLandmarks.jl/dev)
+[![arXiv article](https://img.shields.io/badge/article-arXiv%3A2002.00885-B31B1B)](https://arxiv.org/abs/2002.00885)
 
 
 # BridgeLandmarks 
@@ -36,3 +37,8 @@ Some of the experiements depend on addition packages. You can install a number o
 pkg> add RCall Distributions DataFrames CSV StaticArrays JLD2 TimerOutputs FileIO
 ```
 (open the package manager with `]`)
+
+
+# References
+
+* Alexis Arnaudon, Frank van der Meulen, Moritz Schauer, Stefan Sommer: Diffusion bridges for stochastic Hamiltonian systems with applications to shape analysis. [arxiv:2002.00885](https://arxiv.org/abs/2002.00885), 2020.
