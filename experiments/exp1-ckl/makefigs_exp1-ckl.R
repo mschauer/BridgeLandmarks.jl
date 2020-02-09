@@ -14,7 +14,6 @@ library(gganimate)
 theme_set(theme_light())
 ########  read observations
 
-ALLPLOTS <- FALSE
 
 obs0df <- read_delim("obs0.csv", ";", escape_double = FALSE, trim_ws = TRUE)
 obsTdf <- read_delim("obsT.csv", ";", escape_double = FALSE, trim_ws = TRUE) %>% spread(key=pos,value=value) %>%
@@ -87,7 +86,7 @@ show(p1)
 dev.off()
 
 # plot overlaid landmark bridges
-p1all <- d1 %>% dplyr::filter(iterate %in% seq(0,max(d$iterate),by=subsamplenr))%>%
+p1all <- d1 %>%
   ggplot() + 
   geom_path(aes(pos1,y=pos2,group=interaction(landmarkid,iteratenr),colour=iterate),size=0.5) +
   scale_colour_gradient(low="grey",high="darkblue")+ 
@@ -178,17 +177,19 @@ panim <- ds %>%
   #geom_point(data=nfsdf, aes(x=locx, y=locy), color="Grey")+
   #geom_circle(aes(x0 = locx, y0 = locy, r = nfstd), data = nfsdf,color="Grey",linetype="dotted")+ 
   coord_fixed(xlim = c(-4,3), ylim = c(-3,3))+
-  theme(legend.position='none')+ facet_wrap(~iteratenr,ncol=1) 
+  theme(legend.position='none')+ facet_wrap(~iteratenr,ncol=3) 
 panim
 
 theme_set(theme_bw())
  u <- panim + transition_reveal(time)
  animate(u, renderer = ffmpeg_renderer())
- anim_save("animate_dgs.mp4", u, renderer = ffmpeg_renderer())
+ anim_save("animate_dgs.mp4", u, renderer = ffmpeg_renderer(),fps=5)
 
 
 theme_set(theme_light())
-d1halfend <- bind_rows(d1,d1) %>% dplyr::filter(time %in% c(0.2604, 0.51, 0.75, 1))
+timesfacets <- c(0.2604, 0.51, 0.75, 1)
+timesfacets <- c(0.1719 , 0.3276, 0.51, 0.6751, 0.84, 1)
+d1halfend <- bind_rows(d1,d1) %>% dplyr::filter(time %in% timesfacets)
 
 phalf <-
   ggplot() +   
