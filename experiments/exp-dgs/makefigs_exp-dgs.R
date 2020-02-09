@@ -80,7 +80,7 @@ dev.off()
 
 landmarkid_subset <- as.character(seq(1,n,by=4)[1:4]) # only plot these paths and momenta
 
-subsamplenr <-  10 # only show every subsamplenr-th iterate
+subsamplenr <-  1 # only show every subsamplenr-th iterate
 
 # plot overlaid landmark bridges
 p1 <- d1 %>% dplyr::filter(iterate %in% seq(0,max(d$iterate),by=subsamplenr))%>%
