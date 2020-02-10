@@ -1,7 +1,7 @@
 # Trying out example 2 from
 # A Geodesic Landmark Shooting Algorithm for Template
 # Matching and Its Applications
-# Roberto Camassay , Dongyang Kuangz , and Long Leex
+# Roberto Camassay , Dongyang Kuang , and Long Lee
 
 using Revise
 
@@ -36,7 +36,7 @@ nshapes = dat["nshapes"]
 ITER = 200
 subsamples = 0:10:ITER
 
-model = [:ms, :ahs][1]
+model = [:ms, :ahs][2]
 fixinitmomentato0 = false
 obs_atzero = true
 updatescheme =  [:innov, :mala_mom]
@@ -69,8 +69,9 @@ elseif model == :ahs
     cinit = 0.02
     γinit = 0.2
     stdev = 0.75
-    nfsinit = construct_nfs(2.5, stdev, γinit)
-    P = Landmarks(ainit, cinit, n, 2.5, stdev, nfsinit)
+    db = 3.75
+    nfsinit = construct_nfs(db, stdev, γinit)
+    P = Landmarks(ainit, cinit, n, db, stdev, nfsinit)
 end
 
 ################## prior specification with θ = (a, c, γ) ########################
