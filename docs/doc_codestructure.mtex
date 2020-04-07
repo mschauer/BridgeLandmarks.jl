@@ -1,0 +1,29 @@
+### Setting up the algorithm
+
+- *Set up observation information.* 
+`xobs0` contains the initial landmarks configuration. Then we make
+`obs_info` which is a struct of type `ObsInfo` that contains $$(L_0, L_T, \Sigma_0, \Sigma_T)$$. 
+
+- *Allocate buffers for the backwards ODEs.* 
+Call `initguidrec` which sets up an array of `GuidRecursions`, which contains 
+$$(L, M, M^\dagger, \mu, H, L(0), M^\dagger(0), \mu(0))$$ 
+on the imputation grid.
+
+- *Initialise $$Q$$.*
+`Q` is a struct `GuidedProposal!` $$Q= (P, \tilde{P}, t, guidrec, x_0, x_T, n_{\rm shapes}, m_T) $$
+
+### Updating steps
+
+In the updates we keep track of the triple $$(Q, W, X)$$ where $$ Q $$ is the guided proposal (also containing the parameter vector), $$ W $$ are the innovations and $$ X $$ is the guided proposal. 
+
+- `gp!`: forward simulate guided proposal (write into `X`) and compute the loglikelihood.
+
+- `update_guidrec`: whenever a parameter is changed, the backward recursions (including the gp-update step at zero) need to solved. IN this routine `Q.guidrec` is updated.
+
+Then, there are essentially three sorts of update steps:
+
+- `update_pars`: update pars and adjust `Q.P` and `Q.guidrec`.
+
+- `update_initialisation`: update `X`
+
+- `update_path`: update innovations using pCN-step. Hence both `X` and `W` get updated. 

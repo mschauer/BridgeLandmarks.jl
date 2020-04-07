@@ -77,3 +77,23 @@ Returns a matrix with elements of type UncMat
 function Base.:*(H::InverseCholesky, X)
     cholinverse!(H.L,  copy(X)) # triangular backsolves
 end
+
+# convert dual to float, while retaining float if type is float
+deepvalue(x::Float64) = x
+deepvalue(x::ForwardDiff.Dual) = ForwardDiff.value(x)
+
+"""
+    deepvalue(x)
+
+If `x` is a vector of Float64, `x` is returned. If `x` is a vector of Dual-numbers, its Float64 part is returned.
+"""
+deepvalue(x) = deepvalue.(x)
+
+"""
+    deepvalue(x::State)
+
+Extract Float64 part of elements in State (so in case of Dual numbers, derivative part is dropped)
+"""
+function deepvalue(x::State)
+    State(deepvalue.(x.x))
+end

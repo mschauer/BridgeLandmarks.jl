@@ -78,7 +78,7 @@ end
 η(n) = min(0.2, 10/n)  # adaptation rate for adjusting tuning pars
 adaptskip = 20  # adapt mcmc tuning pars every adaptskip iters
 maxnrpaths = 10 # update at most maxnrpaths Wiener increments at once
-tp = tuningpars_mcmc(ρinit, maxnrpaths, δinit,covθprop,η,adaptskip)
+tp = MCMC_TuningPars(ρinit, maxnrpaths, δinit,covθprop,η,adaptskip)
 
 ################################# initialise P #################################
 xobs0 = BL.q(x0)

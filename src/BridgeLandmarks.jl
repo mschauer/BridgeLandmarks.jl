@@ -8,6 +8,7 @@ using DataFrames
 using Distributions
 using GaussianDistributions
 using SparseArrays
+using Parameters
 
 using LinearAlgebra, Base.Iterators
 using PDMats
@@ -25,7 +26,7 @@ const itostrat = true
 export Point, PointF, Unc, UncF, State, deepvec
 
 export Landmarks, LandmarksAux, MarslandShardlow, MarslandShardlowAux
-export landmarksforward, itostrat, construct_nfs, lm_mcmc, gramkernel, tuningpars_mcmc
+export landmarksforward, itostrat, construct_nfs, lm_mcmc, gramkernel, MCMC_TuningPars
 
 export Lmplotbounds, extractcomp, tc
 
@@ -39,7 +40,8 @@ include("models.jl")
 include("patches.jl")
 #include("plotlandmarks.jl")  # keep, but presently unused as all is transferred to plotting in R
 include("plotting.jl")
-include("lmguid.jl")  # replacing lmguiding_mv and update_initialstate
+include("guidedproposal.jl")
+include("lmguid.jl")
 include("updatematching.jl")
 
 end # module
