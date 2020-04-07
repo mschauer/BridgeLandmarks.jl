@@ -1,5 +1,33 @@
 import Bridge: kernelr3!, R3!, target, auxiliary, constdiff, llikelihood, _b!, B!, σ!, b!
 
+"""
+    struct summarising settings for updates on mcmc algorithm. This includes
+
+- `ρinit`
+Initial value for ρ, this is a a number in [0,1). Wiener innovations are updated according to
+    W_new = ρinit * W_old + sqrt(1-ρinit^2) * W_ind
+where W_ind is an independnet Wiener process.
+Note that the value of ρinit is adapted during mcmc-iterations.
+
+- `maxnrpaths`
+Upper bound on number of landmark paths that is updated in one block.
+
+- `δinit`
+Initial value for δ, which is a tuning parameter for updating the initial state.
+This is a length-2 vector, where δ[1] is used for tuning updates on the initial positions and
+δ[2] is used for tuning updates on the initial momenta.
+Note that the value of δ is adapted during mcmc-iterations.
+
+- `covθprop`. For the parameter θ = (a,c,γ) we use Random-Walk updates on log(θ), according to
+log(θᵒ) = log(θ) + N(0, covθprop)
+
+- `η``
+Stepsize cooling function for the adaptation to ensure diminishing adaptation.
+
+- `adaptskip`
+To define guided proposals, we need to plug-in a momentum vector at time T. This is unobserved, and by default initialised
+as the zero vector. Now every `adaptskip` iterations, `mT` is updated to the value obtained in that iteration.
+"""
 struct tuningpars_mcmc
     ρinit::Float64              # initial value for ρ
     maxnrpaths::Int64           # at most update maxnrpaths in the innovation-updating step
@@ -10,10 +38,12 @@ struct tuningpars_mcmc
 end
 
 
-
 """
-    Observe V0 = L0 X0 + N(0,Σ0) and VT = LT X0 + N(0,ΣT)
-    μT is just a vector of zeros (possibly remove later)
+    struct containing information on the observations
+
+We assue observations V0 and VT, where
+    V0 = L0 X0 + N(0,Σ0) and VT = LT X0 + N(0,ΣT)
+In addition, μT is a vector of zeros (for initialising the backward ODE on μ) (possibly remove later)
 """
 struct ObsInfo{TLT,TΣT,TμT,TL0,TΣ0}
      LT::TLT
@@ -28,24 +58,28 @@ struct ObsInfo{TLT,TΣT,TμT,TL0,TΣ0}
 end
 
 """
-    Make ObsInfo object
+    set_obsinfo(n, obs_atzero::Bool,fixinitmomentato0::Bool, Σobs,xobs0)
+    n: number of landmarks
+    obs_atzero: Boolean, if true, the initial configuration is observed
+    fixinitmomenta0: Boolean, if true, the initial momenta are fixed to zero
+    Σobs: 2-element array where Σobs0 = Σobs[1] and ΣobsT = Σobs[2]
+        Both Σobs0 and ΣobsT are arrays of length n of type UncF that give the observation covariance matrix on each landmark
+    xobs0: in case obs_atzero=true, it is provided and passed through; in other cases it is constructed such that the backward ODEs are initialised correctly.
 
-    Three cases:
+    Note that there are three cases:
     1) obs_atzero=true: this refers to the case of observing one landmark configuration at times 0 and T
     2) obs_atzero=false & fixinitmomentato0=false: case of observing multiple shapes at time T,
         both positions and momenta at time zero assumed unknown
     3) obs_atzero=false & fixinitmomentato0=true: case of observing multiple shapes at time T,
         positions at time zero assumed unknown, momenta at time 0 are fixed to zero
-
-    Note: the value for xobs0 passed to this function is only relevant in case obs_atzero=true
 """
 function set_obsinfo(n, obs_atzero::Bool,fixinitmomentato0::Bool, Σobs,xobs0)
     Σobs0 = Σobs[1]; ΣobsT = Σobs[2]
-    if obs_atzero
+    if obs_atzero # don't update initial positions, but update initialmomenta
         L0 = LT = [(i==j) * one(UncF) for i in 1:2:2n, j in 1:2n]  # pick position indices
         Σ0 = [(i==j) * Σobs0[i] for i in 1:n, j in 1:n]
         ΣT = [(i==j) * ΣobsT[i] for i in 1:n, j in 1:n]
-    elseif !obs_atzero & !fixinitmomentato0
+    elseif !obs_atzero & !fixinitmomentato0  # update initial positions and initial momenta
         L0 = Array{UncF}(undef,0,2*n)
         Σ0 = Array{UncF}(undef,0,0)
         xobs0 = Array{PointF}(undef,0)
@@ -58,13 +92,22 @@ function set_obsinfo(n, obs_atzero::Bool,fixinitmomentato0::Bool, Σobs,xobs0)
         Σ0 = [(i==j) * Σobs0[i] for i in 1:n, j in 1:n]
         ΣT = [(i==j) * ΣobsT[i] for i in 1:n, j in 1:n]
     end
-    μT = zeros(PointF,n)
-    xobs0, ObsInfo(LT,ΣT,μT,L0,Σ0)
+    xobs0, ObsInfo(LT,ΣT,zeros(PointF,n),L0,Σ0)
 end
 
 """
     GuidRecursions defines a struct that contains all info required for computing the guiding term and
     likelihood (including ptilde term) for a single shape
+
+Suppose t is the specified (fixed) time grid. Then the elements of the struct are:
+Lt:     matrices L
+Mt⁺:    matrices M⁺ (inverses of M)
+M:      matrices M
+μ:      vectors μ
+Ht:     matrices H, where H = L' M L
+Lt0:    L(0) (so obtained from L(0+) after gpupdate step incorporating observation xobs0)
+Mt⁺0:   M⁺(0) (so obtained from M⁺(0+) after gpupdate step incorporating observation xobs0)
+μt0:    μ(0) (so obtained μ(0+) after gpupdate step incorporating observation xobs0)
 """
 mutable struct GuidRecursions{TL,TM⁺,TM, Tμ, TH, TLt0, TMt⁺0, Tμt0}
     Lt::Vector{TL}          # Lt on grid tt
@@ -104,28 +147,29 @@ mutable struct GuidedProposal!{T,Ttarget,Taux,TL,Txobs0,TxobsT,Tnshapes,TmT,F} <
 end
 
 """
-    Extract parameters from GuidedProposal! Q
+    getpars(Q::GuidedProposal!)
+
+Extract parameters from GuidedProposal! Q, that is, (a,c,γ)
 """
 function getpars(Q::GuidedProposal!)
     P = Q.target
     [P.a, P.c, getγ(P)]
 end
 
-
 """
-    update parameter values in GuidedProposal! Q, i.e.
-    new values are written into Q.target and Q.aux is updated accordingly
+    putpars!(Q::GuidedProposal!,(aᵒ,cᵒ,γᵒ))
+
+Update parameter values in GuidedProposal! Q, i.e. new values are written into Q.target and Q.aux
 """
 function putpars!(Q::GuidedProposal!,(aᵒ,cᵒ,γᵒ))
     if isa(Q.target,MarslandShardlow)
         Q.target = MarslandShardlow(aᵒ,cᵒ,γᵒ,Q.target.λ, Q.target.n)
     elseif isa(Q.target,Landmarks)
-        nfs = construct_nfs(Q.target.db, Q.target.nfstd, γᵒ) # need ot add db and nfstd to struct Landmarks
+        nfs = construct_nfs(Q.target.db, Q.target.nfstd, γᵒ)
         Q.target = Landmarks(aᵒ,cᵒ,Q.target.n,Q.target.db,Q.target.nfstd,nfs)
     end
     Q.aux = [auxiliary(Q.target,State(Q.xobsT[k],Q.mT)) for k in 1:Q.nshapes]
 end
-
 
 
 """
@@ -176,19 +220,14 @@ end
 """
 function update_guidrec!(Q, obs_info)
     for k in 1:Q.nshapes  # for all shapes
-
         gr = Q.guidrec[k]
         # solve backward recursions;
         Lt0₊, Mt⁺0₊, μt0₊ =  guidingbackwards!(Lm(), Q.tt, (gr.Lt, gr.Mt⁺,gr.μt), Q.aux[k], obs_info)
-
         # perform gpupdate step at time zero
         lm_gpupdate!(Lt0₊, Mt⁺0₊, μt0₊, (obs_info.L0, obs_info.Σ0, Q.xobs0),gr.Lt0, gr.Mt⁺0, gr.μt0)
-        # compute Cholesky decomposition of Mt at each time on the grid
-        # need to symmetrize gr.Mt⁺; else AHS  gives numerical roundoff errors when mT \neq 0
+        # compute Cholesky decomposition of Mt at each time on the grid, need to symmetrize gr.Mt⁺; else AHS  gives numerical roundoff errors when mT \neq 0
         S = map(X -> 0.5*(X+X'), gr.Mt⁺)
         gr.Mt = map(X -> InverseCholesky(lchol(X)),S)
-
-    #    gr.Mt = map(X -> InverseCholesky(lchol(X)),gr.Mt⁺) # old code
         # compute Ht at each time on the grid
         for i in 1:length(gr.Ht)
             gr.Ht[i] .= gr.Lt[i]' * (gr.Mt[i] * gr.Lt[i] )
@@ -272,7 +311,7 @@ function _r!((i,t), x::State, out::State, Q::GuidedProposal!,k)
 end
 
 """
-    Compute log tildeρ(0,x_0,k) for the k-th shape
+    Compute log tildeρ(0,x_0,k), where k indexes shape
 """
 function lρtilde(x0, Q,k)
   y = deepvec([Q.xobs0; Q.xobsT[k]] - Q.guidrec[k].μt0 - Q.guidrec[k].Lt0*vec(x0))
@@ -289,26 +328,19 @@ function simguidedlm_llikelihood!(::LeftRule,  Xᵒ, x0, W, Q::GuidedProposal!,k
     tt =  Xᵒ.tt
     Xᵒ.yy[1] .= deepvalue(x0)
     som::deepeltype(x0)  = 0.
-    #som = zero(deepeltype(x0))
-
-    # initialise objects to write into
-    # srout and strout are vectors of Points
+    # initialise objects to write into srout and strout are vectors of Points
     dwiener = dimwiener(Q.target)
     srout = zeros(Pnt, dwiener)
     strout = zeros(Pnt, dwiener)
-
     x = copy(x0)
-
     rout = copy(x0)
     bout = copy(x0)
     btout = copy(x0)
     wout = copy(x0)
-
     if !constdiff(Q)
         At = Bridge.a((1,0), x0, auxiliary(Q,k))  # auxtimehomogeneous switch
         A = zeros(Unc{deepeltype(x0)}, 2Q.target.n,2Q.target.n)
     end
-
     for i in 1:length(tt)-1
         dt = tt[i+1]-tt[i]
         b!(tt[i], x, bout, target(Q)) # b(t,x)
@@ -336,16 +368,15 @@ function simguidedlm_llikelihood!(::LeftRule,  Xᵒ, x0, W, Q::GuidedProposal!,k
         logρ0 = 0.0 # don't compute
     end
     copyto!(Xᵒ.yy[end], Bridge.endpoint(Xᵒ.yy[end],Q))
-
     som + logρ0
 end
 
 """
-    Simulate guided proposal and compute loglikelihood (vector version, multiple shapes)
+    simguidedlm_llikelihood!(::LeftRule,  X, x0, W, Q::GuidedProposal!; skip = 0, ll0 = true)
 
-    solve sde inplace and return loglikelihood (thereby avoiding 'double' computations)
+Simulate guided proposal and compute loglikelihood (vector version, multiple shapes)
 """
-function simguidedlm_llikelihood!(::LeftRule,  X, x0, W, Q::GuidedProposal!; skip = 0, ll0 = true) # rather would like to dispatch on type and remove '_mv' from function name
+function simguidedlm_llikelihood!(::LeftRule,  X, x0, W, Q::GuidedProposal!; skip = 0, ll0 = true)
     soms  = zeros(deepeltype(x0), Q.nshapes)
     for k in 1:Q.nshapes
         soms[k] = simguidedlm_llikelihood!(LeftRule(), X[k],x0,W[k],Q,k ;skip=skip,ll0=ll0)
@@ -356,17 +387,29 @@ end
 # convert dual to float, while retaining float if type is float
 deepvalue(x::Float64) = x
 deepvalue(x::ForwardDiff.Dual) = ForwardDiff.value(x)
+
+"""
+    deepvalue(x)
+
+If `x` is a vector of Float64, `x` is returned. If `x` is a vector of Dual-numbers, its Float64 part is returned.
+"""
 deepvalue(x) = deepvalue.(x)
+
+"""
+    deepvalue(x::State)
+
+Extract Float64 part of elements in State (so in case of Dual numbers, derivative part is dropped)
+"""
 
 function deepvalue(x::State)
     State(deepvalue.(x.x))
 end
 
 """
-    update bridges for all shapes using Crank-Nicholsen scheme with parameter ρ (only in case the method is mcmc)
-    Newly accepted bridges are written into (X,W), loglikelihood on each segment is written into vector ll
+    update_path!(X,Xᵒ,W,Wᵒ,Wnew,ll,x, Q, ρ, accpcn, maxnrpaths)
 
-    update_path!(X,Xᵒ,W,Wᵒ,Wnew,ll,x, Q, ρ, accpcn)
+Update bridges for all shapes using Crank-Nicholsen scheme with parameter ρ (only in case the method is mcmc).
+Newly accepted bridges are written into (X,W), loglikelihood on each segment is written into vector ll
 """
 function update_path!(X,Xᵒ,W,Wᵒ,Wnew,ll,x, Q, ρ, accpcn, maxnrpaths)
 #    nn = length(X[1].yy)
@@ -434,16 +477,18 @@ slogρ!(Q, W, X,priormom, llout) = (x) -> slogρ!(x, Q, W,X,priormom,llout)
 
 
 """
-    update initial state
-    X:  current iterate of vector of sample paths
-    Xᵒ: vector of sample paths to write proposal into
-    W:  current vector of Wiener increments
-    ll: current value of loglikelihood
-    x, xᵒ, ∇x, ∇xᵒ: allocated vectors for initial state and its gradient
-    sampler: either sgd (not checked yet) or mcmc
-    Q::GuidedProposal!
-    δ: vector with MALA stepsize for initial state positions (δ[1]) and initial state momenta (δ[2])
-    update:  can be :mala_pos, :mala_mom, :rmmala_pos
+update_initialstate!(X,Xᵒ,W,ll,x,xᵒ,∇x, ∇xᵒ,sampler, Q::GuidedProposal!, δ, update,priormom)
+
+Update initial state
+X:  current iterate of vector of sample paths
+Xᵒ: vector of sample paths to write proposal into
+W:  current vector of Wiener increments
+ll: current value of loglikelihood
+x, xᵒ, ∇x, ∇xᵒ: allocated vectors for initial state and its gradient
+sampler: either sgd (not checked yet) or mcmc
+Q::GuidedProposal!
+δ: vector with MALA stepsize for initial state positions (δ[1]) and initial state momenta (δ[2])
+update:  can be :mala_pos, :mala_mom, :rmmala_pos
 """
 function update_initialstate!(X,Xᵒ,W,ll,x,xᵒ,∇x, ∇xᵒ,
                 sampler, Q::GuidedProposal!, δ, update,priormom)
@@ -578,7 +623,9 @@ end
 
 
 """
-    For fixed Wiener increments and initial state, update parameters by random-walk-MH
+    update_pars!(obs_info,X, Xᵒ,W, Q, Qᵒ, x, ll, priorθ, covθprop)
+
+For fixed Wiener increments and initial state, update parameters by random-walk-MH
 """
 function update_pars!(obs_info,X, Xᵒ,W, Q, Qᵒ, x, ll, priorθ, covθprop)
     θ = getpars(Q)    #(P.a, P.c, getγ(P))

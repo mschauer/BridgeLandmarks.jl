@@ -1,10 +1,9 @@
 using StaticArrays
 
-const Point{T} = SArray{Tuple{d},T,1,d}       # point in R2
+const Point{T} = SArray{Tuple{d},T,1,d}       # point in Rd
 const Unc{T} = SArray{Tuple{d,d},T,2,d*d}     # Matrix presenting uncertainty
 const PointF = Point{Float64}
 const UncF = Unc{Float64}
-
 
 struct NState{P, M<:AbstractMatrix{P}}
     x::M
@@ -12,8 +11,6 @@ end
 const State = NState
 
 NState(x::Vector) = NState(reshape(x, (2, length(x)>>1)))
-
-
 
 import Base: axes, #=iterate,=# eltype, copy, copyto!, zero, eachindex, getindex, setindex!, size, vec
 

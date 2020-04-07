@@ -1,12 +1,4 @@
-
 using StaticArrays
-
-# const Point{T} = SArray{Tuple{d},T,1,d}       # point in R2
-# const Unc{T} = SArray{Tuple{d,d},T,2,d*d}     # Matrix presenting uncertainty
-#
-# const PointF = Point{Float64}
-# const UncF = Unc{Float64}
-
 
 function deepmat(H::AbstractMatrix{S}) where {S}
     d1, d2 = size(S)
@@ -20,8 +12,6 @@ function deepmat2unc(A::Matrix)  # d is the dimension of the square subblocks
   n = div(size(A,2),d)
   [Unc(A[(i-1)*d+1:i*d,(j-1)*d+1:j*d]) for i in 1:m, j in 1:n]
 end
-
-
 
 """
 Good display of variable of type State
