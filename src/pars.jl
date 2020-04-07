@@ -43,4 +43,5 @@ as the zero vector. Now every `adaptskip` iterations, `mT` is updated to the val
     κ :: Float64 = 100.0 # in variance of prior on initial momenta
     δinit_ms ::Array{Float64,1} = [0.001, 0.1]
     δinit_ahs ::Array{Float64,1} = [0.1, 0.1]
+    skip_saveITER :: Float64 = 10 # skip every skip_saveITER iteration in saving paths
 end

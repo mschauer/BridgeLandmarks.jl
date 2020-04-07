@@ -3,7 +3,7 @@ import Bridge: kernelr3!, R3!, target, auxiliary, constdiff, llikelihood, _b!, B
 """
     lm_mcmc(t, (xobs0,xobsT), Σobs, mT, P,
           obs_atzero, fixinitmomentato0, ITER, subsamples,
-          xinit, tp, priorθ, priormom, updatescheme,
+          xinit, pars, priorθ, priormom, updatescheme,
           outdir)
 
 Perform mcmc or sgd for landmarks model using the LM-parametrisation
@@ -19,7 +19,7 @@ ITER: number of iterations
 subsamples: vector of indices of iterations that are to be saved
 
 xinit: initial guess on starting state
-tp: tuning pars for updates
+pars: tuning pars for updates
 priorθ: prior on θ
 priormom: prior on initial momenta
 updatescheme: specify type of updates
@@ -33,7 +33,7 @@ perc_acc: acceptance percentages (bridgepath - inital state)
 """
 function lm_mcmc(t, (xobs0,xobsT), Σobs, mT, P,
           obs_atzero, fixinitmomentato0, ITER, subsamples,
-          xinit, tp, priorθ, priormom, updatescheme,
+          xinit, pars, priorθ, priormom, updatescheme,
           outdir)
 
     lt = length(t)
@@ -77,9 +77,9 @@ function lm_mcmc(t, (xobs0,xobsT), Σobs, mT, P,
     accinfo = []                        # keeps track of accepted parameter and initial state updates
     accpcn = Int64[]                      # keeps track of nr of accepted pCN updates
 
-    δ = deepcopy(tp.δinit)
-    ρ = deepcopy(tp.ρinit)
-    covθprop = deepcopy(tp.covθprop)
+    δ = P isa Landmarks ? pars.δinit_ahs : pars.δinit_ms
+    ρ = pars.ρinit
+    covθprop = pars.covθprop
 
     for i in 1:ITER
         println();  println("iteration $i")
@@ -87,30 +87,30 @@ function lm_mcmc(t, (xobs0,xobsT), Σobs, mT, P,
         for update in updatescheme
             if update == :innov
                 #@timeit to "path update"
-                accpcn = update_path!(X, Xᵒ, W, Wᵒ, Wnew, ll, x, Q, ρ, accpcn, tp.maxnrpaths)
-                ρ = adaptpcnstep(i, accpcn, ρ, Q.nshapes, tp.η; adaptskip = tp.adaptskip)
+                accpcn = update_path!(X, Xᵒ, W, Wᵒ, Wnew, ll, x, Q, ρ, accpcn, pars.maxnrpaths)
+                ρ = adaptpcnstep(i, accpcn, ρ, Q.nshapes, pars.η; adaptskip = pars.adaptskip)
             elseif update in [:mala_mom, :rmmala_mom, :rmrw_mom]
                 #@timeit to "update mom"
                  obj, accinfo_ = update_initialstate!(X,Xᵒ,W,ll,x,xᵒ,∇x, ∇xᵒ,:mcmc, Q, δ, update,priormom)
                 push!(accinfo, accinfo_)
-                δ[2] = adaptmalastep(i,accinfo,δ[2], tp.η, update; adaptskip = tp.adaptskip)
+                δ[2] = adaptmalastep(i,accinfo,δ[2], pars.η, update; adaptskip = pars.adaptskip)
             elseif update in [:mala_pos, :rmmala_pos]
                 #@timeit to "update pos"
                 obj, accinfo_ = update_initialstate!(X,Xᵒ,W,ll,x,xᵒ,∇x, ∇xᵒ,:mcmc, Q, δ, update,priormom)
                 push!(accinfo, accinfo_)
-                δ[1] = adaptmalastep(i,accinfo,δ[1], tp.η, update; adaptskip = tp.adaptskip)
+                δ[1] = adaptmalastep(i,accinfo,δ[1], pars.η, update; adaptskip = pars.adaptskip)
             elseif update == :parameter
                 #@timeit to "update par"
                 accinfo_ = update_pars!(obs_info,X, Xᵒ,W, Q, Qᵒ, x, ll, priorθ, covθprop)
                 push!(accinfo, accinfo_)
-                covθprop = adaptparstep(i,accinfo,covθprop, tp.η;  adaptskip = tp.adaptskip)
+                covθprop = adaptparstep(i,accinfo,covθprop, pars.η;  adaptskip = pars.adaptskip)
             elseif update == :sgd
                 obj, accinfo_ = update_initialstate!(X,Xᵒ,W,ll,x,xᵒ,∇x, ∇xᵒ,:sgd, Q, δ, update,priormom)
             end
         end
 
         # adjust mT
-        if mod(i,tp.adaptskip)==0 && i < 100
+        if mod(i,pars.adaptskip)==0 && i < 100
             mTvec = [X[k][lt][2].p  for k in 1:nshapes]     # extract momenta at time T for each shape
             update_Paux_xT!(Q, mTvec, obs_info)
         end
@@ -296,9 +296,6 @@ struct Lm  end
     Case lowrank=true still gives an error: fixme!
 """
 function guidingbackwards!(::Lm, t, (Lt, Mt⁺, μt), Paux, obs_info; implicit=true, lowrank=false) #FIXME: add lowrank
-    println(typeof(Mt⁺[end]))
-    println("---")
-    println(typeof(obs_info.ΣT))
     Mt⁺[end] .= obs_info.ΣT
     Lt[end] .= obs_info.LT
     μt[end] .= obs_info.μT

@@ -26,7 +26,7 @@ const itostrat = true
 export Point, PointF, Unc, UncF, State, deepvec
 
 export Landmarks, LandmarksAux, MarslandShardlow, MarslandShardlowAux
-export landmarksforward, itostrat, construct_nfs, lm_mcmc, gramkernel, MCMC_TuningPars
+export landmarksforward, itostrat, construct_nfs, lm_mcmc, gramkernel, landmarksmatching
 
 export Lmplotbounds, extractcomp, tc
 
@@ -40,8 +40,9 @@ include("models.jl")
 include("patches.jl")
 #include("plotlandmarks.jl")  # keep, but presently unused as all is transferred to plotting in R
 include("plotting.jl")
+include("pars.jl")
 include("guidedproposal.jl")
 include("lmguid.jl")
+include("landmarksmatching.jl")
 include("updatematching.jl")
-
 end # module
