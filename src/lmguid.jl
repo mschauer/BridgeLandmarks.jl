@@ -6,30 +6,35 @@ import Bridge: kernelr3!, R3!, target, auxiliary, constdiff, llikelihood, _b!, B
           xinit, pars, priorθ, priormom, updatescheme,
           outdir)
 
-Perform mcmc or sgd for landmarks model using the LM-parametrisation
-t:      time grid
-(xobs0,xobsT): observations at times 0 and T (at time T this is a vector)
-Σobs: array with covariance matrix of Gaussian noise assumed on each element of xobs0 and xobsT
-mT: vector of momenta at time T used for constructing guiding term
-P: target process
+This is the main function call for doing either MCMC or SGD for landmark models
+Backward ODEs used are in terms of the LMμ-parametrisation
 
-obs_atzero: Boolean, if true there is an observation at time zero
-fixinitmomentato0: Boolean, if true we assume at time zero we observe zero momenta
-ITER: number of iterations
-subsamples: vector of indices of iterations that are to be saved
+## Arguments
+- `t`:      time grid
+- `(xobs0,xobsT)`: observations at times 0 and T
+- `Σobs`: array with covariance matrix of Gaussian noise assumed on each element of xobs0 and xobsT
+- `mT`: vector of momenta at time T used for constructing guiding term
+- `P`: target process
+- `obs_atzero`: Boolean, if true there is an observation at time zero
+- `fixinitmomentato0`: Boolean, if true we assume at time zero we observe zero momenta
+- `ITER`: number of iterations
+- `subsamples`: vector of indices of iterations that are to be saved
+- `xinit`: initial guess on starting state
+- `pars`: tuning pars for updates
+- `priorθ`: prior on θ=(a,c,γ)
+- `priormom`: prior on initial momenta
+- `updatescheme`: specify type of updates
+- `outdir` output directory for animation
 
-xinit: initial guess on starting state
-pars: tuning pars for updates
-priorθ: prior on θ
-priormom: prior on initial momenta
-updatescheme: specify type of updates
-outdir: output directory for animation
-
-Returns:
-Xsave: saved iterations of all states at all times in tt_
-parsave: saved iterations of all parameter updates ,
-objvals: saved values of stochastic approximation to loglikelihood
-perc_acc: acceptance percentages (bridgepath - inital state)
+## Returns:
+- `Xsave`: saved iterations of all states at all times in tt_
+- `parsave`: saved iterations of all parameter updates ,
+- `objvals`: saved values of stochastic approximation to loglikelihood
+- `accpcn`: acceptance percentages for pCN step
+- `accinfo`: acceptance percentages for remaining mcmc-updates
+- `δ`: value of `(δpos, δmom)` af the final iteration of the algorithm (these are stepsize parameters for updating initial positions and momenta respectively)
+- `ρ`: value of `ρinit`  af the final iteration of the algorithm
+- `covθprop`: value of `covθprop` at the final iteration of the algorithm
 """
 function lm_mcmc(t, (xobs0,xobsT), Σobs, mT, P,
           obs_atzero, fixinitmomentato0, ITER, subsamples,
@@ -158,7 +163,8 @@ end
     struct containing information on the observations
 
 We assue observations V0 and VT, where
-    V0 = L0 X0 + N(0,Σ0) and VT = LT X0 + N(0,ΣT)
+- V0 = L0 * X0 + N(0,Σ0)
+- VT = LT * X0 + N(0,ΣT)
 In addition, μT is a vector of zeros (for initialising the backward ODE on μ) (possibly remove later)
 """
 struct ObsInfo{TLT,TΣT,TμT,TL0,TΣ0}
@@ -176,19 +182,21 @@ end
 
 """
     set_obsinfo(n, obs_atzero::Bool,fixinitmomentato0::Bool, Σobs,xobs0)
-    n: number of landmarks
-    obs_atzero: Boolean, if true, the initial configuration is observed
-    fixinitmomenta0: Boolean, if true, the initial momenta are fixed to zero
-    Σobs: 2-element array where Σobs0 = Σobs[1] and ΣobsT = Σobs[2]
-        Both Σobs0 and ΣobsT are arrays of length n of type UncF that give the observation covariance matrix on each landmark
-    xobs0: in case obs_atzero=true, it is provided and passed through; in other cases it is constructed such that the backward ODEs are initialised correctly.
 
-    Note that there are three cases:
-    1) obs_atzero=true: this refers to the case of observing one landmark configuration at times 0 and T
-    2) obs_atzero=false & fixinitmomentato0=false: case of observing multiple shapes at time T,
-        both positions and momenta at time zero assumed unknown
-    3) obs_atzero=false & fixinitmomentato0=true: case of observing multiple shapes at time T,
-        positions at time zero assumed unknown, momenta at time 0 are fixed to zero
+## Arguments
+- `n`: number of landmarks
+- `obs_atzero`: Boolean, if true, the initial configuration is observed
+- `fixinitmomenta0`: Boolean, if true, the initial momenta are fixed to zero
+- `Σobs`: 2-element array where Σobs0 = Σobs[1] and ΣobsT = Σobs[2]
+    Both Σobs0 and ΣobsT are arrays of length n of type UncF that give the observation covariance matrix on each landmark
+- `xobs0`: in case obs_atzero=true, it is provided and passed through; in other cases it is constructed such that the backward ODEs are initialised correctly.
+
+Note that there are three cases:
+- `obs_atzero=true`: this refers to the case of observing one landmark configuration at times 0 and T
+- `obs_atzero=false & fixinitmomentato0=false`: case of observing multiple shapes at time T,
+    both positions and momenta at time zero assumed unknown
+- `obs_atzero=false & fixinitmomentato0=true`: case of observing multiple shapes at time T,
+    positions at time zero assumed unknown, momenta at time 0 are fixed to zero
 """
 function set_obsinfo(n, obs_atzero::Bool,fixinitmomentato0::Bool, Σobs,xobs0)
     Σobs0 = Σobs[1]; ΣobsT = Σobs[2]
@@ -214,8 +222,9 @@ function set_obsinfo(n, obs_atzero::Bool,fixinitmomentato0::Bool, Σobs,xobs0)
 end
 
 """
-    Initialise (allocate memory) a struct of type GuidRecursions for a single shape
-    guidres = init_guidrec((t,obs_info,xobs0)
+    init_guidrec(t,obs_info,xobs0)
+
+Initialise (allocate memory) a struct of type GuidRecursions for a single shape
 """
 function init_guidrec(t,obs_info,xobs0)
     Pnt = eltype(obs_info.ΣT)
@@ -242,8 +251,8 @@ end
     lm_gpupdate!(Lt0₊, Mt⁺0₊::Array{Pnt,2}, μt0₊, (L0, Σ0, xobs0), Lt0, Mt⁺0, μt0) where Pnt
 
 Guided proposal update for newly incoming observation at time zero.
-Information on new observations at time zero is (L0, Σ0, xobs0)
-Values just after time zero, (Lt0₊, Mt⁺0₊, μt0₊) are updated to time zero, the result being written into (Lt0, Mt⁺0, μt0)
+Information on new observations at time zero is `(L0, Σ0, xobs0)`
+Values just after time zero, `(Lt0₊, Mt⁺0₊, μt0₊)` are updated to time zero, the result being written into `(Lt0, Mt⁺0, μt0)`
 """
 function lm_gpupdate!(Lt0₊, Mt⁺0₊::Array{Pnt,2}, μt0₊, (L0, Σ0, xobs0), Lt0, Mt⁺0, μt0) where Pnt
     Lt0 .= [L0; Lt0₊]
@@ -260,7 +269,7 @@ end
 """
     update_guidrec!(Q, obs_info)
 
-Compute backward ODEs required for guided proposals (for all shapes) and write into field Q.guidrec
+Compute backward ODEs required for guided proposals (for all shapes) and write into field `Q.guidrec`
 """
 function update_guidrec!(Q, obs_info)
     for k in 1:Q.nshapes  # for all shapes
@@ -283,7 +292,7 @@ end
     update_Paux_xT!(Q, mTvec, obs_info)
 
 Update State vector of auxiliary process for each shape.
-For the k-th shape, the momentum gets replaced with mTvec[k]
+For the k-th shape, the momentum gets replaced with `mTvec[k]`
 """
 function update_Paux_xT!(Q, mTvec, obs_info)
     for k in Q.nshapes
@@ -299,13 +308,14 @@ struct Lm  end
 
 Solve backwards recursions in L, M, μ parametrisation on grid t
 
-t: time grid
-(Lt, Mt⁺, μt): containers to write the solutions into
-Paux: auxiliary process
-obs_info: of type ObsInfo containing information on the observations
-implicit: if true an implicit Euler backwards scheme is used (else explicit forward)
+## Arguments
+- `t`: time grid
+- `(Lt, Mt⁺, μt)`: containers to write the solutions into
+- `Paux`: auxiliary process
+- `obs_info`: of type ObsInfo containing information on the observations
+- `implicit`: if true an implicit Euler backwards scheme is used (else explicit forward)
 
-Case lowrank=true still gives an error: fixme!
+Case `lowrank=true` still gives an error: fixme!
 """
 function guidingbackwards!(::Lm, t, (Lt, Mt⁺, μt), Paux, obs_info; implicit=true, lowrank=false) #FIXME: add lowrank
     Mt⁺[end] .= obs_info.ΣT
@@ -359,8 +369,8 @@ constdiff(Q::GuidedProposal!) = constdiff(target(Q)) && constdiff(auxiliary(Q,1)
 """
     update_path!(X,Xᵒ,W,Wᵒ,Wnew,ll,x, Q, ρ, accpcn, maxnrpaths)
 
-Update bridges for all shapes using Crank-Nicholsen scheme with parameter ρ (only in case the method is mcmc).
-Newly accepted bridges are written into (X,W), loglikelihood on each segment is written into vector ll
+Update bridges for all shapes using Crank-Nicholsen scheme with parameter `ρ` (only in case the method is mcmc).
+Newly accepted bridges are written into `(X,W)`, loglikelihood on each segment is written into vector `ll`
 """
 function update_path!(X,Xᵒ,W,Wᵒ,Wnew,ll,x, Q, ρ, accpcn, maxnrpaths)
     x0 = deepvec2state(x)
@@ -405,18 +415,21 @@ end
 """
     slogρ!(x0deepv, Q, W,X,priormom,llout)
 
-x0deepv: initial state, converted to a deepvector (i.e. all elements stacked)
-Q: GuidePropsoal!
-W: Wiener increments
-X: sample path
-priormom: prior on the initial momenta
-llout: vector where loglikelihoods for each shape are written into
-
-Simulate guided proposal and compute loglikelihood for starting point x0,
-
-Returns sum of loglikelihoods.
-
 Main use of this function is to get gradient information of the loglikelihood with respect ot the initial state.
+
+## Arguments
+- `x0deepv`: initial state, converted to a deepvector (i.e. all elements stacked)
+- `Q`: GuidePropsoal!
+- `X`: sample path
+- `priormom`: prior on the initial momenta
+- `llout`: vector where loglikelihoods for each shape are written into
+
+## Writes into
+- A guided proposal is simulated forward starting in `x0` which is the state corresponding to `x0deepv`. The guided proposal is written into `X`.
+- The computed loglikelihood for each shape is written into `llout`
+
+## Returns
+- loglikelihood (summed over all shapes) + the logpriordensity of the initial momenta
 """
 function slogρ!(x0deepv, Q, W,X,priormom,llout)
     x0 = deepvec2state(x0deepv)
@@ -430,16 +443,27 @@ slogρ!(Q, W, X,priormom, llout) = (x) -> slogρ!(x, Q, W,X,priormom,llout)
 """
     update_initialstate!(X,Xᵒ,W,ll,x,xᵒ,∇x, ∇xᵒ,sampler, Q::GuidedProposal!, δ, update,priormom)
 
-Update initial state
-X:  current iterate of vector of sample paths
-Xᵒ: vector of sample paths to write proposal into
-W:  current vector of Wiener increments
-ll: current value of loglikelihood
-x, xᵒ, ∇x, ∇xᵒ: allocated vectors for initial state and its gradient
-sampler: either sgd (not checked yet) or mcmc
-Q::GuidedProposal!
-δ: vector with MALA stepsize for initial state positions (δ[1]) and initial state momenta (δ[2])
-update:  can be :mala_pos, :mala_mom, :rmmala_pos
+## Arguments
+- `X`:  current iterate of vector of sample paths
+- `Xᵒ`: vector of sample paths to write proposal into
+- `W`:  current vector of Wiener increments
+- `ll`: current value of loglikelihood
+- `x`, `xᵒ`, `∇x`, `∇xᵒ`: allocated vectors for initial state and its gradient (both actual and proposed values)
+- `sampler`: either sgd (not checked yet) or mcmc
+- `Q`: GuidedProposal!
+- `δ`: vector with MALA stepsize for initial state positions (δ[1]) and initial state momenta (δ[2])
+- `update`:  can be `:mala_pos`, `:mala_mom`, :rmmala_pos`, `:rmmala_mom`, ``:rmrw_mom`
+
+## Writes into
+- `X`: landmarks paths
+- `x`: initial state of the landmark paths
+- ``∇x`: gradient of loglikelihood with respect to initial state `x`
+- `ll`: a vector with as k-th element the loglikelihood for the k-th shape
+
+## Returns
+- `obj`: loglikelihood (summed over all shapes) + logdensity of prior on initial momenta
+- `(kernel = update, acc = accepted)` tuple with name of the executed update and 0/1 indicator (reject/accept)
+
 """
 function update_initialstate!(X,Xᵒ,W,ll,x,xᵒ,∇x, ∇xᵒ,
                 sampler, Q::GuidedProposal!, δ, update,priormom)
@@ -453,6 +477,7 @@ function update_initialstate!(X,Xᵒ,W,ll,x,xᵒ,∇x, ∇xᵒ,
     cfg = ForwardDiff.GradientConfig(u, x, ForwardDiff.Chunk{2*d*n}()) # 2*d*P.n is maximal
 
     if sampler ==:sgd  # CHECK VALIDITY LATER
+        @warn "Option :sgd has not been checked carefully so far."
         mask = deepvec(State(0*x0.q, onemask(x0.p)))
         # StateW = PointF
         # sample!(W, Wiener{Vector{StateW}}())
@@ -574,10 +599,17 @@ end
 """
     update_pars!(obs_info,X, Xᵒ,W, Q, Qᵒ, x, ll, priorθ, covθprop)
 
-For fixed Wiener increments and initial state, update parameters by random-walk-MH
+For fixed Wiener increments and initial state, update parameters by random-walk-MH.
+
+## Writes into
+`X`: landmark paths under landmarks process with parameter θ
+`Q`: guidrec and target-fields are updated according to new parameter θ
+
+## Returns
+`(kernel = ":parameterupdate", acc = accept)`: where `accept` is 1/0 according to accept/reject in the MH-step.
 """
 function update_pars!(obs_info,X, Xᵒ,W, Q, Qᵒ, x, ll, priorθ, covθprop)
-    θ = getpars(Q)    #(P.a, P.c, getγ(P))
+    θ = getpars(Q)
     distr = MvLogNormal(MvNormal(log.(θ),covθprop))
     θᵒ = rand(distr)
     distrᵒ = MvLogNormal(MvNormal(log.(θᵒ),covθprop))
@@ -619,8 +651,14 @@ function adaptmalastep(n,accinfo,δ, η, update; adaptskip = 15, targetaccept=0.
 end
 
 """
-    Adapt the step size for mala_mom updates.
-    The adaptation is multiplication/divsion by exp(η(n))
+"""
+    adaptpcnstep(n, accpcn, ρ, nshapes, η; adaptskip = 15, targetaccept=0.5)
+
+"""
+    adaptparstep(n,accinfo,covθprop, η;  adaptskip = 15, targetaccept=0.5)
+
+Adjust `covθprop-parameter` adaptively, every `adaptskip` steps.
+For that the assumed multiplicative parameter is first tranformed to (-∞, ∞), then updated, then mapped back to (0,∞)
 """
 function adaptparstep(n,accinfo,covθprop, η;  adaptskip = 15, targetaccept=0.5)
     if mod(n,adaptskip)==0
@@ -635,15 +673,22 @@ function adaptparstep(n,accinfo,covθprop, η;  adaptskip = 15, targetaccept=0.5
     covθprop
 end
 
+"""
+    sigmoid(z::Real) = 1.0 / (1.0 + exp(-z))
+"""
 sigmoid(z::Real) = 1.0 / (1.0 + exp(-z))
+
+"""
+    invsigmoid(z::Real) = log(z/(1-z))
+"""
 invsigmoid(z::Real) = log(z/(1-z))
 
-
 """
-    Adapt the step size for mala_mom updates.
-    The adaptation is multiplication/divsion by exp(η(n)) for log(ρ/(1-ρ))
-"""
+    adaptpcnstep(n, accpcn, ρ, nshapes, η; adaptskip = 15, targetaccept=0.5)
 
+Adjust pcN-parameter `ρ` adaptive every `adaptskip` steps.
+For that `ρ` is first tranformed to (-∞, ∞), then updated, then mapped back to (0,1)
+"""
 function adaptpcnstep(n, accpcn, ρ, nshapes, η; adaptskip = 15, targetaccept=0.5)
     if mod(n,adaptskip)==0
         recentvals = accpcn[end-adaptskip*nshapes+1:end]

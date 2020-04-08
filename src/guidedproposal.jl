@@ -1,7 +1,9 @@
 """
-    struct that contains target, auxiliary process for each shape, time grid, observation at time 0, observations
-        at time T, number of shapes, and momenta in final state used for constructing the auxiliary processes
-    guidrec is a vector of GuidRecursions, which contains the results from the backward recursions and gpupdate step at time zero
+    GuidedProposal!{T,Ttarget,Taux,TL,Txobs0,TxobsT,Tnshapes,TmT,F} <: ContinuousTimeProcess{T}
+
+struct that contains target, auxiliary process for each shape, time grid, observation at time 0, observations
+at time T, number of shapes, and momenta in final state used for constructing the auxiliary processes
+`guidrec` is a vector of GuidRecursions, which contains the results from the backward recursions and gpupdate step at time zero
 """
 mutable struct GuidedProposal!{T,Ttarget,Taux,TL,Txobs0,TxobsT,Tnshapes,TmT,F} <: ContinuousTimeProcess{T}
     target::Ttarget                 # target diffusion P
@@ -21,18 +23,22 @@ mutable struct GuidedProposal!{T,Ttarget,Taux,TL,Txobs0,TxobsT,Tnshapes,TmT,F} <
 end
 
 """
-    GuidRecursions defines a struct that contains all info required for computing the guiding term and
-    likelihood (including ptilde term) for a single shape
+    GuidRecursions{TL,TM⁺,TM, Tμ, TH, TLt0, TMt⁺0, Tμt0}
 
+GuidRecursions defines a struct that contains all info required for computing the guiding term and
+likelihood (including ptilde term) for a single shape
+
+## Arguments
 Suppose t is the specified (fixed) time grid. Then the elements of the struct are:
-Lt:     matrices L
-Mt⁺:    matrices M⁺ (inverses of M)
-M:      matrices M
-μ:      vectors μ
-Ht:     matrices H, where H = L' M L
-Lt0:    L(0) (so obtained from L(0+) after gpupdate step incorporating observation xobs0)
-Mt⁺0:   M⁺(0) (so obtained from M⁺(0+) after gpupdate step incorporating observation xobs0)
-μt0:    μ(0) (so obtained μ(0+) after gpupdate step incorporating observation xobs0)
+
+- `Lt`:     matrices L
+- `Mt⁺``:    matrices M⁺ (inverses of M)
+- `M`:      matrices M
+- `μ``:      vectors μ
+- `Ht`:     matrices H, where H = L' M L
+- `Lt0`:    L(0) (so obtained from L(0+) after gpupdate step incorporating observation xobs0)
+- `Mt⁺0`:   M⁺(0) (so obtained from M⁺(0+) after gpupdate step incorporating observation xobs0)
+- `μt0`:    μ(0) (so obtained μ(0+) after gpupdate step incorporating observation xobs0)
 """
 mutable struct GuidRecursions{TL,TM⁺,TM, Tμ, TH, TLt0, TMt⁺0, Tμt0}
     Lt::Vector{TL}          # Lt on grid tt
@@ -93,8 +99,10 @@ end
 """
     gp!(::LeftRule,  Xᵒ, x0, W, Q::GuidedProposal!,k; skip = 0, ll0 = true)
 
-Simulate guided proposal and compute loglikelihood for one shape
-Solve sde inplace and return loglikelihood (thereby avoiding 'double' computations)
+Simulate guided proposal as specified in `Q` and compute loglikelihood for one shape,
+starting from `x0`, using Wiener increments `W`
+
+Returns logliklihood.
 """
 function gp!(::LeftRule,  Xᵒ, x0, W, Q::GuidedProposal!,k; skip = 0, ll0 = true)
     Pnt = eltype(x0)
@@ -160,7 +168,7 @@ end
 """
     getpars(Q::GuidedProposal!)
 
-Extract parameters from GuidedProposal! Q, that is, (a,c,γ)
+Extract parameters from GuidedProposal! `Q`, that is, `(a,c,γ)``
 """
 function getpars(Q::GuidedProposal!)
     P = Q.target
@@ -170,7 +178,7 @@ end
 """
     putpars!(Q::GuidedProposal!,(aᵒ,cᵒ,γᵒ))
 
-Update parameter values in GuidedProposal! Q, i.e. new values are written into Q.target and Q.aux
+Update parameter values in GuidedProposal! `Q`, i.e. new values are written into `Q.target` and `Q.aux`
 """
 function putpars!(Q::GuidedProposal!,(aᵒ,cᵒ,γᵒ))
     if isa(Q.target,MarslandShardlow)

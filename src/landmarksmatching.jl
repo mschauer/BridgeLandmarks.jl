@@ -1,42 +1,46 @@
 include(joinpath(BridgeLandmarks.dir(),"scripts", "postprocessing.jl"))
 
 """
-landmarksmatching(
-        landmarks0::Matrix{Float64},landmarksT::Matrix{Float64};
+    landmarksmatching(
+        xobs0::Array{PointF},xobsT::Array{PointF};
         pars = Pars_ms(),
         updatescheme = [:innov, :mala_mom],
-        ITER = 50,
+        ITER = 100,
         outdir=@__DIR__,
         Σobs = nothing,
         ainit = nothing
     )
 
-landmarks0: n x d matrix of landmarks in Rd at time 0
-landmarksT: n x d matrix of landmarks in Rd at time T
-pars: either pars_ms() or pars_ahs() (this selects the model and default parameter values)
-updatescheme: array of mcmc updates
-ITER: number of iterations
-outdir: path of directory to which output is written
-Σobs: If provided, a length two array, where the first (second) element gives an Array{Unc} elements, where each element specifies
+## Arguments
+- `landmarks0`: n x d matrix of landmarks in Rd at time 0
+- `landmarksT`: n x d matrix of landmarks in Rd at time T
+
+## Optional arguments
+- `pars`: either `pars_ms()`` or `pars_ahs()`` (this selects the model and default parameter values)
+- `updatescheme`: array of mcmc updates
+- `ITER`: number of iterations
+- `outdir`: path of directory to which output is written
+- `Σobs`: If provided, a length two array, where the first (second) element gives an Array{Unc} elements, where each element specifies
     the covariance of the extrinsic noise for each landmark at time 0 (final time T). If not provided, Σobs is constructed using
     the value of pars.σobs
-anit: Hamiltonian kernel parameter. If not provided, defaults to setting
-    ainit = mean(norm.([xobs0[i]-xobs0[i-1] for i in 2:n]))
+- `anit`: Hamiltonian kernel parameter. If not provided, defaults to setting
+    `ainit = mean(norm.([xobs0[i]-xobs0[i-1] for i in 2:n]))`
 
-Example:
-
+## Example:
+```
     dat = load("../experiments/exp1/data_exp1.jld2")
     xobs0 = dat["xobs0"]
     xobsT = dat["xobsT"]
     writedlm("landmarks0.txt", hcat(extractcomp(xobs0,1), extractcomp(xobs0,2)))
     writedlm("landmarksT.txt", hcat(extractcomp(xobsT,1), extractcomp(xobsT,2)))
-    end
+
     landmarks0 = readdlm("landmarks0.txt")
     landmarksT = readdlm("landmarksT.txt")
 
     landmarksmatching(landmarks0, landmarksT; outdir=outdir, ITER=10, pars=BL.Pars_ahs())
     landmarksmatching(xobs0,xobsT)
     landmarksmatching(landmarks0, landmarksT; outdir=outdir, ITER=10)
+```
 """
 function landmarksmatching(
     xobs0::Array{PointF},xobsT::Array{PointF};
@@ -99,7 +103,17 @@ function landmarksmatching(
     nothing
 end
 
-
+"""
+    landmarksmatching(
+        landmarks0::Matrix{Float64},landmarksT::Matrix{Float64};
+        pars = Pars_ms(),
+        updatescheme = [:innov, :mala_mom],
+        ITER = 100,
+        outdir=@__DIR__,
+        Σobs = nothing,
+        ainit = nothing
+    )
+"""
 function landmarksmatching(
     landmarks0::Matrix{Float64},landmarksT::Matrix{Float64};
     pars = Pars_ms(),
