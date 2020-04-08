@@ -22,9 +22,24 @@ outdir: path of directory to which output is written
     the value of pars.σobs
 anit: Hamiltonian kernel parameter. If not provided, defaults to setting
     ainit = mean(norm.([xobs0[i]-xobs0[i-1] for i in 2:n]))
+
+Example:
+
+    dat = load("../experiments/exp1/data_exp1.jld2")
+    xobs0 = dat["xobs0"]
+    xobsT = dat["xobsT"]
+    writedlm("landmarks0.txt", hcat(extractcomp(xobs0,1), extractcomp(xobs0,2)))
+    writedlm("landmarksT.txt", hcat(extractcomp(xobsT,1), extractcomp(xobsT,2)))
+    end
+    landmarks0 = readdlm("landmarks0.txt")
+    landmarksT = readdlm("landmarksT.txt")
+
+    landmarksmatching(landmarks0, landmarksT; outdir=outdir, ITER=10, pars=BL.Pars_ahs())
+    landmarksmatching(xobs0,xobsT)
+    landmarksmatching(landmarks0, landmarksT; outdir=outdir, ITER=10)
 """
 function landmarksmatching(
-    landmarks0::Matrix{Float64},landmarksT::Matrix{Float64};
+    xobs0::Array{PointF},xobsT::Array{PointF};
     pars = Pars_ms(),
     updatescheme = [:innov, :mala_mom],
     ITER = 100,
@@ -34,12 +49,9 @@ function landmarksmatching(
     )
 
     model = pars.model
-    # convert landmark coordinates to arrays of PointF
-    xobs0 = [PointF(r...) for r in eachrow(landmarks0)]
-    xobsT = [[PointF(r...) for r in eachrow(landmarksT)]]
     n = length(xobs0)
     nshapes = 1
-    @assert length(landmarks0)==length(landmarksT) "The two given landmark configurations do not have the same number of landmarks."
+    @assert length(xobs0)==length(xobsT) "The two given landmark configurations do not have the same number of landmarks."
 
     if isnothing(Σobs)
         Σobs = fill([pars.σobs^2 * one(UncF) for i in 1:n],2) # noise on observations
@@ -70,7 +82,7 @@ function landmarksmatching(
     mT = zeros(PointF, n)
     start = time()
         Xsave, parsave, objvals, accpcn, accinfo, δ  , ρ, covθprop =
-                lm_mcmc(tt, (xobs0,xobsT), Σobs, mT, P,obs_atzero, fixinitmomentato0, ITER, subsamples,
+                lm_mcmc(tt, (xobs0,[xobsT]), Σobs, mT, P,obs_atzero, fixinitmomentato0, ITER, subsamples,
                                                     xinit, pars, priorθ, priormom, updatescheme, outdir)
     elapsed = time() - start
 
@@ -80,9 +92,28 @@ function landmarksmatching(
     println("Acceptance percentage pCN step: ", round(perc_acc_pcn;digits=2))
     write_mcmc_iterates(Xsave, tt, n, nshapes, subsamples, outdir)
     write_info(model,ITER, n, tt, updatescheme, Σobs, pars, ρ, δ , perc_acc_pcn, elapsed, outdir)
-    write_observations(xobs0, xobsT, n, nshapes, outdir)
+    write_observations(xobs0, [xobsT], n, nshapes, outdir)
     write_acc(accinfo, accpcn, nshapes,outdir)
     write_params(parsave, 0:ITER, outdir)
     write_noisefields(P, outdir)
+    nothing
+end
+
+
+function landmarksmatching(
+    landmarks0::Matrix{Float64},landmarksT::Matrix{Float64};
+    pars = Pars_ms(),
+    updatescheme = [:innov, :mala_mom],
+    ITER = 100,
+    outdir=@__DIR__,
+    Σobs = nothing,
+    ainit = nothing
+    )
+
+    # convert landmark coordinates to arrays of PointF
+    xobs0 = [PointF(r...) for r in eachrow(landmarks0)]
+    xobsT = [PointF(r...) for r in eachrow(landmarksT)]
+    landmarksmatching(xobs0, xobsT; pars=pars,updatescheme=updatescheme,
+        ITER=ITER, outdir=outdir, Σobs=Σobs, ainit=ainit)
     nothing
 end
