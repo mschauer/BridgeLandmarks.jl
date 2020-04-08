@@ -27,7 +27,7 @@ const itostrat = true
 
 export Point, PointF, Unc, UncF, State, deepvec
 
-export Landmarks, LandmarksAux, MarslandShardlow, MarslandShardlowAux
+export Landmarks, LandmarksAux, MarslandShardlow, MarslandShardlowAux, Pars_ms, Pars_ahs
 export landmarksforward, itostrat, construct_nfs, lm_mcmc, gramkernel, landmarksmatching
 
 export Lmplotbounds, extractcomp, tc

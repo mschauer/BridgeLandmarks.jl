@@ -80,7 +80,7 @@ function lm_mcmc(t, (xobs0,xobsT), Σobs, mT, P,
     accinfo = []                        # keeps track of accepted parameter and initial state updates
     accpcn = Int64[]                      # keeps track of nr of accepted pCN updates
 
-    δ = P isa Landmarks ? pars.δinit_ahs : pars.δinit_ms
+    δ = [pars.δpos, pars.δmom]
     ρ = pars.ρinit
     covθprop = pars.covθprop
 
@@ -140,7 +140,7 @@ function lm_mcmc(t, (xobs0,xobsT), Σobs, mT, P,
         push!(objvals, obj)
 
 
-        println("ρ ", ρ ,",   δ ", δ, ",   covθprop ", covθprop)
+        println("ρ ", ρ , ",   δ ", δ, ",   covθprop ", covθprop)
 
 
         # if write_at_half # write state halfway of lastindex
@@ -148,7 +148,6 @@ function lm_mcmc(t, (xobs0,xobsT), Σobs, mT, P,
         #     save("forwardhalfway.jld", "Xhalf",X[1].yy[indexhalf])
         # end
     end
-
 
     Xsave, parsave, objvals, accpcn, accinfo, δ, ρ, covθprop
 end
