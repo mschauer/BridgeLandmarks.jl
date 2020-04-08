@@ -1,4 +1,4 @@
-setwd("~/.julia/dev/Bridge/landmarks/figs")
+setwd("~/.julia/dev/BridgeLandmarks/src/out")
 library(tidyverse)
 library(stringr)
 library(gridExtra)

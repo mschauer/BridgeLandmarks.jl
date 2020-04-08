@@ -40,14 +40,17 @@ function lm_mcmc(t, (xobs0,xobsT), Σobs, mT, P,
     StateW = PointF
     dwiener = dimwiener(P)
 
+    # setup struct that contains L0, LT, Σ0, ΣT
     xobs0, obs_info = set_obsinfo(P.n,obs_atzero,fixinitmomentato0,Σobs,xobs0)
 
+    # initialise GuidedProposal!, which contains all info for simulating guided proposals
     nshapes = length(xobsT)
     guidrec = [init_guidrec(t,obs_info,xobs0) for k in 1:nshapes]  # memory allocation for backward recursion for each shape
     Paux = [auxiliary(P, State(xobsT[k],mT)) for k in 1:nshapes] # auxiliary process for each shape
     Q = GuidedProposal!(P,Paux,t,guidrec,xobs0,xobsT,nshapes,mT)
     update_guidrec!(Q, obs_info)   # compute backwards recursion
 
+    # initialise Wiener increments and forward simulate guided proposals
     X = [initSamplePath(t, xinit) for k in 1:nshapes]
     W = [initSamplePath(t,  zeros(StateW, dwiener)) for k in 1:nshapes]
     for k in 1:nshapes
@@ -55,7 +58,7 @@ function lm_mcmc(t, (xobs0,xobsT), Σobs, mT, P,
     end
     ll = gp!(LeftRule(), X, xinit, W, Q; skip=sk)
 
-    # saving objects
+    # setup containers for saving objects
     objvals = Float64[]             # keep track of (sgd approximation of the) loglikelihood
     Xsave = typeof(zeros(length(t) * P.n * 2 * d * nshapes))[]
     parsave = Vector{Float64}[]
@@ -64,7 +67,7 @@ function lm_mcmc(t, (xobs0,xobsT), Σobs, mT, P,
     push!(objvals, obj)
     push!(parsave, getpars(Q))
 
-    # memory allocations
+    # memory allocations, actual state at each iteration is (X,W,Q,x,∇x) (x, ∇x are initial state and its gradient)
     Xᵒ = deepcopy(X)
     Qᵒ = deepcopy(Q)
     Wᵒ = initSamplePath(t,  zeros(StateW, dwiener))
@@ -109,7 +112,7 @@ function lm_mcmc(t, (xobs0,xobsT), Σobs, mT, P,
             end
         end
 
-        # adjust mT
+        # adjust mT (the momenta at time T used in the construction of the guided proposal)
         if mod(i,pars.adaptskip)==0 && i < 100
             mTvec = [X[k][lt][2].p  for k in 1:nshapes]     # extract momenta at time T for each shape
             update_Paux_xT!(Q, mTvec, obs_info)
@@ -170,8 +173,6 @@ struct ObsInfo{TLT,TΣT,TμT,TL0,TΣ0}
          new{typeof(LT),typeof(ΣT),typeof(μT),typeof(L0),typeof(Σ0)}(LT,ΣT,μT,L0,Σ0)
     end
 end
-
-
 
 
 """
@@ -239,10 +240,11 @@ function init_guidrec(t,obs_info,xobs0)
 end
 
 """
-    Guided proposal update for newly incoming observation at time zero.
-    Information on new observations at time zero is (L0, Σ0, xobs0)
-    Values just after time zero, (Lt0₊, Mt⁺0₊, μt0₊) are updated to time zero, the result being
-    written into (Lt0, Mt⁺0, μt0)
+    lm_gpupdate!(Lt0₊, Mt⁺0₊::Array{Pnt,2}, μt0₊, (L0, Σ0, xobs0), Lt0, Mt⁺0, μt0) where Pnt
+
+Guided proposal update for newly incoming observation at time zero.
+Information on new observations at time zero is (L0, Σ0, xobs0)
+Values just after time zero, (Lt0₊, Mt⁺0₊, μt0₊) are updated to time zero, the result being written into (Lt0, Mt⁺0, μt0)
 """
 function lm_gpupdate!(Lt0₊, Mt⁺0₊::Array{Pnt,2}, μt0₊, (L0, Σ0, xobs0), Lt0, Mt⁺0, μt0) where Pnt
     Lt0 .= [L0; Lt0₊]
@@ -257,7 +259,9 @@ function lm_gpupdate!(Lt0₊, Mt⁺0₊::Array{Pnt,2}, μt0₊, (L0, Σ0, xobs0)
 end
 
 """
-    Compute backward recursion for all shapes and write into field Q.guidrec
+    update_guidrec!(Q, obs_info)
+
+Compute backward ODEs required for guided proposals (for all shapes) and write into field Q.guidrec
 """
 function update_guidrec!(Q, obs_info)
     for k in 1:Q.nshapes  # for all shapes
@@ -277,8 +281,10 @@ function update_guidrec!(Q, obs_info)
 end
 
 """
-    Update momenta mT used for constructing the auxiliary process and recompute
-    backward recursion
+    update_Paux_xT!(Q, mTvec, obs_info)
+
+Update State vector of auxiliary process for each shape.
+For the k-th shape, the momentum gets replaced with mTvec[k]
 """
 function update_Paux_xT!(Q, mTvec, obs_info)
     for k in Q.nshapes
@@ -290,10 +296,17 @@ end
 struct Lm  end
 
 """
-    Solve backwards recursions in L, M, μ parametrisation on grid t
-    implicit: if true, Euler backwards is used for solving ODE for Lt, else Euler forwards is used
+    guidingbackwards!(::Lm, t, (Lt, Mt⁺, μt), Paux, obs_info; implicit=true, lowrank=false)
 
-    Case lowrank=true still gives an error: fixme!
+Solve backwards recursions in L, M, μ parametrisation on grid t
+
+t: time grid
+(Lt, Mt⁺, μt): containers to write the solutions into
+Paux: auxiliary process
+obs_info: of type ObsInfo containing information on the observations
+implicit: if true an implicit Euler backwards scheme is used (else explicit forward)
+
+Case lowrank=true still gives an error: fixme!
 """
 function guidingbackwards!(::Lm, t, (Lt, Mt⁺, μt), Paux, obs_info; implicit=true, lowrank=false) #FIXME: add lowrank
     Mt⁺[end] .= obs_info.ΣT
@@ -302,7 +315,7 @@ function guidingbackwards!(::Lm, t, (Lt, Mt⁺, μt), Paux, obs_info; implicit=t
 
     B̃ = Bridge.B(0, Paux)          # does not depend on time
     β̃ = vec(Bridge.β(0,Paux))       # does not depend on time
-    σ̃T = Matrix(σ̃(0, Paux)) # vanilla, no (possibly enclose with Matrix)
+    σ̃T = Matrix(σ̃(0, Paux))
     dt = t[2] - t[1]
     oldtemp = (0.5*dt) * Bridge.outer(Lt[end] * σ̃T)
     if lowrank
@@ -325,15 +338,24 @@ function guidingbackwards!(::Lm, t, (Lt, Mt⁺, μt), Paux, obs_info; implicit=t
     (Lt[1], Mt⁺[1], μt[1])
 end
 
-target(Q::GuidedProposal!) = Q.target
+"""
+    target(Q::GuidedProposal!) = Q.target
+"""
+    target(Q::GuidedProposal!) = Q.target
+
+"""
+    auxiliary(Q::GuidedProposal!,k) = Q.aux[k]
+
+Extract auxiliary process of k-th shape.
+"""
 auxiliary(Q::GuidedProposal!,k) = Q.aux[k] # auxiliary process of k-th shape
+
+"""
+    constdiff(Q::GuidedProposal!)
+
+If true, both the target and auxiliary process have constant diffusion coefficient.
+"""
 constdiff(Q::GuidedProposal!) = constdiff(target(Q)) && constdiff(auxiliary(Q,1))
-
-
-
-
-
-
 
 """
     update_path!(X,Xᵒ,W,Wᵒ,Wnew,ll,x, Q, ρ, accpcn, maxnrpaths)
@@ -342,16 +364,11 @@ Update bridges for all shapes using Crank-Nicholsen scheme with parameter ρ (on
 Newly accepted bridges are written into (X,W), loglikelihood on each segment is written into vector ll
 """
 function update_path!(X,Xᵒ,W,Wᵒ,Wnew,ll,x, Q, ρ, accpcn, maxnrpaths)
-#    nn = length(X[1].yy)
     x0 = deepvec2state(x)
     dw = dimwiener(Q.target)
     # From current state (x,W) with loglikelihood ll, update to (x, Wᵒ)
     for k in 1:Q.nshapes
         sample!(Wnew, Wiener{Vector{PointF}}())
-        # for i in eachindex(W[1].yy) #i in nn
-        #     Wᵒ.yy[i] .= ρ * W[k].yy[i] + sqrt(1-ρ^2) * Wnew.yy[i]
-        # end
-
         # updateset: those indices for which the Wiener increment gets updated
         if dw <= maxnrpaths
             updateset = 1:dw
@@ -367,7 +384,6 @@ function update_path!(X,Xᵒ,W,Wᵒ,Wnew,ll,x, Q, ρ, accpcn, maxnrpaths)
                 Wᵒ.yy[i][j] =  W[k].yy[i][j]
             end
         end
-
 
         llᵒ_ = gp!(LeftRule(), Xᵒ[k], x0, Wᵒ, Q,k;skip=sk)
         diff_ll = llᵒ_ - ll[k]
@@ -388,26 +404,32 @@ function update_path!(X,Xᵒ,W,Wᵒ,Wnew,ll,x, Q, ρ, accpcn, maxnrpaths)
 end
 
 """
-    Stochastic approximation for loglikelihood.
+    slogρ!(x0deepv, Q, W,X,priormom,llout)
 
-    Simulate guided proposal and compute loglikelihood for starting point x0,
-    guided proposals defined by Q and Wiener increments in W.
-    Guided proposals are written into X.
-    Writes vector of loglikelihoods into llout.
-    Returns sum of loglikelihoods
+x0deepv: initial state, converted to a deepvector (i.e. all elements stacked)
+Q: GuidePropsoal!
+W: Wiener increments
+X: sample path
+priormom: prior on the initial momenta
+llout: vector where loglikelihoods for each shape are written into
+
+Simulate guided proposal and compute loglikelihood for starting point x0,
+
+Returns sum of loglikelihoods.
+
+Main use of this function is to get gradient information of the loglikelihood with respect ot the initial state.
 """
-function slogρ!(x0deepv, Q, W,X,priormom,llout) # stochastic approx to log(ρ)
+function slogρ!(x0deepv, Q, W,X,priormom,llout)
     x0 = deepvec2state(x0deepv)
     lltemp = gp!(LeftRule(), X, x0, W, Q; skip=sk)   #overwrites X
     llout .= ForwardDiff.value.(lltemp)
-
     sum(lltemp) + logpdf(priormom, vcat(p(x0)...))
 end
 slogρ!(Q, W, X,priormom, llout) = (x) -> slogρ!(x, Q, W,X,priormom,llout)
 
 
 """
-update_initialstate!(X,Xᵒ,W,ll,x,xᵒ,∇x, ∇xᵒ,sampler, Q::GuidedProposal!, δ, update,priormom)
+    update_initialstate!(X,Xᵒ,W,ll,x,xᵒ,∇x, ∇xᵒ,sampler, Q::GuidedProposal!, δ, update,priormom)
 
 Update initial state
 X:  current iterate of vector of sample paths
@@ -422,16 +444,14 @@ update:  can be :mala_pos, :mala_mom, :rmmala_pos
 """
 function update_initialstate!(X,Xᵒ,W,ll,x,xᵒ,∇x, ∇xᵒ,
                 sampler, Q::GuidedProposal!, δ, update,priormom)
-    n = Q.target.n
-    x0 = deepvec2state(x)
     P = Q.target
-
+    n = P.n
+    x0 = deepvec2state(x)
     llout = copy(ll)
     lloutᵒ = copy(ll)
     u = slogρ!(Q, W, X, priormom,llout)
     uᵒ = slogρ!(Q, W, Xᵒ, priormom,lloutᵒ)
     cfg = ForwardDiff.GradientConfig(u, x, ForwardDiff.Chunk{2*d*n}()) # 2*d*P.n is maximal
-
 
     if sampler ==:sgd  # CHECK VALIDITY LATER
         mask = deepvec(State(0*x0.q, onemask(x0.p)))
@@ -637,5 +657,3 @@ function adaptpcnstep(n, accpcn, ρ, nshapes, η; adaptskip = 15, targetaccept=0
     end
     ρ
 end
-
-################

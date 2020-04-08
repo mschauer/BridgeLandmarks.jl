@@ -21,7 +21,7 @@ workdir = @__DIR__
 cd(workdir)
 include(joinpath(BL.dir(),"scripts", "postprocessing.jl"))
 outdir = workdir
-mkpath(joinpath(outdir, "forward"))
+
 
 #-------- read data ----------------------------------------------------------
 dat = load("data_exp1.jld2")

@@ -1,3 +1,5 @@
+include(joinpath(BridgeLandmarks.dir(),"scripts", "postprocessing.jl"))
+
 """
 landmarkmatching(
         landmarks0::Matrix{Float64},landmarksT::Matrix{Float64};

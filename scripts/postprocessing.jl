@@ -9,7 +9,6 @@
 """
 function write_mcmc_iterates(Xsave, tt_, n, nshapes, subsamples, outdir)
     outdir[end] == "/" && error("provide pathname without trailing '/'")
-    nshapes = length(xobsT)
     iterates = reshape(vcat(Xsave...),2*d*length(tt_)*n*nshapes, length(subsamples)) # each column contains samplepath of an iteration
 
     # total number of rows is nshapes * length(tt_) * n * (2d)
