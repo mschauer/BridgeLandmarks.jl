@@ -51,6 +51,7 @@ function lm_mcmc(t, (xobs0,xobsT), Σobs, mT, P,
     # initialise GuidedProposal!, which contains all info for simulating guided proposals
     nshapes = length(xobsT)
     guidrec = [init_guidrec(t,obs_info,xobs0) for k in 1:nshapes]  # memory allocation for backward recursion for each shape
+
     Paux = [auxiliary(P, State(xobsT[k],mT)) for k in 1:nshapes] # auxiliary process for each shape
     Q = GuidedProposal!(P,Paux,t,guidrec,xobs0,xobsT,nshapes,mT)
     update_guidrec!(Q, obs_info)   # compute backwards recursion
@@ -248,13 +249,13 @@ function init_guidrec(t,obs_info,xobs0)
 end
 
 """
-    lm_gpupdate!(Lt0₊, Mt⁺0₊::Array{Pnt,2}, μt0₊, (L0, Σ0, xobs0), Lt0, Mt⁺0, μt0) where Pnt
+    gp_update!(Lt0₊, Mt⁺0₊::Array{Pnt,2}, μt0₊, (L0, Σ0, xobs0), Lt0, Mt⁺0, μt0) where Pnt
 
 Guided proposal update for newly incoming observation at time zero.
 Information on new observations at time zero is `(L0, Σ0, xobs0)`
 Values just after time zero, `(Lt0₊, Mt⁺0₊, μt0₊)` are updated to time zero, the result being written into `(Lt0, Mt⁺0, μt0)`
 """
-function lm_gpupdate!(Lt0₊, Mt⁺0₊::Array{Pnt,2}, μt0₊, (L0, Σ0, xobs0), Lt0, Mt⁺0, μt0) where Pnt
+function gp_update!(Lt0₊, Mt⁺0₊::Array{Pnt,2}, μt0₊, (L0, Σ0, xobs0), Lt0, Mt⁺0, μt0) where Pnt
     Lt0 .= [L0; Lt0₊]
     m = size(Σ0)[1]
     n = size(Mt⁺0₊)[2]
@@ -277,7 +278,7 @@ function update_guidrec!(Q, obs_info)
         # solve backward recursions;
         Lt0₊, Mt⁺0₊, μt0₊ =  guidingbackwards!(Lm(), Q.tt, (gr.Lt, gr.Mt⁺,gr.μt), Q.aux[k], obs_info)
         # perform gpupdate step at time zero
-        lm_gpupdate!(Lt0₊, Mt⁺0₊, μt0₊, (obs_info.L0, obs_info.Σ0, Q.xobs0),gr.Lt0, gr.Mt⁺0, gr.μt0)
+        gp_update!(Lt0₊, Mt⁺0₊, μt0₊, (obs_info.L0, obs_info.Σ0, Q.xobs0),gr.Lt0, gr.Mt⁺0, gr.μt0)
         # compute Cholesky decomposition of Mt at each time on the grid, need to symmetrize gr.Mt⁺; else AHS  gives numerical roundoff errors when mT \neq 0
         S = map(X -> 0.5*(X+X'), gr.Mt⁺)
         gr.Mt = map(X -> InverseCholesky(lchol(X)),S)

@@ -33,7 +33,6 @@ subsamples = 0:10:ITER
 
 model = [:ms, :ahs][1]
 fixinitmomentato0 = true
-fixinitmomentato0 = true
 obs_atzero = false
 updatescheme =  [:innov, :rmmala_pos, :parameter]
 

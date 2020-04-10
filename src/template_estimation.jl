@@ -1,10 +1,11 @@
 #include(joinpath(BridgeLandmarks.dir(),"scripts", "postprocessing.jl"))
 
+
 """
-    landmarksmatching(
-        xobs0::Array{PointF},xobsT::Array{PointF};
+    template_estimation(
+        xobsT::Array{PointF};
         pars = Pars_ms(),
-        updatescheme = [:innov, :mala_mom],
+        updatescheme = [:innov, :rmmala_pos, :parameter],
         ITER = 100,
         outdir=@__DIR__,
         Σobs = nothing,
@@ -12,8 +13,8 @@
     )
 
 ## Arguments
-- `xobs0`: Array of PointF (coordinates of inital shape)
-- `xobsT`: Array of PointF (coordinats of shape at time T)
+- `xobsT`: an array, where each element of the array gives the coordinates of a shape (i.e. the landmarks, which
+are represented as an array of PointF)
 
 ## Optional arguments
 - `pars`: either `pars_ms()`` or `pars_ahs()`` (this selects the model and default parameter values)
@@ -28,46 +29,38 @@
 
 ## Example:
 ```
-    dat = load("../experiments/exp1/data_exp1.jld2")
-    xobs0 = dat["xobs0"]
+    dat = load("../experiments/exp2/data_exp2.jld2")
     xobsT = dat["xobsT"]
-    writedlm("landmarks0.txt", hcat(extractcomp(xobs0,1), extractcomp(xobs0,2)))
-    writedlm("landmarksT.txt", hcat(extractcomp(xobsT,1), extractcomp(xobsT,2)))
 
-    landmarks0 = readdlm("landmarks0.txt")
-    landmarksT = readdlm("landmarksT.txt")
-
-    landmarksmatching(landmarks0, landmarksT; outdir=outdir, ITER=10, pars=BL.Pars_ahs())
-    landmarksmatching(xobs0,xobsT)
-    landmarksmatching(landmarks0, landmarksT; outdir=outdir, ITER=10)
-```
-"""
-function landmarksmatching(
-    xobs0::Array{PointF},xobsT::Array{PointF};
+    template_estimation(xobsT)
+`"""
+function template_estimation(
+    xobsT;#::Array{Array{PointF}};
     pars = Pars_ms(),
-    updatescheme = [:innov, :mala_mom],
-    ITER = 100,
+    updatescheme = [:innov, :rmmala_pos, :parameter],
+    ITER = 10,
     outdir=@__DIR__,
     Σobs = nothing,
     ainit = nothing
     )
 
     model = pars.model
-    n = length(xobs0)
-    nshapes = 1
-    @assert length(xobs0)==length(xobsT) "The two given landmark configurations do not have the same number of landmarks."
+    xobs0 = [] # as it is not known
+
+    n = length(xobsT[1])
+    nshapes = length(xobsT)
 
     if isnothing(Σobs)
         Σobs = fill([pars.σobs^2 * one(UncF) for i in 1:n],2) # noise on observations
     end
     T = 1.0; t = 0.0:pars.dt:T; tt = tc(t,T)
-    obs_atzero = true
-    fixinitmomentato0 = false
+    obs_atzero = false
+    fixinitmomentato0 = true
     subsamples = 0:pars.skip_saveITER:ITER
 
     ################################# initialise P #################################
     if isnothing(ainit)
-        ainit = mean(norm.([xobs0[i]-xobs0[i-1] for i in 2:n]))
+        ainit = mean(norm.([xobsT[1][i]-xobsT[1][i-1] for i in 2:n]))
     end
     cinit = pars.cinit
     γinit = pars.γinit
@@ -80,13 +73,21 @@ function landmarksmatching(
 
     ################## prior specification with θ = (a, c, γ) ########################
     priorθ = product_distribution([Exponential(ainit), Exponential(cinit), Exponential(γinit)])
-    priormom = MvNormalCanon(zeros(d*n), gramkernel(xobs0,P)/pars.κ)
+    priormom = FlatPrior()
 
-    xinit = State(xobs0, zeros(PointF,P.n))
+    mT = zeros(PointF, n)
+
+    xinitq = xobsT[1]
+    θ, ψ =  π/6, 0.25
+    rot =  SMatrix{2,2}(cos(θ), sin(θ), -sin(θ), cos(θ))
+    stretch = SMatrix{2,2}(1.0 + ψ, 0.0, 0.0, 1.0 - ψ)
+    xinitq_adj = [rot * stretch * xinitq[i] for i in 1:n ]
+    xinit = State(xinitq_adj, mT)
+
     mT = zeros(PointF, n)
     start = time()
         Xsave, parsave, objvals, accpcn, accinfo, δ  , ρ, covθprop =
-                lm_mcmc(tt, (xobs0,[xobsT]), Σobs, mT, P,obs_atzero, fixinitmomentato0, ITER, subsamples,
+                lm_mcmc(tt, (xobs0,xobsT), Σobs, mT, P,obs_atzero, fixinitmomentato0, ITER, subsamples,
                                                     xinit, pars, priorθ, priormom, updatescheme, outdir)
     elapsed = time() - start
 
@@ -96,7 +97,8 @@ function landmarksmatching(
     println("Acceptance percentage pCN step: ", round(perc_acc_pcn;digits=2))
     write_mcmc_iterates(Xsave, tt, n, nshapes, subsamples, outdir)
     write_info(model,ITER, n, tt, updatescheme, Σobs, pars, ρ, δ , perc_acc_pcn, elapsed, outdir)
-    write_observations(xobs0, [xobsT], n, nshapes, outdir)
+    q0 = 0.0 * xobsT[1]
+    write_observations(q0, xobsT, n, nshapes, outdir)
     write_acc(accinfo, accpcn, nshapes,outdir)
     write_params(parsave, 0:ITER, outdir)
     write_noisefields(P, outdir)
@@ -104,8 +106,8 @@ function landmarksmatching(
 end
 
 """
-    landmarksmatching(
-        landmarks0::Matrix{Float64},landmarksT::Matrix{Float64};
+    template_estimation(
+        landmarksT::Array{Matrix{Float64}};
         pars = Pars_ms(),
         updatescheme = [:innov, :mala_mom],
         ITER = 100,
@@ -114,8 +116,8 @@ end
         ainit = nothing
     )
 """
-function landmarksmatching(
-    landmarks0::Matrix{Float64},landmarksT::Matrix{Float64};
+function template_estimation(
+    landmarksT::Array{Matrix{Float64}};
     pars = Pars_ms(),
     updatescheme = [:innov, :mala_mom],
     ITER = 100,
@@ -125,9 +127,8 @@ function landmarksmatching(
     )
 
     # convert landmark coordinates to arrays of PointF
-    xobs0 = [PointF(r...) for r in eachrow(landmarks0)]
-    xobsT = [PointF(r...) for r in eachrow(landmarksT)]
-    landmarksmatching(xobs0, xobsT; pars=pars,updatescheme=updatescheme,
+    xobsT = [ [PointF(r...) for r in eachrow(lmT)]  for lmT in eachindex(landmarksT)]
+    template_estimation(xobsT; pars=pars,updatescheme=updatescheme,
         ITER=ITER, outdir=outdir, Σobs=Σobs, ainit=ainit)
     nothing
 end

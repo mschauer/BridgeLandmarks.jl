@@ -27,7 +27,7 @@ const itostrat = true
 
 export Point, PointF, Unc, UncF, State, deepvec
 
-export Landmarks, LandmarksAux, MarslandShardlow, MarslandShardlowAux, Pars_ms, Pars_ahs
+export Landmarks, LandmarksAux, MarslandShardlow, MarslandShardlowAux, Pars_ms, Pars_ahs, FlatPrior
 export landmarksforward, itostrat, construct_nfs, lm_mcmc, gramkernel, landmarksmatching
 
 export Lmplotbounds, extractcomp, tc
@@ -46,6 +46,7 @@ include("pars.jl")
 include("guidedproposal.jl")
 include("lmguid.jl")
 include("landmarksmatching.jl")
+include("template_estimation.jl")
 include("updatematching.jl")
 
 
