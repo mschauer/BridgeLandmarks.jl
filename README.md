@@ -1,6 +1,5 @@
 [![Build Status](https://travis-ci.com/mschauer/BridgeLandmarks.jl.svg?branch=master)](https://travis-ci.com/mschauer/BridgeLandmarks.jl)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.3629353.svg)](https://doi.org/10.5281/zenodo.3629353)
-[![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://mschauer.github.io/BridgeLandmarks.jl/stable)
 [![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://mschauer.github.io/BridgeLandmarks.jl/dev)
 [![arXiv article](https://img.shields.io/badge/article-arXiv%3A2002.00885-B31B1B)](https://arxiv.org/abs/2002.00885)
 
