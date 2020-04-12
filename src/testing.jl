@@ -26,8 +26,8 @@ outdir = joinpath(workdir,"out")
 dat = load("../experiments/exp1/data_exp1.jld2")
 xobs0 = dat["xobs0"]
 xobsT = dat["xobsT"]
-landmarksmatching(xobs0,xobsT)
-@enter landmarksmatching(xobs0,xobsT)
+landmarksmatching(xobs0,xobsT;outdir=outdir)
+#@enter landmarksmatching(xobs0,xobsT)
 
 if false
     dat = load("../experiments/exp1/data_exp1.jld2")
