@@ -1,3 +1,4 @@
+
 """
     GuidedProposal!{T,Ttarget,Taux,TL,Txobs0,TxobsT,Tnshapes,TmT,F} <: ContinuousTimeProcess{T}
 
@@ -5,56 +6,23 @@ struct that contains target, auxiliary process for each shape, time grid, observ
 at time T, number of shapes, and momenta in final state used for constructing the auxiliary processes
 `guidrec` is a vector of GuidRecursions, which contains the results from the backward recursions and gpupdate step at time zero
 """
-mutable struct GuidedProposal!{T,Ttarget,Taux,TL,Txobs0,TxobsT,Tnshapes,TmT,F} <: ContinuousTimeProcess{T}
+mutable struct GuidedProposal!{T,Ttarget,Taux,Txobs0,TelxobsT,TL,TmT,F} <: ContinuousTimeProcess{T}
     target::Ttarget                 # target diffusion P
     aux::Vector{Taux}               # auxiliary diffusion for each shape (Ptilde for each shape)
     tt::Vector{Float64}             # grid of time points on single segment (S,T]
+    xobs0::Txobs0
+    xobsT::Vector{TelxobsT}
     guidrec::Vector{TL}             # guided recursions on grid tt
-    xobs0::Txobs0                   # observation at time 0
-    xobsT::Vector{TxobsT}           # observations for each shape at time T
-    nshapes::Int64                  # number of shapes
+    nshapes::Int64
     mT::TmT                         # momenta of final state used for defining auxiliary process
     endpoint::F
 
-    function GuidedProposal!(target, aux, tt_, guidrec, xobs0, xobsT, nshapes, mT, endpoint=Bridge.endpoint)
+    function GuidedProposal!(target, aux, tt_,xobs0,xobsT, guidrec,nshapes,mT, endpoint=Bridge.endpoint)
         tt = collect(tt_)
-        new{Bridge.valtype(target),typeof(target),eltype(aux),eltype(guidrec),typeof(xobs0),eltype(xobsT),Int64,typeof(mT),typeof(endpoint)}(target, aux, tt, guidrec, xobs0, xobsT, nshapes, mT,endpoint)
+        new{Bridge.valtype(target),typeof(target),eltype(aux),typeof(xobs0), eltype(xobsT),eltype(guidrec),typeof(mT),typeof(endpoint)}(
+                    target, aux, tt,xobs0,xobsT, guidrec, nshapes, mT,endpoint)
     end
 end
-
-"""
-    GuidRecursions{TL,TM⁺,TM, Tμ, TH, TLt0, TMt⁺0, Tμt0}
-
-GuidRecursions defines a struct that contains all info required for computing the guiding term and
-likelihood (including ptilde term) for a single shape
-
-## Arguments
-Suppose t is the specified (fixed) time grid. Then the elements of the struct are:
-
-- `Lt`:     matrices L
-- `Mt⁺``:    matrices M⁺ (inverses of M)
-- `M`:      matrices M
-- `μ``:      vectors μ
-- `Ht`:     matrices H, where H = L' M L
-- `Lt0`:    L(0) (so obtained from L(0+) after gpupdate step incorporating observation xobs0)
-- `Mt⁺0`:   M⁺(0) (so obtained from M⁺(0+) after gpupdate step incorporating observation xobs0)
-- `μt0`:    μ(0) (so obtained μ(0+) after gpupdate step incorporating observation xobs0)
-"""
-mutable struct GuidRecursions{TL,TM⁺,TM, Tμ, TH, TLt0, TMt⁺0, Tμt0}
-    Lt::Vector{TL}          # Lt on grid tt
-    Mt⁺::Vector{TM⁺}        # Mt⁺ on grid tt
-    Mt::Vector{TM}          # Mt on grid tt
-    μt::Vector{Tμ}          # μt on grid tt
-    Ht::Vector{TH}          # Ht on grid tt
-    Lt0::TLt0               # Lt at time 0, after gpupdate step incorporating observation xobs0
-    Mt⁺0::TMt⁺0             # inv(Mt) at time 0, after gpupdate step incorporating observation xobs0
-    μt0::Tμt0               # μt at time 0, after gpupdate step incorporating observation xobs0
-
-    function GuidRecursions(Lt, Mt⁺,Mt, μt, Ht, Lt0, Mt⁺0, μt0)
-            new{eltype(Lt), eltype(Mt⁺), eltype(Mt),eltype(μt),eltype(Ht), typeof(Lt0), typeof(Mt⁺0), typeof(μt0)}(Lt, Mt⁺,Mt, μt, Ht, Lt0, Mt⁺0, μt0)
-    end
-end
-
 
 """
     _b!((i,t), x::State, out::State, Q::GuidedProposal!,k)
@@ -157,7 +125,7 @@ end
 
 Simulate guided proposal and compute loglikelihood (vector version, multiple shapes)
 """
-function gp!(::LeftRule,  X, x0, W, Q::GuidedProposal!; skip = 0, ll0 = true)
+function gp!(::LeftRule,  X::Vector, x0, W, Q::GuidedProposal!; skip = 0, ll0 = true)
     soms  = zeros(deepeltype(x0), Q.nshapes)
     for k in 1:Q.nshapes
         soms[k] = gp!(LeftRule(), X[k],x0,W[k],Q,k ;skip=skip,ll0=ll0)
@@ -188,4 +156,36 @@ function putpars!(Q::GuidedProposal!,(aᵒ,cᵒ,γᵒ))
         Q.target = Landmarks(aᵒ,cᵒ,Q.target.n,Q.target.db,Q.target.nfstd,nfs)
     end
     Q.aux = [auxiliary(Q.target,State(Q.xobsT[k],Q.mT)) for k in 1:Q.nshapes]
+end
+
+"""
+    target(Q::GuidedProposal!) = Q.target
+"""
+    target(Q::GuidedProposal!) = Q.target
+
+"""
+    auxiliary(Q::GuidedProposal!,k) = Q.aux[k]
+
+Extract auxiliary process of k-th shape.
+"""
+auxiliary(Q::GuidedProposal!,k) = Q.aux[k] # auxiliary process of k-th shape
+
+"""
+    constdiff(Q::GuidedProposal!)
+
+If true, both the target and auxiliary process have constant diffusion coefficient.
+"""
+constdiff(Q::GuidedProposal!) = constdiff(target(Q)) && constdiff(auxiliary(Q,1))
+
+"""
+    update_Paux_xT!(Q, mTvec, obs_info)
+
+Update State vector of auxiliary process for each shape.
+For the k-th shape, the momentum gets replaced with `mTvec[k]`
+"""
+function update_Paux_xT!(Q, mTvec, obs_info)
+    for k in Q.nshapes
+        Q.aux[k] = auxiliary(Q.target,State(Q.xobsT[k],mTvec[k]))  # auxiliary process for each shape
+    end
+    update_guidrec!(Q, obs_info)
 end

@@ -45,24 +45,37 @@ function lm_mcmc(t, (xobs0,xobsT), Σobs, mT, P,
     StateW = PointF
     dwiener = dimwiener(P)
 
-    # setup struct that contains L0, LT, Σ0, ΣT
-    xobs0, obs_info = set_obsinfo(P.n,obs_atzero,fixinitmomentato0,Σobs,xobs0)
+    obsinfo = set_obsinfo(xobs0,xobsT,Σobs, obs_atzero,fixinitmomentato0)
 
     # initialise GuidedProposal!, which contains all info for simulating guided proposals
-    nshapes = length(xobsT)
-    guidrec = [init_guidrec(t,obs_info,xobs0) for k in 1:nshapes]  # memory allocation for backward recursion for each shape
-
+    nshapes = obsinfo.nshapes
+    guidrec = [init_guidrec(t,obsinfo) for _ in 1:nshapes]  # memory allocation for backward recursion for each shape
     Paux = [auxiliary(P, State(xobsT[k],mT)) for k in 1:nshapes] # auxiliary process for each shape
-    Q = GuidedProposal!(P,Paux,t,guidrec,xobs0,xobsT,nshapes,mT)
-    update_guidrec!(Q, obs_info)   # compute backwards recursion
+    Q = GuidedProposal!(P,Paux,t,obsinfo.xobs0,obsinfo.xobsT,guidrec,nshapes,mT)
+    update_guidrec!(Q, obsinfo)   # compute backwards recursion
 
     # initialise Wiener increments and forward simulate guided proposals
-    X = [initSamplePath(t, xinit) for k in 1:nshapes]
-    W = [initSamplePath(t,  zeros(StateW, dwiener)) for k in 1:nshapes]
+    X = [initSamplePath(t, xinit) for _ in 1:nshapes]
+    W = [initSamplePath(t,  zeros(StateW, dwiener)) for _ in 1:nshapes]
     for k in 1:nshapes
         sample!(W[k], Wiener{Vector{StateW}}())
     end
+    x = deepvec(xinit)
+    ∇x = deepcopy(x)
+
+    # memory allocations, actual state at each iteration is (X,W,Q,x,∇x) (x, ∇x are initial state and its gradient)
+    Xᵒ = deepcopy(X)
+    Qᵒ = deepcopy(Q)
+    Wᵒ = initSamplePath(t,  zeros(StateW, dwiener))
+    Wnew = initSamplePath(t,  zeros(StateW, dwiener))
+    xᵒ = deepcopy(x)
+    ∇xᵒ = deepcopy(x)
+
+
     ll = gp!(LeftRule(), X, xinit, W, Q; skip=sk)
+
+
+
 
     # setup containers for saving objects
     objvals = Float64[]             # keep track of (sgd approximation of the) loglikelihood
@@ -72,16 +85,6 @@ function lm_mcmc(t, (xobs0,xobsT), Σobs, mT, P,
     obj = sum(ll)
     push!(objvals, obj)
     push!(parsave, getpars(Q))
-
-    # memory allocations, actual state at each iteration is (X,W,Q,x,∇x) (x, ∇x are initial state and its gradient)
-    Xᵒ = deepcopy(X)
-    Qᵒ = deepcopy(Q)
-    Wᵒ = initSamplePath(t,  zeros(StateW, dwiener))
-    Wnew = initSamplePath(t,  zeros(StateW, dwiener))
-    x = deepvec(xinit)
-    xᵒ = deepcopy(x)
-    ∇x = deepcopy(x)
-    ∇xᵒ = deepcopy(x)
 
     accinfo = []                        # keeps track of accepted parameter and initial state updates
     accpcn = Int64[]                      # keeps track of nr of accepted pCN updates
@@ -110,7 +113,7 @@ function lm_mcmc(t, (xobs0,xobsT), Σobs, mT, P,
                 δ[1] = adaptmalastep(i,accinfo,δ[1], pars.η, update; adaptskip = pars.adaptskip)
             elseif update == :parameter
                 #@timeit to "update par"
-                accinfo_ = update_pars!(obs_info,X, Xᵒ,W, Q, Qᵒ, x, ll, priorθ, covθprop)
+                accinfo_ = update_pars!(obsinfo,X, Xᵒ,W, Q, Qᵒ, x, ll, priorθ, covθprop)
                 push!(accinfo, accinfo_)
                 covθprop = adaptparstep(i,accinfo,covθprop, pars.η;  adaptskip = pars.adaptskip)
             elseif update == :sgd
@@ -121,7 +124,7 @@ function lm_mcmc(t, (xobs0,xobsT), Σobs, mT, P,
         # adjust mT (the momenta at time T used in the construction of the guided proposal)
         if mod(i,pars.adaptskip)==0 && i < 100
             mTvec = [X[k][lt][2].p  for k in 1:nshapes]     # extract momenta at time T for each shape
-            update_Paux_xT!(Q, mTvec, obs_info)
+            update_Paux_xT!(Q, mTvec, obsinfo)
         end
 
         # don't remove
@@ -160,212 +163,12 @@ end
 
 
 
-"""
-    struct containing information on the observations
-
-We assue observations V0 and VT, where
-- V0 = L0 * X0 + N(0,Σ0)
-- VT = LT * X0 + N(0,ΣT)
-In addition, μT is a vector of zeros (for initialising the backward ODE on μ) (possibly remove later)
-"""
-struct ObsInfo{TLT,TΣT,TμT,TL0,TΣ0}
-     LT::TLT
-     ΣT::TΣT
-     μT::TμT
-     L0::TL0
-     Σ0::TΣ0
-
-    function ObsInfo(LT,ΣT,μT,L0,Σ0)
-         new{typeof(LT),typeof(ΣT),typeof(μT),typeof(L0),typeof(Σ0)}(LT,ΣT,μT,L0,Σ0)
-    end
-end
 
 
-"""
-    set_obsinfo(n, obs_atzero::Bool,fixinitmomentato0::Bool, Σobs,xobs0)
 
-## Arguments
-- `n`: number of landmarks
-- `obs_atzero`: Boolean, if true, the initial configuration is observed
-- `fixinitmomenta0`: Boolean, if true, the initial momenta are fixed to zero
-- `Σobs`: 2-element array where Σobs0 = Σobs[1] and ΣobsT = Σobs[2]
-    Both Σobs0 and ΣobsT are arrays of length n of type UncF that give the observation covariance matrix on each landmark
-- `xobs0`: in case obs_atzero=true, it is provided and passed through; in other cases it is constructed such that the backward ODEs are initialised correctly.
 
-Note that there are three cases:
-- `obs_atzero=true`: this refers to the case of observing one landmark configuration at times 0 and T
-- `obs_atzero=false & fixinitmomentato0=false`: case of observing multiple shapes at time T,
-    both positions and momenta at time zero assumed unknown
-- `obs_atzero=false & fixinitmomentato0=true`: case of observing multiple shapes at time T,
-    positions at time zero assumed unknown, momenta at time 0 are fixed to zero
-"""
-function set_obsinfo(n, obs_atzero::Bool,fixinitmomentato0::Bool, Σobs,xobs0)
-    Σobs0 = Σobs[1]; ΣobsT = Σobs[2]
-    if obs_atzero # don't update initial positions, but update initialmomenta
-        L0 = LT = [(i==j) * one(UncF) for i in 1:2:2n, j in 1:2n]  # pick position indices
-        Σ0 = [(i==j) * Σobs0[i] for i in 1:n, j in 1:n]
-        ΣT = [(i==j) * ΣobsT[i] for i in 1:n, j in 1:n]
-    elseif !obs_atzero & !fixinitmomentato0  # update initial positions and initial momenta
-        L0 = Array{UncF}(undef,0,2*n)
-        Σ0 = Array{UncF}(undef,0,0)
-        xobs0 = Array{PointF}(undef,0)
-        LT = [(i==j) * one(UncF) for i in 1:2:2n, j in 1:2n]
-        ΣT = [(i==j) * ΣobsT[i] for i in 1:n, j in 1:n]
-    elseif !obs_atzero & fixinitmomentato0   # only update positions and fix initial state momenta to zero
-        xobs0 = zeros(PointF,n)
-        L0 = [((i+1)==j) * one(UncF) for i in 1:2:2n, j in 1:2n] # pick momenta indices
-        LT = [(i==j) * one(UncF) for i in 1:2:2n, j in 1:2n] # pick position indices
-        Σ0 = [(i==j) * Σobs0[i] for i in 1:n, j in 1:n]
-        ΣT = [(i==j) * ΣobsT[i] for i in 1:n, j in 1:n]
-    end
-    μT = zeros(PointF,n)
-    xobs0, ObsInfo(LT,ΣT,μT,L0,Σ0)
-end
 
-"""
-    init_guidrec(t,obs_info,xobs0)
 
-Initialise (allocate memory) a struct of type GuidRecursions for a single shape
-"""
-function init_guidrec(t,obs_info,xobs0)
-    Pnt = eltype(obs_info.ΣT)
-    Lt =  [copy(obs_info.LT) for s in t]
-    Mt⁺ = [copy(obs_info.ΣT) for s in t]
-    Mt = map(X -> InverseCholesky(lchol(X)),Mt⁺)
-    μt = [copy(obs_info.μT) for s in t]
-    H = obs_info.LT' * (obs_info.ΣT * obs_info.LT )
-    Ht = [copy(H) for s in t]
-    Lt0 = copy([obs_info.L0; obs_info.LT])
-
-    m = size(obs_info.Σ0)[1]
-    n = size(obs_info.ΣT)[2]
-    if m==0
-        Mt⁺0 = copy(obs_info.ΣT)
-    else
-        Mt⁺0 = [copy(obs_info.Σ0) zeros(Pnt,m,n); zeros(Pnt,n,m) copy(obs_info.ΣT)]
-    end
-    μt0 = [0*xobs0; copy(obs_info.μT)]
-    GuidRecursions(Lt, Mt⁺, Mt, μt, Ht, Lt0, Mt⁺0, μt0)
-end
-
-"""
-    gp_update!(Lt0₊, Mt⁺0₊::Array{Pnt,2}, μt0₊, (L0, Σ0, xobs0), Lt0, Mt⁺0, μt0) where Pnt
-
-Guided proposal update for newly incoming observation at time zero.
-Information on new observations at time zero is `(L0, Σ0, xobs0)`
-Values just after time zero, `(Lt0₊, Mt⁺0₊, μt0₊)` are updated to time zero, the result being written into `(Lt0, Mt⁺0, μt0)`
-"""
-function gp_update!(Lt0₊, Mt⁺0₊::Array{Pnt,2}, μt0₊, (L0, Σ0, xobs0), Lt0, Mt⁺0, μt0) where Pnt
-    Lt0 .= [L0; Lt0₊]
-    m = size(Σ0)[1]
-    n = size(Mt⁺0₊)[2]
-    if m==0
-        Mt⁺0 .= Mt⁺0₊
-    else
-        Mt⁺0 .= [Σ0 zeros(Pnt,m,n); zeros(Pnt,n,m) Mt⁺0₊]
-    end
-    μt0 .= [0*xobs0; μt0₊]
-end
-
-"""
-    update_guidrec!(Q, obs_info)
-
-Compute backward ODEs required for guided proposals (for all shapes) and write into field `Q.guidrec`
-"""
-function update_guidrec!(Q, obs_info)
-    for k in 1:Q.nshapes  # for all shapes
-        gr = Q.guidrec[k]
-        # solve backward recursions;
-        Lt0₊, Mt⁺0₊, μt0₊ =  guidingbackwards!(Lm(), Q.tt, (gr.Lt, gr.Mt⁺,gr.μt), Q.aux[k], obs_info)
-        # perform gpupdate step at time zero
-        gp_update!(Lt0₊, Mt⁺0₊, μt0₊, (obs_info.L0, obs_info.Σ0, Q.xobs0),gr.Lt0, gr.Mt⁺0, gr.μt0)
-        # compute Cholesky decomposition of Mt at each time on the grid, need to symmetrize gr.Mt⁺; else AHS  gives numerical roundoff errors when mT \neq 0
-        S = map(X -> 0.5*(X+X'), gr.Mt⁺)
-        gr.Mt = map(X -> InverseCholesky(lchol(X)),S)
-        # compute Ht at each time on the grid
-        for i in 1:length(gr.Ht)
-            gr.Ht[i] .= gr.Lt[i]' * (gr.Mt[i] * gr.Lt[i] )
-        end
-    end
-end
-
-"""
-    update_Paux_xT!(Q, mTvec, obs_info)
-
-Update State vector of auxiliary process for each shape.
-For the k-th shape, the momentum gets replaced with `mTvec[k]`
-"""
-function update_Paux_xT!(Q, mTvec, obs_info)
-    for k in Q.nshapes
-        Q.aux[k] = auxiliary(Q.target,State(Q.xobsT[k],mTvec[k]))  # auxiliary process for each shape
-    end
-    update_guidrec!(Q, obs_info)
-end
-
-struct Lm  end
-
-"""
-    guidingbackwards!(::Lm, t, (Lt, Mt⁺, μt), Paux, obs_info; implicit=true, lowrank=false)
-
-Solve backwards recursions in L, M, μ parametrisation on grid t
-
-## Arguments
-- `t`: time grid
-- `(Lt, Mt⁺, μt)`: containers to write the solutions into
-- `Paux`: auxiliary process
-- `obs_info`: of type ObsInfo containing information on the observations
-- `implicit`: if true an implicit Euler backwards scheme is used (else explicit forward)
-
-Case `lowrank=true` still gives an error: fixme!
-"""
-function guidingbackwards!(::Lm, t, (Lt, Mt⁺, μt), Paux, obs_info; implicit=true, lowrank=false) #FIXME: add lowrank
-    Mt⁺[end] .= obs_info.ΣT
-    Lt[end] .= obs_info.LT
-    μt[end] .= obs_info.μT
-
-    B̃ = Bridge.B(0, Paux)          # does not depend on time
-    β̃ = vec(Bridge.β(0,Paux))       # does not depend on time
-    σ̃T = Matrix(σ̃(0, Paux))
-    dt = t[2] - t[1]
-    oldtemp = (0.5*dt) * Bridge.outer(Lt[end] * σ̃T)
-    if lowrank
-        # TBA lowrank on σ̃T, and write into σ̃T
-        error("not implemented")
-    end
-
-    for i in length(t)-1:-1:1
-        dt = t[i+1]-t[i]
-        if implicit
-            Lt[i] .= Lt[i+1]/lu(I - dt* B̃, Val(false)) # should we use pivoting?
-        else
-            Lt[i] .=  Lt[i+1] * (I + B̃ * dt)
-        end
-        temp = (0.5*dt) * Bridge.outer(Lt[i] * σ̃T)
-        Mt⁺[i] .= Mt⁺[i+1] + oldtemp + temp
-        oldtemp = temp
-        μt[i] .= μt[i+1] + 0.5 * (Lt[i] + Lt[i+1]) * β̃ * dt  # trapezoid rule
-    end
-    (Lt[1], Mt⁺[1], μt[1])
-end
-
-"""
-    target(Q::GuidedProposal!) = Q.target
-"""
-    target(Q::GuidedProposal!) = Q.target
-
-"""
-    auxiliary(Q::GuidedProposal!,k) = Q.aux[k]
-
-Extract auxiliary process of k-th shape.
-"""
-auxiliary(Q::GuidedProposal!,k) = Q.aux[k] # auxiliary process of k-th shape
-
-"""
-    constdiff(Q::GuidedProposal!)
-
-If true, both the target and auxiliary process have constant diffusion coefficient.
-"""
-constdiff(Q::GuidedProposal!) = constdiff(target(Q)) && constdiff(auxiliary(Q,1))
 
 """
     update_path!(X,Xᵒ,W,Wᵒ,Wnew,ll,x, Q, ρ, accpcn, maxnrpaths)

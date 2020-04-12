@@ -82,6 +82,9 @@ function landmarksmatching(
     priorθ = product_distribution([Exponential(ainit), Exponential(cinit), Exponential(γinit)])
     priormom = MvNormalCanon(zeros(d*n), gramkernel(xobs0,P)/pars.κ)
 
+obsinfo = set_obsinfo(xobs0,[xobsT],Σobs, obs_atzero,fixinitmomentato0)
+@show obsinfo.n
+
     xinit = State(xobs0, zeros(PointF,P.n))
     mT = zeros(PointF, n)
     start = time()
