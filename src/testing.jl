@@ -49,4 +49,4 @@ dat = load("../experiments/exp2/data_exp2.jld2")
 xobsT = dat["xobsT"]
 xobs0 = dat["xobs0"]
 
-template_estimation(xobsT)
+BL.template_estimation(xobsT)

@@ -83,3 +83,24 @@ struct TestS2{T}
 end
 
 TestS2([1.,2.],[3.,4.],[5.,6.])
+
+nshapes=3
+xinit=BL.NState(rand(PointF,5),rand(PointF,5))
+t = collect(0:.01:1.0)
+
+X = [BL.initSamplePath(t, xinit) for _ in 1:nshapes]
+W = [BL.initSamplePath(t,  zeros(PointF, 2)) for _ in 1:nshapes]
+for k in 1:nshapes
+	sample!(W[k], BL.Wiener{Vector{PointF}}())
+end
+x = deepvec(xinit)
+∇x = deepcopy(x)
+
+
+Xk = BL.initSamplePath(t, 0.0*xinit)
+X[2] = Xk
+
+# memory allocations, actual state at each iteration is (X,W,Q,x,∇x) (x, ∇x are initial state and its gradient)
+Xᵒ = deepcopy(X)
+Qᵒ = deepcopy(Q)
+Wᵒ = initSamplePath(t,  zeros(StateW, dwiener))

@@ -132,8 +132,9 @@ end
 Compute backward ODEs required for guided proposals (for all shapes) and write into field `Q.guidrec`
 """
 function update_guidrec!(Q, obsinfo)
+    Qgr = copy(Q.guidrec)
     for k in 1:obsinfo.nshapes  # for all shapes
-        gr = Q.guidrec[k]
+        gr = Qgr[k]
         # solve backward recursions;
         Lt0₊, Mt⁺0₊, μt0₊ =  guidingbackwards!(Lm(), Q.tt, (gr.Lt, gr.Mt⁺,gr.μt), Q.aux[k], obsinfo)
         # perform gpupdate step at time zero
@@ -146,4 +147,5 @@ function update_guidrec!(Q, obsinfo)
             gr.Ht[i] .= gr.Lt[i]' * (gr.Mt[i] * gr.Lt[i] )
         end
     end
+    set_guidrec!(Q::GuidedProposal!, Qgr)
 end

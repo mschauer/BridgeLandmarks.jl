@@ -51,7 +51,7 @@ function lm_mcmc(t, (xobs0,xobsT), Σobs, mT, P,
     nshapes = obsinfo.nshapes
     guidrec = [init_guidrec(t,obsinfo) for _ in 1:nshapes]  # memory allocation for backward recursion for each shape
     Paux = [auxiliary(P, State(xobsT[k],mT)) for k in 1:nshapes] # auxiliary process for each shape
-    Q = GuidedProposal!(P,Paux,t,obsinfo.xobs0,obsinfo.xobsT,guidrec,nshapes,mT)
+    Q = GuidedProposal!(P,Paux,t,obsinfo.xobs0,obsinfo.xobsT,guidrec,nshapes,[mT for _ in 1:nshapes])
     update_guidrec!(Q, obsinfo)   # compute backwards recursion
 
     # initialise Wiener increments and forward simulate guided proposals
@@ -124,7 +124,7 @@ function lm_mcmc(t, (xobs0,xobsT), Σobs, mT, P,
         # adjust mT (the momenta at time T used in the construction of the guided proposal)
         if mod(i,pars.adaptskip)==0 && i < 100
             mTvec = [X[k][lt][2].p  for k in 1:nshapes]     # extract momenta at time T for each shape
-            update_Paux_xT!(Q, mTvec, obsinfo)
+            update_mT!(Q, mTvec, obsinfo)
         end
 
         # don't remove
@@ -426,10 +426,11 @@ function update_pars!(obs_info,X, Xᵒ,W, Q, Qᵒ, x, ll, priorθ, covθprop)
         logpdf(distrᵒ, θ) - logpdf(distr, θᵒ)
     if log(rand()) <= A
         ll .= llᵒ
-        deepcopyto!(Q.guidrec,Qᵒ.guidrec)
-        Q.target = Qᵒ.target
-        deepcopyto!(Q.aux,Qᵒ.aux)
+        # deepcopyto!(Q.guidrec,Qᵒ.guidrec)
+        # Q.target = Qᵒ.target
+        # deepcopyto!(Q.aux,Qᵒ.aux)
         deepcopyto!(X,Xᵒ)
+        Q = Qᵒ
         accept = 1
     else
         accept = 0

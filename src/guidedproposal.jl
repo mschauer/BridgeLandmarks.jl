@@ -6,7 +6,7 @@ struct that contains target, auxiliary process for each shape, time grid, observ
 at time T, number of shapes, and momenta in final state used for constructing the auxiliary processes
 `guidrec` is a vector of GuidRecursions, which contains the results from the backward recursions and gpupdate step at time zero
 """
-mutable struct GuidedProposal!{T,Ttarget,Taux,Txobs0,TelxobsT,TL,TmT,F} <: ContinuousTimeProcess{T}
+struct GuidedProposal!{T,Ttarget,Taux,Txobs0,TelxobsT,TL,TmT,F} <: ContinuousTimeProcess{T}
     target::Ttarget                 # target diffusion P
     aux::Vector{Taux}               # auxiliary diffusion for each shape (Ptilde for each shape)
     tt::Vector{Float64}             # grid of time points on single segment (S,T]
@@ -14,15 +14,38 @@ mutable struct GuidedProposal!{T,Ttarget,Taux,Txobs0,TelxobsT,TL,TmT,F} <: Conti
     xobsT::Vector{TelxobsT}
     guidrec::Vector{TL}             # guided recursions on grid tt
     nshapes::Int64
-    mT::TmT                         # momenta of final state used for defining auxiliary process
+    mT::Vector{TmT}                 # vector of artificial momenta used for constructing auxiliary process (one for each shape)
     endpoint::F
 
     function GuidedProposal!(target, aux, tt_,xobs0,xobsT, guidrec,nshapes,mT, endpoint=Bridge.endpoint)
         tt = collect(tt_)
-        new{Bridge.valtype(target),typeof(target),eltype(aux),typeof(xobs0), eltype(xobsT),eltype(guidrec),typeof(mT),typeof(endpoint)}(
-                    target, aux, tt,xobs0,xobsT, guidrec, nshapes, mT,endpoint)
+        new{Bridge.valtype(target),typeof(target),eltype(aux),typeof(xobs0), eltype(xobsT),eltype(guidrec),eltype(mT),typeof(endpoint)}(
+                    target, aux, tt,xobs0,xobsT, guidrec, nshapes,mT, endpoint)
     end
 end
+
+"""
+    set_guidrec(Q::GuidedProposal!, gr) = GuidedProposal!(Q.target, Q.aux, X.tt, Q.xobs, Q.xobsT, gr,Q.nshapes, Q.endpoint)
+
+Update `guidrec` field of Q to `gr`
+"""
+set_guidrec!(Q::GuidedProposal!, gr) = GuidedProposal!(Q.target, Q.aux, Q.tt, Q.xobs0, Q.xobsT, gr,Q.nshapes,Q.mT, Q.endpoint)
+
+"""
+    update_mT!(Q, mTv, obs_info)
+
+Update State vector of auxiliary process for each shape.
+For the k-th shape, the momentum gets replaced with `mTv[k]`
+"""
+function update_mT!(Q, mTv, obsinfo)
+    aux = copy(Q.aux)
+    for k in Q.nshapes
+        aux[k] = auxiliary(Q.target,State(Q.xobsT[k],mTv[k]))  # auxiliary process for each shape
+    end
+    Q = GuidedProposal!(Q.target, aux,  Q.tt, Q.xobs0, Q.xobsT, Q.guidrec, Q.nshapes,mTv, Q.endpoint)
+    update_guidrec!(Q, obsinfo)
+end
+
 
 """
     _b!((i,t), x::State, out::State, Q::GuidedProposal!,k)
@@ -150,12 +173,14 @@ Update parameter values in GuidedProposal! `Q`, i.e. new values are written into
 """
 function putpars!(Q::GuidedProposal!,(aᵒ,cᵒ,γᵒ))
     if isa(Q.target,MarslandShardlow)
-        Q.target = MarslandShardlow(aᵒ,cᵒ,γᵒ,Q.target.λ, Q.target.n)
+        target = MarslandShardlow(aᵒ,cᵒ,γᵒ,Q.target.λ, Q.target.n)
     elseif isa(Q.target,Landmarks)
         nfs = construct_nfs(Q.target.db, Q.target.nfstd, γᵒ)
-        Q.target = Landmarks(aᵒ,cᵒ,Q.target.n,Q.target.db,Q.target.nfstd,nfs)
+        target = Landmarks(aᵒ,cᵒ,Q.target.n,Q.target.db,Q.target.nfstd,nfs)
+
     end
-    Q.aux = [auxiliary(Q.target,State(Q.xobsT[k],Q.mT)) for k in 1:Q.nshapes]
+    aux = [auxiliary(Q.target,State(Q.xobsT[k],Q.mT[k])) for k in 1:Q.nshapes]
+    Q = GuidedProposal!(target, aux,  Q.tt, Q.xobs0, Q.xobsT, Q.guidrec,Q.nshapes,Q.mT, Q.endpoint)
 end
 
 """
@@ -176,16 +201,3 @@ auxiliary(Q::GuidedProposal!,k) = Q.aux[k] # auxiliary process of k-th shape
 If true, both the target and auxiliary process have constant diffusion coefficient.
 """
 constdiff(Q::GuidedProposal!) = constdiff(target(Q)) && constdiff(auxiliary(Q,1))
-
-"""
-    update_Paux_xT!(Q, mTvec, obs_info)
-
-Update State vector of auxiliary process for each shape.
-For the k-th shape, the momentum gets replaced with `mTvec[k]`
-"""
-function update_Paux_xT!(Q, mTvec, obs_info)
-    for k in Q.nshapes
-        Q.aux[k] = auxiliary(Q.target,State(Q.xobsT[k],mTvec[k]))  # auxiliary process for each shape
-    end
-    update_guidrec!(Q, obs_info)
-end
