@@ -64,6 +64,7 @@ function landmarksmatching(
     obs_atzero = true
     fixinitmomentato0 = false
     subsamples = 0:pars.skip_saveITER:ITER
+    obsinfo = set_obsinfo(xobs0,[xobsT],Σobs, obs_atzero,fixinitmomentato0)
 
     ################################# initialise P #################################
     if isnothing(ainit)
@@ -82,15 +83,11 @@ function landmarksmatching(
     priorθ = product_distribution([Exponential(ainit), Exponential(cinit), Exponential(γinit)])
     priormom = MvNormalCanon(zeros(d*n), gramkernel(xobs0,P)/pars.κ)
 
-obsinfo = set_obsinfo(xobs0,[xobsT],Σobs, obs_atzero,fixinitmomentato0)
-@show obsinfo.n
-
     xinit = State(xobs0, zeros(PointF,P.n))
     mT = zeros(PointF, n)
     start = time()
-        Xsave, parsave, objvals, accpcn, accinfo, δ  , ρ, covθprop =
-                lm_mcmc(tt, (xobs0,[xobsT]), Σobs, mT, P,obs_atzero, fixinitmomentato0, ITER, subsamples,
-                                                    xinit, pars, priorθ, priormom, updatescheme, outdir)
+        Xsave, parsave, accpcn, accinfo, δ , ρ, covθprop =
+                lm_mcmc(tt, obsinfo, mT, P, ITER, subsamples, xinit, pars, priorθ, priormom, updatescheme, outdir)
     elapsed = time() - start
 
     ################## post processing ##################

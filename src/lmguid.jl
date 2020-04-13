@@ -12,7 +12,8 @@ Backward ODEs used are in terms of the LMμ-parametrisation
 ## Arguments
 - `t`:      time grid
 - `(xobs0,xobsT)`: observations at times 0 and T
-- `Σobs`: array with covariance matrix of Gaussian noise assumed on each element of xobs0 and xobsT
+- `Σobs`: array with two elements: first element is an array of covariance matrices of the Gaussian noise on landmarks at time 0;
+    the second element in the array is for landmarks at time T
 - `mT`: vector of momenta at time T used for constructing guiding term
 - `P`: target process
 - `obs_atzero`: Boolean, if true there is an observation at time zero
@@ -29,63 +30,45 @@ Backward ODEs used are in terms of the LMμ-parametrisation
 ## Returns:
 - `Xsave`: saved iterations of all states at all times in tt_
 - `parsave`: saved iterations of all parameter updates ,
-- `objvals`: saved values of stochastic approximation to loglikelihood
 - `accpcn`: acceptance percentages for pCN step
 - `accinfo`: acceptance percentages for remaining mcmc-updates
 - `δ`: value of `(δpos, δmom)` af the final iteration of the algorithm (these are stepsize parameters for updating initial positions and momenta respectively)
 - `ρ`: value of `ρinit`  af the final iteration of the algorithm
 - `covθprop`: value of `covθprop` at the final iteration of the algorithm
 """
-function lm_mcmc(t, (xobs0,xobsT), Σobs, mT, P,
-          obs_atzero, fixinitmomentato0, ITER, subsamples,
-          xinit, pars, priorθ, priormom, updatescheme,
-          outdir)
+function lm_mcmc(t, obsinfo, mT, P, ITER, subsamples, xinit, pars, priorθ, priormom, updatescheme, outdir)
+    lt = length(t);   StateW = PointF;    dwiener = dimwiener(P)
 
-    lt = length(t)
-    StateW = PointF
-    dwiener = dimwiener(P)
-
-    obsinfo = set_obsinfo(xobs0,xobsT,Σobs, obs_atzero,fixinitmomentato0)
-
-    # initialise GuidedProposal!, which contains all info for simulating guided proposals
+    # initialise GuidedProposal, which contains all info for simulating guided proposals
     nshapes = obsinfo.nshapes
     guidrec = [init_guidrec(t,obsinfo) for _ in 1:nshapes]  # memory allocation for backward recursion for each shape
-    Paux = [auxiliary(P, State(xobsT[k],mT)) for k in 1:nshapes] # auxiliary process for each shape
-    Q = GuidedProposal!(P,Paux,t,obsinfo.xobs0,obsinfo.xobsT,guidrec,nshapes,[mT for _ in 1:nshapes])
-    update_guidrec!(Q, obsinfo)   # compute backwards recursion
+    Paux = [auxiliary(P, State(obsinfo.xobsT[k],mT)) for k in 1:nshapes] # auxiliary process for each shape
+    Q = GuidedProposal(P,Paux,t,obsinfo.xobs0,obsinfo.xobsT,guidrec,nshapes,[mT for _ in 1:nshapes])
+    Q = update_guidrec(Q, obsinfo)   # compute backwards recursion
 
     # initialise Wiener increments and forward simulate guided proposals
     X = [initSamplePath(t, xinit) for _ in 1:nshapes]
     W = [initSamplePath(t,  zeros(StateW, dwiener)) for _ in 1:nshapes]
-    for k in 1:nshapes
-        sample!(W[k], Wiener{Vector{StateW}}())
-    end
+    for k in 1:nshapes   sample!(W[k], Wiener{Vector{StateW}}())  end
+
     x = deepvec(xinit)
     ∇x = deepcopy(x)
 
     # memory allocations, actual state at each iteration is (X,W,Q,x,∇x) (x, ∇x are initial state and its gradient)
     Xᵒ = deepcopy(X)
-    Qᵒ = deepcopy(Q)
     Wᵒ = initSamplePath(t,  zeros(StateW, dwiener))
     Wnew = initSamplePath(t,  zeros(StateW, dwiener))
     xᵒ = deepcopy(x)
     ∇xᵒ = deepcopy(x)
 
-
+    # compute loglikelihood
     ll = gp!(LeftRule(), X, xinit, W, Q; skip=sk)
 
-
-
-
     # setup containers for saving objects
-    objvals = Float64[]             # keep track of (sgd approximation of the) loglikelihood
     Xsave = typeof(zeros(length(t) * P.n * 2 * d * nshapes))[]
-    parsave = Vector{Float64}[]
     push!(Xsave, convert_samplepath(X))
-    obj = sum(ll)
-    push!(objvals, obj)
+    parsave = Vector{Float64}[]
     push!(parsave, getpars(Q))
-
     accinfo = []                        # keeps track of accepted parameter and initial state updates
     accpcn = Int64[]                      # keeps track of nr of accepted pCN updates
 
@@ -99,32 +82,32 @@ function lm_mcmc(t, (xobs0,xobsT), Σobs, mT, P,
         for update in updatescheme
             if update == :innov
                 #@timeit to "path update"
-                accpcn = update_path!(X, Xᵒ, W, Wᵒ, Wnew, ll, x, Q, ρ, accpcn, pars.maxnrpaths)
+                accpcn = update_path!(X, W, ll, Xᵒ,Wᵒ, Wnew, Q, ρ, accpcn)
                 ρ = adaptpcnstep(i, accpcn, ρ, Q.nshapes, pars.η; adaptskip = pars.adaptskip)
             elseif update in [:mala_mom, :rmmala_mom, :rmrw_mom]
                 #@timeit to "update mom"
-                 obj, accinfo_ = update_initialstate!(X,Xᵒ,W,ll,x,xᵒ,∇x, ∇xᵒ,:mcmc, Q, δ, update,priormom)
+                accinfo_ = update_initialstate!(X,Xᵒ,W,ll,x,xᵒ,∇x, ∇xᵒ,:mcmc, Q, δ, update,priormom)
                 push!(accinfo, accinfo_)
                 δ[2] = adaptmalastep(i,accinfo,δ[2], pars.η, update; adaptskip = pars.adaptskip)
             elseif update in [:mala_pos, :rmmala_pos]
                 #@timeit to "update pos"
-                obj, accinfo_ = update_initialstate!(X,Xᵒ,W,ll,x,xᵒ,∇x, ∇xᵒ,:mcmc, Q, δ, update,priormom)
+                accinfo_ = update_initialstate!(X,Xᵒ,W,ll,x,xᵒ,∇x, ∇xᵒ,:mcmc, Q, δ, update,priormom)
                 push!(accinfo, accinfo_)
                 δ[1] = adaptmalastep(i,accinfo,δ[1], pars.η, update; adaptskip = pars.adaptskip)
             elseif update == :parameter
                 #@timeit to "update par"
-                accinfo_ = update_pars!(obsinfo,X, Xᵒ,W, Q, Qᵒ, x, ll, priorθ, covθprop)
+                Q, accinfo_ = update_pars!(X, Xᵒ,W, Q, ll, priorθ, covθprop, obsinfo)
                 push!(accinfo, accinfo_)
                 covθprop = adaptparstep(i,accinfo,covθprop, pars.η;  adaptskip = pars.adaptskip)
             elseif update == :sgd
-                obj, accinfo_ = update_initialstate!(X,Xᵒ,W,ll,x,xᵒ,∇x, ∇xᵒ,:sgd, Q, δ, update,priormom)
+                accinfo_ = update_initialstate!(X,Xᵒ,W,ll,x,xᵒ,∇x, ∇xᵒ,:sgd, Q, δ, update,priormom)
             end
         end
 
         # adjust mT (the momenta at time T used in the construction of the guided proposal)
         if mod(i,pars.adaptskip)==0 && i < 100
             mTvec = [X[k][lt][2].p  for k in 1:nshapes]     # extract momenta at time T for each shape
-            update_mT!(Q, mTvec, obsinfo)
+            Q = update_mT(Q, mTvec, obsinfo)
         end
 
         # don't remove
@@ -146,35 +129,19 @@ function lm_mcmc(t, (xobs0,xobsT), Σobs, mT, P,
             #end
         end
         push!(parsave, getpars(Q))
-        push!(objvals, obj)
-
 
         println("ρ ", ρ , ",   δ ", δ, ",   covθprop ", covθprop)
-
-
-        # if write_at_half # write state halfway of lastindex
-        #     indexhalf = searchsortedfirst(t, t[end]/2.0)
-        #     save("forwardhalfway.jld", "Xhalf",X[1].yy[indexhalf])
-        # end
     end
 
-    Xsave, parsave, objvals, accpcn, accinfo, δ, ρ, covθprop
+    Xsave, parsave, accpcn, accinfo, δ, ρ, covθprop
 end
-
-
-
-
-
-
-
-
-
 
 """
     update_path!(X,Xᵒ,W,Wᵒ,Wnew,ll,x, Q, ρ, accpcn, maxnrpaths)
 
 Update bridges for all shapes using Crank-Nicholsen scheme with parameter `ρ` (only in case the method is mcmc).
 Newly accepted bridges are written into `(X,W)`, loglikelihood on each segment is written into vector `ll`
+At most `maxnrpaths` randomly selected Wiener increments are updated.
 """
 function update_path!(X,Xᵒ,W,Wᵒ,Wnew,ll,x, Q, ρ, accpcn, maxnrpaths)
     x0 = deepvec2state(x)
@@ -217,6 +184,46 @@ function update_path!(X,Xᵒ,W,Wᵒ,Wnew,ll,x, Q, ρ, accpcn, maxnrpaths)
 end
 
 """
+    update_path!(X,Xᵒ,W,Wᵒ,Wnew,ll,x, Q, ρ, accpcn)
+
+Update bridges for all shapes using Crank-Nicholsen scheme with parameter `ρ` (only in case the method is mcmc).
+Newly accepted bridges are written into `(X,W)`, loglikelihood on each segment is written into vector `ll`
+All Wiener increments are always updated.
+
+## Write into
+- `X`: diffusion paths
+- `W`: innovations
+- `ll`: vector of loglikehoods (k-th element is for the k-th shape)
+"""
+function update_path!(X, W, ll, Xᵒ,Wᵒ, Wnew, Q, ρ, accpcn)
+    x0 = X[1].yy[1]
+    # From current state (x,W) with loglikelihood ll, update to (x, Wᵒ)
+    for k in 1:Q.nshapes
+        sample!(Wnew, Wiener{Vector{PointF}}())
+        for i in eachindex(W[1].yy)
+            Wᵒ.yy[i] = ρ * W[k].yy[i] + sqrt(1-ρ^2) * Wnew.yy[i]
+        end
+        llᵒ_ = gp!(LeftRule(), Xᵒ[k], x0, Wᵒ, Q, k; skip=sk)
+        diff_ll = llᵒ_ - ll[k]
+        if log(rand()) <= diff_ll
+            for i in eachindex(W[1].yy)
+                X[k].yy[i] .= Xᵒ[k].yy[i]
+                W[k].yy[i] .= Wᵒ.yy[i]
+            end
+            #println("update innovation. diff_ll: ",round(diff_ll;digits=3),"  accepted")
+            ll[k] = llᵒ_
+            push!(accpcn, 1)
+        else
+            #println("update innovation. diff_ll: ",round(diff_ll;digits=3),"  rejected")
+            push!(accpcn, 0)
+        end
+    end
+    accpcn
+end
+
+
+
+"""
     slogρ!(x0deepv, Q, W,X,priormom,llout)
 
 Main use of this function is to get gradient information of the loglikelihood with respect ot the initial state.
@@ -235,7 +242,7 @@ Main use of this function is to get gradient information of the loglikelihood wi
 ## Returns
 - loglikelihood (summed over all shapes) + the logpriordensity of the initial momenta
 """
-function slogρ!(x0deepv, Q, W,X,priormom,llout)
+function slogρ!(x0deepv, Q, W, X, priormom,llout)
     x0 = deepvec2state(x0deepv)
     lltemp = gp!(LeftRule(), X, x0, W, Q; skip=sk)   #overwrites X
     llout .= ForwardDiff.value.(lltemp)
@@ -245,7 +252,7 @@ slogρ!(Q, W, X,priormom, llout) = (x) -> slogρ!(x, Q, W,X,priormom,llout)
 
 
 """
-    update_initialstate!(X,Xᵒ,W,ll,x,xᵒ,∇x, ∇xᵒ,sampler, Q::GuidedProposal!, δ, update,priormom)
+    update_initialstate!(X,Xᵒ,W,ll,x,xᵒ,∇x, ∇xᵒ,sampler, Q::GuidedProposal, δ, update,priormom)
 
 ## Arguments
 - `X`:  current iterate of vector of sample paths
@@ -254,23 +261,22 @@ slogρ!(Q, W, X,priormom, llout) = (x) -> slogρ!(x, Q, W,X,priormom,llout)
 - `ll`: current value of loglikelihood
 - `x`, `xᵒ`, `∇x`, `∇xᵒ`: allocated vectors for initial state and its gradient (both actual and proposed values)
 - `sampler`: either sgd (not checked yet) or mcmc
-- `Q`: GuidedProposal!
+- `Q`: GuidedProposal
 - `δ`: vector with MALA stepsize for initial state positions (δ[1]) and initial state momenta (δ[2])
 - `update`:  can be `:mala_pos`, `:mala_mom`, :rmmala_pos`, `:rmmala_mom`, ``:rmrw_mom`
 
-## Writes into
+## Writes into / modifies
 - `X`: landmarks paths
 - `x`: initial state of the landmark paths
 - ``∇x`: gradient of loglikelihood with respect to initial state `x`
 - `ll`: a vector with as k-th element the loglikelihood for the k-th shape
 
 ## Returns
-- `obj`: loglikelihood (summed over all shapes) + logdensity of prior on initial momenta
 - `(kernel = update, acc = accepted)` tuple with name of the executed update and 0/1 indicator (reject/accept)
 
 """
 function update_initialstate!(X,Xᵒ,W,ll,x,xᵒ,∇x, ∇xᵒ,
-                sampler, Q::GuidedProposal!, δ, update,priormom)
+                sampler, Q::GuidedProposal, δ, update,priormom)
     P = Q.target
     n = P.n
     x0 = deepvec2state(x)
@@ -396,30 +402,29 @@ function update_initialstate!(X,Xᵒ,W,ll,x,xᵒ,∇x, ∇xᵒ,
             accepted = 0
         end
     end
-    obj, (kernel = update, acc = accepted)
+    (kernel = update, acc = accepted)
 end
 
 
 """
-    update_pars!(obs_info,X, Xᵒ,W, Q, Qᵒ, x, ll, priorθ, covθprop)
+    update_pars!(X, Xᵒ,W, Q, x, ll, priorθ, covθprop, obsinfo)
 
 For fixed Wiener increments and initial state, update parameters by random-walk-MH.
 
-## Writes into
+## Writes into / modifies
 `X`: landmark paths under landmarks process with parameter θ
-`Q`: guidrec and target-fields are updated according to new parameter θ
 
 ## Returns
-`(kernel = ":parameterupdate", acc = accept)`: where `accept` is 1/0 according to accept/reject in the MH-step.
+`Q, (kernel = ":parameterupdate", acc = accept)`: where `accept` is 1/0 according to accept/reject in the MH-step.
 """
-function update_pars!(obs_info,X, Xᵒ,W, Q, Qᵒ, x, ll, priorθ, covθprop)
+function update_pars!(X, Xᵒ,W, Q, ll, priorθ, covθprop, obsinfo)
     θ = getpars(Q)
     distr = MvLogNormal(MvNormal(log.(θ),covθprop))
     θᵒ = rand(distr)
     distrᵒ = MvLogNormal(MvNormal(log.(θᵒ),covθprop))
-    putpars!(Qᵒ,θᵒ)
-    update_guidrec!(Qᵒ, obs_info)   # compute backwards recursion
-    llᵒ = gp!(LeftRule(), Xᵒ, deepvec2state(x), W, Qᵒ; skip=sk)
+    Qᵒ = adjust_to_newpars(Q, θᵒ, obsinfo)
+    x0 = X[1].yy[1]
+    llᵒ = gp!(LeftRule(), Xᵒ,x0, W, Qᵒ; skip=sk)
 
     A = sum(llᵒ) - sum(ll) +
         logpdf(priorθ, θᵒ) - logpdf(priorθ, θ) +
@@ -435,7 +440,7 @@ function update_pars!(obs_info,X, Xᵒ,W, Q, Qᵒ, x, ll, priorθ, covθprop)
     else
         accept = 0
     end
-    (kernel = ":parameterupdate", acc = accept)
+    Q, (kernel = ":parameterupdate", acc = accept)
 end
 
 """

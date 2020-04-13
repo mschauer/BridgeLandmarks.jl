@@ -40,7 +40,7 @@ Note that there are three cases:
 - `obs_atzero=false & fixinitmomentato0=true`: case of observing multiple shapes at time T,
     positions at time zero assumed unknown, momenta at time 0 are fixed to zero
 """
-function set_obsinfo(xobs0,xobsT,Σobs, obs_atzero::Bool,fixinitmomentato0::Bool)
+function set_obsinfo(xobs0,xobsT::Vector,Σobs, obs_atzero::Bool,fixinitmomentato0::Bool)
     Σobs0 = Σobs[1]; ΣobsT = Σobs[2]
     n = length(xobsT[1])
     nshapes = length(xobsT)

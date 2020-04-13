@@ -33,7 +33,7 @@ end
 
 
 """
-    init_guidrec(t,obs_info,xobs0)
+    init_guidrec(t,obs_info)
 
 Initialise (allocate memory) a struct of type GuidRecursions for a single shape
 """
@@ -82,7 +82,7 @@ end
 struct Lm  end
 
 """
-    guidingbackwards!(::Lm, t, (Lt, Mt⁺, μt), Paux, obs_info; implicit=true, lowrank=false)
+    guidingbackwards!(::Lm, t, (Lt, Mt⁺, μt), Paux, obsinfo; implicit=true, lowrank=false)
 
 Solve backwards recursions in L, M, μ parametrisation on grid t
 
@@ -90,7 +90,7 @@ Solve backwards recursions in L, M, μ parametrisation on grid t
 - `t`: time grid
 - `(Lt, Mt⁺, μt)`: containers to write the solutions into
 - `Paux`: auxiliary process
-- `obs_info`: of type ObsInfo containing information on the observations
+- `obsinfo`: of type ObsInfo containing information on the observations
 - `implicit`: if true an implicit Euler backwards scheme is used (else explicit forward)
 
 Case `lowrank=true` still gives an error: fixme!
@@ -131,7 +131,7 @@ end
 
 Compute backward ODEs required for guided proposals (for all shapes) and write into field `Q.guidrec`
 """
-function update_guidrec!(Q, obsinfo)
+function update_guidrec(Q, obsinfo)
     Qgr = copy(Q.guidrec)
     for k in 1:obsinfo.nshapes  # for all shapes
         gr = Qgr[k]
@@ -147,5 +147,5 @@ function update_guidrec!(Q, obsinfo)
             gr.Ht[i] .= gr.Lt[i]' * (gr.Mt[i] * gr.Lt[i] )
         end
     end
-    set_guidrec!(Q::GuidedProposal!, Qgr)
+    set_guidrec(Q, Qgr)
 end

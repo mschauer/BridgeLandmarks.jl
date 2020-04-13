@@ -14,7 +14,7 @@ using JLD2
 using FileIO
 using Parameters
 
-using Debugger
+#using Debugger
 
 Random.seed!(9)
 workdir = @__DIR__
@@ -26,7 +26,8 @@ outdir = joinpath(workdir,"out")
 dat = load("../experiments/exp1/data_exp1.jld2")
 xobs0 = dat["xobs0"]
 xobsT = dat["xobsT"]
-landmarksmatching(xobs0,xobsT;outdir=outdir)
+@time landmarksmatching(xobs0,xobsT;outdir=outdir,ITER=100,updatescheme = [:innov, :rmmala_mom, :parameter],
+                pars= Pars_ms(covθprop = Diagonal(fill(0.0001,3))))
 #@enter landmarksmatching(xobs0,xobsT)
 
 if false
@@ -47,6 +48,6 @@ end
 
 dat = load("../experiments/exp2/data_exp2.jld2")
 xobsT = dat["xobsT"]
-xobs0 = dat["xobs0"]
+#xobs0 = dat["xobs0"]
 
-BL.template_estimation(xobsT)
+template_estimation(xobsT;ITER=150)

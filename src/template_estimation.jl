@@ -57,6 +57,7 @@ function template_estimation(
     obs_atzero = false
     fixinitmomentato0 = true
     subsamples = 0:pars.skip_saveITER:ITER
+    obsinfo = set_obsinfo(xobs0,xobsT,Σobs, obs_atzero,fixinitmomentato0)
 
     ################################# initialise P #################################
     if isnothing(ainit)
@@ -86,9 +87,8 @@ function template_estimation(
 
     mT = zeros(PointF, n)
     start = time()
-        Xsave, parsave, objvals, accpcn, accinfo, δ  , ρ, covθprop =
-                lm_mcmc(tt, (xobs0,xobsT), Σobs, mT, P,obs_atzero, fixinitmomentato0, ITER, subsamples,
-                                                    xinit, pars, priorθ, priormom, updatescheme, outdir)
+        Xsave, parsave, accpcn, accinfo, δ , ρ, covθprop =
+                lm_mcmc(tt, obsinfo, mT, P, ITER, subsamples, xinit, pars, priorθ, priormom, updatescheme, outdir)
     elapsed = time() - start
 
     ################## post processing ##################

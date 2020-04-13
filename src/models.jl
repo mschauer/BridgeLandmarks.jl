@@ -1,6 +1,16 @@
 #### Landmarks specification
 import Bridge: _b, _b!, B!, σ!, b!, σ, b, auxiliary
 
+"""
+    MarslandShardlow{T} <: ContinuousTimeProcess{State{PointF}}
+
+## Arguments
+- `a`: Hamiltonian kernel parameter
+- `c`: kernel multiplicate parameter
+- `γ`:  noise level
+- `λ`:  mean reversion parameter (heath-bath parameter in Marsland-Shardlow (2017))
+-  `n`: number of landmarks
+"""
 struct MarslandShardlow{T} <: ContinuousTimeProcess{State{PointF}}
     a::T # kernel std parameter
     c::T # kernel multiplicate parameter
@@ -9,6 +19,17 @@ struct MarslandShardlow{T} <: ContinuousTimeProcess{State{PointF}}
     n::Int
 end
 
+"""
+    MarslandShardlowAux{S,T} <: ContinuousTimeProcess{State{PointF}}
+
+## Arguments
+- `a`: Hamiltonian kernel parameter
+- `c`: kernel multiplicate parameter
+- `γ`:  noise level
+- `λ`:  mean reversion parameter (heath-bath parameter in Marsland-Shardlow (2017))
+- `xT`: State at time T used for constructing the auxiliary process
+-  `n`: number of landmarks
+"""
 struct MarslandShardlowAux{S,T} <: ContinuousTimeProcess{State{PointF}}
     a::T # kernel std parameter
     c::T # kernel multiplicate parameter
@@ -24,6 +45,17 @@ struct Noisefield{T}
     τ::T # std of Gaussian kernel noise field
 end
 
+"""
+    Landmarks{S,T} <: ContinuousTimeProcess{State{PointF}}
+
+## Arguments
+- `a`: Hamiltonian kernel parameter
+- `c`: kernel multiplicate parameter
+-  `n`:: Int64 number of landmarks
+- `db`::Float64 square domain bound used for construction of noise fields
+- `nfstd`:  standard deviation of noisefields (assumed to be the same for all noisefields)
+- `nfs`:  vector of noisefields
+"""
 struct  Landmarks{S,T} <: ContinuousTimeProcess{State{PointF}}
     a::T # kernel std
     c::T # kernel multiplicate parameter
@@ -33,6 +65,16 @@ struct  Landmarks{S,T} <: ContinuousTimeProcess{State{PointF}}
     nfs::Vector{Noisefield{S}}  # vector containing pars of noisefields
 end
 
+"""
+    LandmarksAux{S,T} <: ContinuousTimeProcess{State{PointF}}
+
+## Arguments
+- `a`: Hamiltonian kernel parameter
+- `c`: kernel multiplicate parameter
+- `xT`: State at time T used for constructing the auxiliary process
+-  `n`: number of landmarks
+- `nfs`:  vector of noisefields
+"""
 struct LandmarksAux{S,T} <: ContinuousTimeProcess{State{PointF}}
     a::T # kernel std
     c::T # kernel multiplicate parameter
@@ -41,17 +83,27 @@ struct LandmarksAux{S,T} <: ContinuousTimeProcess{State{PointF}}
     nfs::Vector{Noisefield{S}}  # vector containing pars of noisefields
 end
 
-
+"""
+    MarslandShardlowAux(P::MarslandShardlow, xT) = MarslandShardlowAux(P.a,P.c, P.γ, P.λ, xT, P.n)
+"""
 MarslandShardlowAux(P::MarslandShardlow, xT) = MarslandShardlowAux(P.a,P.c, P.γ, P.λ, xT, P.n)
+
+"""
+    LandmarksAux(P::Landmarks, xT) = LandmarksAux(P.a,P.c, xT, P.n, P.nfs)
+"""
 LandmarksAux(P::Landmarks, xT) = LandmarksAux(P.a,P.c, xT, P.n, P.nfs)
 
+"""
+    auxiliary(P::Union{MarslandShardlow, Landmarks}, xT)
+
+Construct auxiliary process corresponding to `P` and `xT`    
+"""
 function auxiliary(P::Union{MarslandShardlow, Landmarks}, xT)
     if isa(P,MarslandShardlow)
-        Paux = MarslandShardlowAux(P,xT)
+        return MarslandShardlowAux(P,xT)
     elseif isa(P,Landmarks)
-        Paux = LandmarksAux(P,xT)
+        return LandmarksAux(P,xT)
     end
-    Paux
 end
 
 
