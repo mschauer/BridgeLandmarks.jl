@@ -66,16 +66,16 @@ function write_info(model,ITER, n, tt_, updatescheme, Σobs, tp, ρ, δ, perc_ac
     close(f)
 end
 
-function write_acc(accinfo,accpcn,nshapes,outdir)
+function write_acc(accinfo,outdir)
     outdir[end] == "/" && error("provide pathname without trailing '/'")
 
     # extract number of distinct update steps in accinfo
-    nunique = length(unique(map(x->x[1], accinfo)))
-    niterates = div(length(accinfo),nunique)
-    accdf = DataFrame(kernel = map(x->Symbol(x.kernel), accinfo), acc = map(x->x.acc, accinfo), iter = repeat(1:niterates, inner= nunique))
-    accpcndf = DataFrame(kernel = fill(Symbol("pCN"),length(accpcn)), acc=accpcn, iter=repeat(1:niterates,inner=nshapes))
-    append!(accdf, accpcndf)
-    CSV.write(joinpath(outdir, "accdf.csv"), accdf; delim=";")
+    # nunique = length(unique(map(x->x[1], accinfo)))
+    # niterates = div(length(accinfo),nunique)
+    # accdf = DataFrame(kernel = map(x->Symbol(x.kernel), accinfo), acc = map(x->x.acc, accinfo), iter = repeat(1:niterates, inner= nunique))
+    # accpcndf = DataFrame(kernel = fill(Symbol("pCN"),length(accpcn)), acc=accpcn, iter=repeat(1:niterates,inner=nshapes))
+    # append!(accdf, accpcndf)
+    CSV.write(joinpath(outdir, "accdf.csv"), accinfo; delim=";")
 end
 
 

@@ -97,8 +97,8 @@ function landmarksmatching(
         write_mcmc_iterates(Xsave, tt, n, nshapes, subsamples, outdir)
     write_info(model,ITER, n, tt, updatescheme, Σobs, pars, ρ, δ , ave_acc, elapsed, outdir)
     write_observations(xobs0, [xobsT], n, nshapes, outdir)
-    @show accinfo
-    write_acc(accinfo, nshapes,outdir)
+
+    write_acc(accinfo,outdir)
     write_params(parsave, 0:ITER, outdir)
     write_noisefields(P, outdir)
     nothing

@@ -87,25 +87,25 @@ function lm_mcmc(t, obsinfo, mT, P, ITER, subsamples, xinit, pars, priorθ, prio
                 #@timeit to "path update"
                 accinfo_ = update_path!(X, W, ll, Xᵒ,Wᵒ, Wnew, Q, ρ)
                 if (i > 2askip) & (mod(i,askip)==0)
-                    adaptpcnstep!(ρ, accinfo[!,update], Q.nshapes, pars.η;  adaptskip = askip)
+                    ρ = adaptpcnstep(ρ, i, accinfo[!,update], pars.η;  adaptskip = askip)
                 end
             elseif update in [:mala_mom, :rmmala_mom, :rmrw_mom]
                 #@timeit to "update mom"
                 accinfo_ = update_initialstate!(X,Xᵒ,W,ll,x,xᵒ,∇x, ∇xᵒ,:mcmc, Q, δ, update,priormom)
                 if (i > 2askip) & (mod(i,askip)==0)
-                    adaptmalastep!(δ[2],accinfo[!,update], pars.η, update; adaptskip = askip)
+                    δ[2] = adaptmalastep(δ[2], i, accinfo[!,update], pars.η, update; adaptskip = askip)
                 end
             elseif update in [:mala_pos, :rmmala_pos]
                 #@timeit to "update pos"
                 accinfo_ = update_initialstate!(X,Xᵒ,W,ll,x,xᵒ,∇x, ∇xᵒ,:mcmc, Q, δ, update,priormom)
                 if (i > 2askip) & (mod(i,askip)==0)
-                    adaptmalastep!(δ[1],accinfo[!,update], pars.η, update; adaptskip = askip)
+                    δ[1] = adaptmalastep(δ[1], i, accinfo[!,update], pars.η, update; adaptskip = askip)
                 end
             elseif update == :parameter
                 #@timeit to "update par"
-                Q, accinfo_ = update_pars!(X, Xᵒ,W, Q, ll, priorθ, covθprop, obsinfo)
+                Q, accinfo_ = update_pars!(X, ll, Xᵒ,W, Q, priorθ, covθprop, obsinfo)
                 if (i > 2askip) & (mod(i,askip)==0)
-                    adaptparstep!(covθprop,accinfo[!,update], pars.η;  adaptskip = askip)
+                    covθprop = adaptparstep(covθprop, i, accinfo[!,update], pars.η;  adaptskip = askip)
                 end
             elseif update == :sgd
                 accinfo_ = update_initialstate!(X,Xᵒ,W,ll,x,xᵒ,∇x, ∇xᵒ,:sgd, Q, δ, update,priormom)
@@ -227,22 +227,21 @@ function update_path!(X, W, ll, Xᵒ,Wᵒ, Wnew, Q, ρ)
         for i in eachindex(W[1].yy)
             Wᵒ.yy[i] = ρ * W[k].yy[i] + sqrt(1-ρ^2) * Wnew.yy[i]
         end
-        llᵒ_ = gp!(LeftRule(), Xᵒ[k], x0, Wᵒ, Q, k; skip=sk)
-        diff_ll = llᵒ_ - ll[k]
+        llᵒ = gp!(LeftRule(), Xᵒ[k], x0, Wᵒ, Q, k; skip=sk)
+        diff_ll = llᵒ - ll[k]
         if log(rand()) <= diff_ll
             for i in eachindex(W[1].yy)
                 X[k].yy[i] .= Xᵒ[k].yy[i]
                 W[k].yy[i] .= Wᵒ.yy[i]
             end
             #println("update innovation. diff_ll: ",round(diff_ll;digits=3),"  accepted")
-            ll[k] = llᵒ_
+            ll[k] = llᵒ
             push!(acc,1)
         else
             #println("update innovation. diff_ll: ",round(diff_ll;digits=3),"  rejected")
             push!(acc,0)
         end
     end
-    #[:innov, mean(acc)]
     mean(acc)
 end
 
@@ -439,11 +438,12 @@ For fixed Wiener increments and initial state, update parameters by random-walk-
 
 ## Writes into / modifies
 `X`: landmark paths under landmarks process with parameter θ
+`ll`: vector of loglikelihoods (one for each shape)
 
 ## Returns
 `Q, (kernel = ":parameterupdate", acc = accept)`: where `accept` is 1/0 according to accept/reject in the MH-step.
 """
-function update_pars!(X, Xᵒ,W, Q, ll, priorθ, covθprop, obsinfo)
+function update_pars!(X, ll, Xᵒ,W, Q , priorθ, covθprop, obsinfo)
     θ = getpars(Q)
     distr = MvLogNormal(MvNormal(log.(θ),covθprop))
     θᵒ = rand(distr)
@@ -479,18 +479,13 @@ end
 Adapt the step size for mala_mom updates.
 The adaptation is multiplication/divsion by exp(η(n)).
 """
-function adaptmalastep!(δ, accinfo, η, update; adaptskip = 15, targetaccept=0.5)
-    @show accinfo
-        recent_mean = mean(accinfo[end-adaptskip+1:end])
-        # ind1 =  findall(first.(accinfo).== update)[end-adaptskip+1:end]
-        # recent_mean = mean(last.(accinfo)[ind1])
-        if recent_mean > targetaccept
-            δ *= exp(η(n))
-        else
-            δ *= exp(-η(n))
-        end
-
-    nothing
+function adaptmalastep(δ, n, accinfo, η, update; adaptskip = 15, targetaccept=0.5)
+    recent_mean = mean(accinfo[end-adaptskip+1:end])
+    if recent_mean > targetaccept
+        return δ *= exp(η(n))
+    else
+        return δ *= exp(-η(n))
+    end
 end
 
 """
@@ -503,17 +498,13 @@ end
 Adjust `covθprop-parameter` adaptively, every `adaptskip` steps.
 For that the assumed multiplicative parameter is first tranformed to (-∞, ∞), then updated, then mapped back to (0,∞)
 """
-function adaptparstep!(covθprop,accinfo, η;  adaptskip = 15, targetaccept=0.5)
+function adaptparstep(covθprop, n, accinfo, η;  adaptskip = 15, targetaccept=0.5)
     recent_mean = mean(accinfo[end-adaptskip+1:end])
-        # ind1 =  findall(first.(accinfo).==":parameter")[end-adaptskip+1:end]
-        # recent_mean = mean(last.(accinfo)[ind1])
-        if recent_mean > targetaccept
-            covθprop *= exp(2*η(n))
-        else
-            covθprop *= exp(-2*η(n))
-
+    if recent_mean > targetaccept
+        return    covθprop *= exp(2*η(n))
+    else
+        return    covθprop *= exp(-2*η(n))
     end
-    nothing
 end
 
 """
@@ -532,15 +523,11 @@ invsigmoid(z::Real) = log(z/(1-z))
 Adjust pcN-parameter `ρ` adaptive every `adaptskip` steps.
 For that `ρ` is first tranformed to (-∞, ∞), then updated, then mapped back to (0,1)
 """
-function adaptpcnstep!(ρ, accinfo, nshapes, η; adaptskip = 15, targetaccept=0.5)
-    recent_mean = mean(accinfo[end-adaptskip+1:end])
-        # ind1 =  findall(first.(accinfo).==:innov)[end-adaptskip*nshapes+1:end]
-        # recent_mean = mean(last.(accinfo)[ind1])
-        if recentmean > targetaccept
-            ρ = sigmoid(invsigmoid(ρ) - η(n))
-        else
-            ρ = sigmoid(invsigmoid(ρ) + η(n))
-        end
-
-    nothing
+function adaptpcnstep(ρ, n, accinfo, η; adaptskip = 15, targetaccept=0.5)
+    recentmean = mean(accinfo[end-adaptskip+1:end])
+    if recentmean > targetaccept
+        return sigmoid(invsigmoid(ρ) - η(n))
+    else
+        return sigmoid(invsigmoid(ρ) + η(n))
+    end
 end

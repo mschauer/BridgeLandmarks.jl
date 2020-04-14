@@ -186,11 +186,11 @@ end
 Simulate guided proposal and compute loglikelihood (vector version, multiple shapes)
 """
 function gp!(::LeftRule,  X::Vector, x0, W, Q::GuidedProposal; skip = 0, ll0 = true)
-    soms  = zeros(deepeltype(x0), Q.nshapes)
+    logliks  = zeros(deepeltype(x0), Q.nshapes)
     for k in 1:Q.nshapes
-        soms[k] = gp!(LeftRule(), X[k],x0,W[k],Q,k ;skip=skip,ll0=ll0)
+        logliks[k] = gp!(LeftRule(), X[k],x0,W[k],Q, k ;skip=skip,ll0=ll0)
     end
-    soms
+    logliks
 end
 
 """
