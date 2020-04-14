@@ -30,8 +30,7 @@ Backward ODEs used are in terms of the LMμ-parametrisation
 ## Returns:
 - `Xsave`: saved iterations of all states at all times in tt_
 - `parsave`: saved iterations of all parameter updates ,
-- `accpcn`: acceptance percentages for pCN step
-- `accinfo`: acceptance percentages for remaining mcmc-updates
+- `accinfo`: acceptance indicators of mcmc-updates
 - `δ`: value of `(δpos, δmom)` af the final iteration of the algorithm (these are stepsize parameters for updating initial positions and momenta respectively)
 - `ρ`: value of `ρinit`  af the final iteration of the algorithm
 - `covθprop`: value of `covθprop` at the final iteration of the algorithm
@@ -44,7 +43,7 @@ function lm_mcmc(t, obsinfo, mT, P, ITER, subsamples, xinit, pars, priorθ, prio
     guidrec = [init_guidrec(t,obsinfo) for _ in 1:nshapes]  # memory allocation for backward recursion for each shape
     Paux = [auxiliary(P, State(obsinfo.xobsT[k],mT)) for k in 1:nshapes] # auxiliary process for each shape
     Q = GuidedProposal(P,Paux,t,obsinfo.xobs0,obsinfo.xobsT,guidrec,nshapes,[mT for _ in 1:nshapes])
-    Q = update_guidrec(Q, obsinfo)   # compute backwards recursion
+    update_guidrec!(Q, obsinfo)   # compute backwards recursion
 
     # initialise Wiener increments and forward simulate guided proposals
     X = [initSamplePath(t, xinit) for _ in 1:nshapes]
@@ -69,45 +68,61 @@ function lm_mcmc(t, obsinfo, mT, P, ITER, subsamples, xinit, pars, priorθ, prio
     push!(Xsave, convert_samplepath(X))
     parsave = Vector{Float64}[]
     push!(parsave, getpars(Q))
-    accinfo = []                        # keeps track of accepted parameter and initial state updates
-    accpcn = Int64[]                      # keeps track of nr of accepted pCN updates
+
+    #accinfo = []                        # keeps track of acceptance of mcmc-steps
+
+    accinfo = DataFrame(fill([], length(updatescheme)+1), [updatescheme...,:iteration]) # columns are all update types + 1 column for iteration number
+    acc = zeros(ncol(accinfo))
 
     δ = [pars.δpos, pars.δmom]
     ρ = pars.ρinit
     covθprop = pars.covθprop
+    askip = pars.adaptskip
 
     for i in 1:ITER
-        println();  println("iteration $i")
 
+        k = 1
         for update in updatescheme
             if update == :innov
                 #@timeit to "path update"
-                accpcn = update_path!(X, W, ll, Xᵒ,Wᵒ, Wnew, Q, ρ, accpcn)
-                ρ = adaptpcnstep(i, accpcn, ρ, Q.nshapes, pars.η; adaptskip = pars.adaptskip)
+                accinfo_ = update_path!(X, W, ll, Xᵒ,Wᵒ, Wnew, Q, ρ)
+                if (i > 2askip) & (mod(i,askip)==0)
+                    adaptpcnstep!(ρ, accinfo[!,update], Q.nshapes, pars.η;  adaptskip = askip)
+                end
             elseif update in [:mala_mom, :rmmala_mom, :rmrw_mom]
                 #@timeit to "update mom"
                 accinfo_ = update_initialstate!(X,Xᵒ,W,ll,x,xᵒ,∇x, ∇xᵒ,:mcmc, Q, δ, update,priormom)
-                push!(accinfo, accinfo_)
-                δ[2] = adaptmalastep(i,accinfo,δ[2], pars.η, update; adaptskip = pars.adaptskip)
+                if (i > 2askip) & (mod(i,askip)==0)
+                    adaptmalastep!(δ[2],accinfo[!,update], pars.η, update; adaptskip = askip)
+                end
             elseif update in [:mala_pos, :rmmala_pos]
                 #@timeit to "update pos"
                 accinfo_ = update_initialstate!(X,Xᵒ,W,ll,x,xᵒ,∇x, ∇xᵒ,:mcmc, Q, δ, update,priormom)
-                push!(accinfo, accinfo_)
-                δ[1] = adaptmalastep(i,accinfo,δ[1], pars.η, update; adaptskip = pars.adaptskip)
+                if (i > 2askip) & (mod(i,askip)==0)
+                    adaptmalastep!(δ[1],accinfo[!,update], pars.η, update; adaptskip = askip)
+                end
             elseif update == :parameter
                 #@timeit to "update par"
                 Q, accinfo_ = update_pars!(X, Xᵒ,W, Q, ll, priorθ, covθprop, obsinfo)
-                push!(accinfo, accinfo_)
-                covθprop = adaptparstep(i,accinfo,covθprop, pars.η;  adaptskip = pars.adaptskip)
+                if (i > 2askip) & (mod(i,askip)==0)
+                    adaptparstep!(covθprop,accinfo[!,update], pars.η;  adaptskip = askip)
+                end
             elseif update == :sgd
                 accinfo_ = update_initialstate!(X,Xᵒ,W,ll,x,xᵒ,∇x, ∇xᵒ,:sgd, Q, δ, update,priormom)
             end
+
+            acc[k] = accinfo_
+            k += 1
+
+            #push!(accinfo, push!(accinfo_,i))
         end
+        acc[end] = i
+        push!(accinfo, acc)
 
         # adjust mT (the momenta at time T used in the construction of the guided proposal)
-        if mod(i,pars.adaptskip)==0 && i < 100
+        if mod(i,askip)==0 && i < 100
             mTvec = [X[k][lt][2].p  for k in 1:nshapes]     # extract momenta at time T for each shape
-            Q = update_mT(Q, mTvec, obsinfo)
+            update_mT!(Q, mTvec, obsinfo)
         end
 
         # don't remove
@@ -130,20 +145,27 @@ function lm_mcmc(t, obsinfo, mT, P, ITER, subsamples, xinit, pars, priorθ, prio
         end
         push!(parsave, getpars(Q))
 
-        println("ρ ", ρ , ",   δ ", δ, ",   covθprop ", covθprop)
+        if mod(i,5) == 0
+            println();  println("iteration $i")
+            println("ρ ", ρ , ",   δ ", δ, ",   covθprop ", covθprop)
+            #println(names(accinfo))
+            println(round.([mean(x) for x in eachcol(accinfo[!,1:end-1])];digits=2))
+        end
     end
+    #@show accinfo
 
-    Xsave, parsave, accpcn, accinfo, δ, ρ, covθprop
+    Xsave, parsave, accinfo, δ, ρ, covθprop
 end
 
 """
-    update_path!(X,Xᵒ,W,Wᵒ,Wnew,ll,x, Q, ρ, accpcn, maxnrpaths)
+    update_path!(X,Xᵒ,W,Wᵒ,Wnew,ll,x, Q, ρ, maxnrpaths)
 
 Update bridges for all shapes using Crank-Nicholsen scheme with parameter `ρ` (only in case the method is mcmc).
 Newly accepted bridges are written into `(X,W)`, loglikelihood on each segment is written into vector `ll`
 At most `maxnrpaths` randomly selected Wiener increments are updated.
 """
-function update_path!(X,Xᵒ,W,Wᵒ,Wnew,ll,x, Q, ρ, accpcn, maxnrpaths)
+function update_path!(X,Xᵒ,W,Wᵒ,Wnew,ll,x, Q, ρ, maxnrpaths)
+    acc = Int64[]
     x0 = deepvec2state(x)
     dw = dimwiener(Q.target)
     # From current state (x,W) with loglikelihood ll, update to (x, Wᵒ)
@@ -174,17 +196,18 @@ function update_path!(X,Xᵒ,W,Wᵒ,Wnew,ll,x, Q, ρ, accpcn, maxnrpaths)
             end
             #println("update innovation. diff_ll: ",round(diff_ll;digits=3),"  accepted")
             ll[k] = llᵒ_
-            push!(accpcn, 1)
+            push!(acc,1)
         else
             #println("update innovation. diff_ll: ",round(diff_ll;digits=3),"  rejected")
-            push!(accpcn, 0)
+            push!(acc,0)
         end
     end
-    accpcn
+    #[:innov, mean(acc)]
+    mean(acc)
 end
 
 """
-    update_path!(X,Xᵒ,W,Wᵒ,Wnew,ll,x, Q, ρ, accpcn)
+    update_path!(X,Xᵒ,W,Wᵒ,Wnew,ll,x, Q, ρ)
 
 Update bridges for all shapes using Crank-Nicholsen scheme with parameter `ρ` (only in case the method is mcmc).
 Newly accepted bridges are written into `(X,W)`, loglikelihood on each segment is written into vector `ll`
@@ -195,7 +218,8 @@ All Wiener increments are always updated.
 - `W`: innovations
 - `ll`: vector of loglikehoods (k-th element is for the k-th shape)
 """
-function update_path!(X, W, ll, Xᵒ,Wᵒ, Wnew, Q, ρ, accpcn)
+function update_path!(X, W, ll, Xᵒ,Wᵒ, Wnew, Q, ρ)
+    acc = Int64[]
     x0 = X[1].yy[1]
     # From current state (x,W) with loglikelihood ll, update to (x, Wᵒ)
     for k in 1:Q.nshapes
@@ -212,13 +236,14 @@ function update_path!(X, W, ll, Xᵒ,Wᵒ, Wnew, Q, ρ, accpcn)
             end
             #println("update innovation. diff_ll: ",round(diff_ll;digits=3),"  accepted")
             ll[k] = llᵒ_
-            push!(accpcn, 1)
+            push!(acc,1)
         else
             #println("update innovation. diff_ll: ",round(diff_ll;digits=3),"  rejected")
-            push!(accpcn, 0)
+            push!(acc,0)
         end
     end
-    accpcn
+    #[:innov, mean(acc)]
+    mean(acc)
 end
 
 
@@ -395,14 +420,15 @@ function update_initialstate!(X,Xᵒ,W,ll,x,xᵒ,∇x, ∇xᵒ,
             x .= xᵒ
             ∇x .= ∇xᵒ
             ll .= lloutᵒ
-            accepted = 1
+            accepted = 1.0
         else
             #println("update initial state ", update, " accinit: ", round(accinit;digits=3), "  rejected")
             obj = ll_incl0
-            accepted = 0
+            accepted = 0.0
         end
     end
-    (kernel = update, acc = accepted)
+    #[update, accepted]
+    accepted
 end
 
 
@@ -436,28 +462,35 @@ function update_pars!(X, Xᵒ,W, Q, ll, priorθ, covθprop, obsinfo)
         # deepcopyto!(Q.aux,Qᵒ.aux)
         deepcopyto!(X,Xᵒ)
         Q = Qᵒ
-        accept = 1
+        accept = 1.0
     else
-        accept = 0
+        accept = 0.0
     end
-    Q, (kernel = ":parameterupdate", acc = accept)
+    #Q, [:parameter, accept]
+    Q, accept
 end
 
+
+######### adaptation of mcmc tuning parameters #################
+
 """
-    Adapt the step size for mala_mom updates.
-    The adaptation is multiplication/divsion by exp(η(n))
+    adaptmalastep!(δ, n, accinfo, η, update; adaptskip = 15, targetaccept=0.5)
+
+Adapt the step size for mala_mom updates.
+The adaptation is multiplication/divsion by exp(η(n)).
 """
-function adaptmalastep(n,accinfo,δ, η, update; adaptskip = 15, targetaccept=0.5)
-    if mod(n,adaptskip)==0
-        ind1 =  findall(first.(accinfo).== update)[end-adaptskip+1:end]
-        recent_mean = mean(last.(accinfo)[ind1])
+function adaptmalastep!(δ, accinfo, η, update; adaptskip = 15, targetaccept=0.5)
+    @show accinfo
+        recent_mean = mean(accinfo[end-adaptskip+1:end])
+        # ind1 =  findall(first.(accinfo).== update)[end-adaptskip+1:end]
+        # recent_mean = mean(last.(accinfo)[ind1])
         if recent_mean > targetaccept
             δ *= exp(η(n))
         else
             δ *= exp(-η(n))
         end
-    end
-    δ
+
+    nothing
 end
 
 """
@@ -470,17 +503,17 @@ end
 Adjust `covθprop-parameter` adaptively, every `adaptskip` steps.
 For that the assumed multiplicative parameter is first tranformed to (-∞, ∞), then updated, then mapped back to (0,∞)
 """
-function adaptparstep(n,accinfo,covθprop, η;  adaptskip = 15, targetaccept=0.5)
-    if mod(n,adaptskip)==0
-        ind1 =  findall(first.(accinfo).==":parameterupdate")[end-adaptskip+1:end]
-        recent_mean = mean(last.(accinfo)[ind1])
+function adaptparstep!(covθprop,accinfo, η;  adaptskip = 15, targetaccept=0.5)
+    recent_mean = mean(accinfo[end-adaptskip+1:end])
+        # ind1 =  findall(first.(accinfo).==":parameter")[end-adaptskip+1:end]
+        # recent_mean = mean(last.(accinfo)[ind1])
         if recent_mean > targetaccept
             covθprop *= exp(2*η(n))
         else
             covθprop *= exp(-2*η(n))
-        end
+
     end
-    covθprop
+    nothing
 end
 
 """
@@ -499,15 +532,15 @@ invsigmoid(z::Real) = log(z/(1-z))
 Adjust pcN-parameter `ρ` adaptive every `adaptskip` steps.
 For that `ρ` is first tranformed to (-∞, ∞), then updated, then mapped back to (0,1)
 """
-function adaptpcnstep(n, accpcn, ρ, nshapes, η; adaptskip = 15, targetaccept=0.5)
-    if mod(n,adaptskip)==0
-        recentvals = accpcn[end-adaptskip*nshapes+1:end]
-        recentmean = mean(recentvals)
+function adaptpcnstep!(ρ, accinfo, nshapes, η; adaptskip = 15, targetaccept=0.5)
+    recent_mean = mean(accinfo[end-adaptskip+1:end])
+        # ind1 =  findall(first.(accinfo).==:innov)[end-adaptskip*nshapes+1:end]
+        # recent_mean = mean(last.(accinfo)[ind1])
         if recentmean > targetaccept
             ρ = sigmoid(invsigmoid(ρ) - η(n))
         else
             ρ = sigmoid(invsigmoid(ρ) + η(n))
         end
-    end
-    ρ
+
+    nothing
 end

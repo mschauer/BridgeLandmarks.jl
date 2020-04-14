@@ -86,18 +86,19 @@ function landmarksmatching(
     xinit = State(xobs0, zeros(PointF,P.n))
     mT = zeros(PointF, n)
     start = time()
-        Xsave, parsave, accpcn, accinfo, δ , ρ, covθprop =
+          Xsave, parsave, accinfo, δ, ρ, covθprop =
                 lm_mcmc(tt, obsinfo, mT, P, ITER, subsamples, xinit, pars, priorθ, priormom, updatescheme, outdir)
     elapsed = time() - start
 
     ################## post processing ##################
     println("Elapsed time: ",round(elapsed/60;digits=2), " minutes")
-    perc_acc_pcn = mean(accpcn)*100
-    println("Acceptance percentage pCN step: ", round(perc_acc_pcn;digits=2))
-    write_mcmc_iterates(Xsave, tt, n, nshapes, subsamples, outdir)
-    write_info(model,ITER, n, tt, updatescheme, Σobs, pars, ρ, δ , perc_acc_pcn, elapsed, outdir)
+    ave_acc = [mean(x) for x in eachcol(accinfo[!,1:end-1])]
+    println("Average acceptance of updatesteps: ", round.(ave_acc;digits=2))
+        write_mcmc_iterates(Xsave, tt, n, nshapes, subsamples, outdir)
+    write_info(model,ITER, n, tt, updatescheme, Σobs, pars, ρ, δ , ave_acc, elapsed, outdir)
     write_observations(xobs0, [xobsT], n, nshapes, outdir)
-    write_acc(accinfo, accpcn, nshapes,outdir)
+    @show accinfo
+    write_acc(accinfo, nshapes,outdir)
     write_params(parsave, 0:ITER, outdir)
     write_noisefields(P, outdir)
     nothing

@@ -74,15 +74,13 @@ See documentation for GuidedProposal to contruct an example instance, say `Q`
 ```julia
     mTv = [zeros(PointF,5)]
 
-    BridgeLandmarks.update_mT(Q, mTv, obsinfo)
+    BridgeLandmarks.update_mT!(Q, mTv, obsinfo)
 """
-function update_mT(Q, mTv, obsinfo)
-    aux = copy(Q.aux)
+function update_mT!(Q, mTv, obsinfo)
     for k in Q.nshapes
-        aux[k] = auxiliary(Q.target,State(Q.xobsT[k],mTv[k]))  # auxiliary process for each shape
+        Q.aux[k] = auxiliary(Q.target,State(Q.xobsT[k],mTv[k]))  # auxiliary process for each shape
     end
-    Q = GuidedProposal(Q.target, aux,  Q.tt, Q.xobs0, Q.xobsT, Q.guidrec, Q.nshapes,mTv, Q.endpoint)
-    update_guidrec(Q, obsinfo)
+    update_guidrec!(Q, obsinfo)
 end
 
 
@@ -218,11 +216,11 @@ function adjust_to_newpars(Q::GuidedProposal,(aᵒ,cᵒ,γᵒ),obsinfo)
     elseif isa(Q.target,Landmarks)
         nfs = construct_nfs(Q.target.db, Q.target.nfstd, γᵒ)
         target = Landmarks(aᵒ,cᵒ,Q.target.n,Q.target.db,Q.target.nfstd,nfs)
-
     end
-    aux = [auxiliary(Q.target,State(Q.xobsT[k],Q.mT[k])) for k in 1:Q.nshapes]
-    Qtemp = GuidedProposal(target, aux,  Q.tt, Q.xobs0, Q.xobsT, Q.guidrec,Q.nshapes,Q.mT, Q.endpoint)
-    update_guidrec(Qtemp, obsinfo)   # compute backwards recursion
+    aux = [auxiliary(target,State(Q.xobsT[k],Q.mT[k])) for k in 1:Q.nshapes]
+    Qn = GuidedProposal(target, aux, Q.tt, Q.xobs0, Q.xobsT, Q.guidrec,Q.nshapes, Q.mT)
+    update_guidrec!(Qn, obsinfo)   # compute backwards recursion
+    Qn
 end
 
 """

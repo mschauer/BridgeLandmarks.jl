@@ -16,7 +16,7 @@ Suppose t is the specified (fixed) time grid. Then the elements of the struct ar
 - `Mt⁺0`:   M⁺(0) (so obtained from M⁺(0+) after gpupdate step incorporating observation xobs0)
 - `μt0`:    μ(0) (so obtained μ(0+) after gpupdate step incorporating observation xobs0)
 """
-mutable struct GuidRecursions{TL,TM⁺,TM, Tμ, TH, TLt0, TMt⁺0, Tμt0}
+struct GuidRecursions{TL,TM⁺,TM, Tμ, TH, TLt0, TMt⁺0, Tμt0}
     Lt::Vector{TL}          # Lt on grid tt
     Mt⁺::Vector{TM⁺}        # Mt⁺ on grid tt
     Mt::Vector{TM}          # Mt on grid tt
@@ -76,6 +76,7 @@ function gp_update!(Lt0₊, Mt⁺0₊::Array{Pnt,2}, μt0₊, (L0, Σ0, xobs0), 
         Mt⁺0 .= [Σ0 zeros(Pnt,m,n); zeros(Pnt,n,m) Mt⁺0₊]
     end
     μt0 .= [0*xobs0; μt0₊]
+    nothing
 end
 
 
@@ -143,9 +144,26 @@ function update_guidrec(Q, obsinfo)
         S = map(X -> 0.5*(X+X'), gr.Mt⁺)
         gr.Mt = map(X -> InverseCholesky(lchol(X)),S)
         # compute Ht at each time on the grid
-        for i in 1:length(gr.Ht)
+        for i in eachindex(gr.Ht)
             gr.Ht[i] .= gr.Lt[i]' * (gr.Mt[i] * gr.Lt[i] )
         end
     end
     set_guidrec(Q, Qgr)
+end
+
+function update_guidrec!(Q, obsinfo)
+    for k in 1:obsinfo.nshapes  # for all shapes
+        # solve backward recursions;
+        Lt0₊, Mt⁺0₊, μt0₊ =  guidingbackwards!(Lm(), Q.tt, (Q.guidrec[k].Lt, Q.guidrec[k].Mt⁺,Q.guidrec[k].μt), Q.aux[k], obsinfo)
+        # perform gpupdate step at time zero
+        gp_update!(Lt0₊, Mt⁺0₊, μt0₊, (obsinfo.L0, obsinfo.Σ0, obsinfo.xobs0),Q.guidrec[k].Lt0, Q.guidrec[k].Mt⁺0, Q.guidrec[k].μt0)
+        # compute Cholesky decomposition of Mt at each time on the grid, need to symmetrize gr.Mt⁺; else AHS  gives numerical roundoff errors when mT \neq 0
+        S = map(X -> 0.5*(X+X'), Q.guidrec[k].Mt⁺)
+        #Q.guidrec[k].Mt = map(X -> InverseCholesky(lchol(X)),S)
+        # compute Ht at each time on the grid
+        for i in eachindex(S)
+            Q.guidrec[k].Mt[i] = InverseCholesky(lchol(S[i]))
+            Q.guidrec[k].Ht[i] .= Q.guidrec[k].Lt[i]' * (Q.guidrec[k].Mt[i] * Q.guidrec[k].Lt[i] )
+        end
+    end
 end
