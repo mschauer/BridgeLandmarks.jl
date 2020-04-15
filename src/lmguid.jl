@@ -107,7 +107,7 @@ function lm_mcmc(t, obsinfo, mT, P, ITER, subsamples, xinit, pars, priorθ, prio
                 if (i > 2askip) & (mod(i,askip)==0)
                     covθprop = adaptparstep(covθprop, i, accinfo[!,update], pars.η; adaptskip = askip)
                 end
-                @show Q.target
+                #@show Q.target
             elseif update == :sgd
                 accinfo_ = update_initialstate!(X,Xᵒ,W,ll,x,xᵒ,∇x, ∇xᵒ,:sgd, Q, δ, update,priormom)
             end
