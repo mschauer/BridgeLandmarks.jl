@@ -140,3 +140,12 @@ pdf("initial-shapes.pdf",width=6,height=2)
 initshapes0
 dev.off()
 
+accdf <- read_delim("accdf.csv", ";", escape_double = FALSE, trim_ws = TRUE)
+# accfig <- accdf %>% mutate(acc=as.factor(acc)) %>% 
+#   mutate(kernel=recode(kernel, mala_mom="MALA momenta" ))  %>%
+#   ggplot(aes(x=iter,y=acc)) +geom_point(shape=124)+ facet_wrap(~kernel)+xlab("iteration nr")+ylab("accept")
+# pdf("acceptance.pdf",width=6,height=4)  
+# show(accfig)
+# dev.off()
+# accfig
+

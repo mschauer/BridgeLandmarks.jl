@@ -29,9 +29,9 @@ dat = load("../experiments/exp1/data_exp1.jld2")
 xobs0 = dat["xobs0"]
 xobsT = dat["xobsT"]
 
-@time landmarksmatching(xobs0,xobsT;outdir=outdir,ITER=1250,
-            updatescheme = [:innov, :rmmala_mom, :parameter],
-                pars= Pars_ms(covθprop = Diagonal(fill(0.0001,3)),η = 0.1/sqrt(n)))
+@time landmarksmatching(xobs0,xobsT;outdir=outdir,ITER=750,
+            updatescheme = [:innov, :parameter,:mala_mom],
+                pars= Pars_ms(covθprop = Diagonal(fill(0.001,3)),η =  n -> min(0.2, 10/(n))  ))
 #@enter landmarksmatching(xobs0,xobsT)
 
 

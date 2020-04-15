@@ -23,7 +23,7 @@ endpoint::F
 ```julia
     n = 5
     P = MarslandShardlow(1.0, 2.0, 0.5, 0.0, n)
-    xT = State(rand(PointF,5),rand(PointF,5))
+    xT = State(rand(PointF,n),rand(PointF,n))
     Paux = [BridgeLandmarks.auxiliary(P,xT)]
     tt = collect(0:0.05:1.0)
     xobs0 = rand(PointF,n)
@@ -207,10 +207,10 @@ end
     adjust_to_newpars(Q::GuidedProposal,(aᵒ,cᵒ,γᵒ),obsinfo)
 
 Provide new parameter values for GuidedProposal `Q`, these are written into fields `target` and `aux`.
-Then, for these objects, the backwards ODE for the guiding term are recomputed.
 Returns a new instance of `GuidedProposal`, adjusted to the new set of parameters.
 """
-function adjust_to_newpars(Q::GuidedProposal,(aᵒ,cᵒ,γᵒ),obsinfo)
+function adjust_to_newpars(Q::GuidedProposal,θᵒ)
+    (aᵒ,cᵒ,γᵒ) = θᵒ
     if isa(Q.target,MarslandShardlow)
         target = MarslandShardlow(aᵒ,cᵒ,γᵒ,Q.target.λ, Q.target.n)
     elseif isa(Q.target,Landmarks)
@@ -218,9 +218,7 @@ function adjust_to_newpars(Q::GuidedProposal,(aᵒ,cᵒ,γᵒ),obsinfo)
         target = Landmarks(aᵒ,cᵒ,Q.target.n,Q.target.db,Q.target.nfstd,nfs)
     end
     aux = [auxiliary(target,State(Q.xobsT[k],Q.mT[k])) for k in 1:Q.nshapes]
-    Qn = GuidedProposal(target, aux, Q.tt, Q.xobs0, Q.xobsT, Q.guidrec,Q.nshapes, Q.mT)
-    update_guidrec!(Qn, obsinfo)   # compute backwards recursion
-    Qn
+    GuidedProposal(target, aux, Q.tt, Q.xobs0, Q.xobsT, Q.guidrec,Q.nshapes, Q.mT)
 end
 
 """

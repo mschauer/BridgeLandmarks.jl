@@ -38,7 +38,7 @@ as the zero vector. Now every `adaptskip` iterations, `mT` is updated to the val
     σobs :: Float64 = 0.01
     dt :: Float64 =0.01
     cinit :: Float64 = 0.2
-    γinit :: Float64 = 2.0
+    γinit :: Float64 = 0.1
     κ :: Float64 = 100.0 # in variance of prior on initial momenta
     δpos :: Float64 = 0.001
     δmom :: Float64 = 0.1
@@ -55,7 +55,7 @@ end
     σobs :: Float64 = 0.01
     dt :: Float64 = 0.01
     cinit :: Float64 = 0.02
-    γinit :: Float64 = 0.01
+    γinit :: Float64 = 0.1
     stdev :: Float64 = 0.75
     db :: Float64 = 2.5
     κ :: Float64 = 100.0 # in variance of prior on initial momenta    δinit_ms ::Array{Float64,1} = [0.001, 0.1]
