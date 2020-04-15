@@ -1,30 +1,23 @@
 import Bridge: kernelr3!, R3!, target, auxiliary, constdiff, llikelihood, _b!, B!, σ!, b!
 
 """
-    lm_mcmc(t, (xobs0,xobsT), Σobs, mT, P,
-          obs_atzero, fixinitmomentato0, ITER, subsamples,
-          xinit, pars, priorθ, priormom, updatescheme,
-          outdir)
+    lm_mcmc(t, obsinfo, mT, P, ITER, subsamples, xinit, pars, priorθ, priormom, updatescheme, outdir)
 
 This is the main function call for doing either MCMC or SGD for landmark models
 Backward ODEs used are in terms of the LMμ-parametrisation
 
 ## Arguments
 - `t`:      time grid
-- `(xobs0,xobsT)`: observations at times 0 and T
-- `Σobs`: array with two elements: first element is an array of covariance matrices of the Gaussian noise on landmarks at time 0;
-    the second element in the array is for landmarks at time T
+- `obsinfo`: struct of type `ObsInfo`
 - `mT`: vector of momenta at time T used for constructing guiding term
 - `P`: target process
-- `obs_atzero`: Boolean, if true there is an observation at time zero
-- `fixinitmomentato0`: Boolean, if true we assume at time zero we observe zero momenta
 - `ITER`: number of iterations
 - `subsamples`: vector of indices of iterations that are to be saved
-- `xinit`: initial guess on starting state
-- `pars`: tuning pars for updates
-- `priorθ`: prior on θ=(a,c,γ)
+- `xinit`: initial value on state at time 0 (`x0`)
+- `pars`: tuning pars for updates (see `?Pars_ms()` and `?Pars_ahs()` for documentation)
+- `priorθ`: prior on θ = (a,c,γ)
 - `priormom`: prior on initial momenta
-- `updatescheme`: specify type of updates
+- `updatescheme`: vector specifying mcmc-updates
 - `outdir` output directory for animation
 
 ## Returns:
@@ -80,7 +73,6 @@ function lm_mcmc(t, obsinfo, mT, P, ITER, subsamples, xinit, pars, priorθ, prio
     askip = pars.adaptskip
 
     for i in 1:ITER
-
         k = 1
         for update in updatescheme
             if update == :innov
@@ -111,17 +103,13 @@ function lm_mcmc(t, obsinfo, mT, P, ITER, subsamples, xinit, pars, priorθ, prio
             elseif update == :sgd
                 accinfo_ = update_initialstate!(X,Xᵒ,W,ll,x,xᵒ,∇x, ∇xᵒ,:sgd, Q, δ, update,priormom)
             end
-
             acc[k] = accinfo_
             k += 1
-
-            #push!(accinfo, push!(accinfo_,i))
         end
         acc[end] = i
         push!(accinfo, acc)
 
-        # adjust mT (the momenta at time T used in the construction of the guided proposal)
-        if mod(i,askip)==0 && i < 100
+        if mod(i,askip)==0 && i < 100  # adjust mT (the momenta at time T used in the construction of the guided proposal)
             mTvec = [X[k][lt][2].p  for k in 1:nshapes]     # extract momenta at time T for each shape
             update_mT!(Q, mTvec, obsinfo)
         end
@@ -130,8 +118,6 @@ function lm_mcmc(t, obsinfo, mT, P, ITER, subsamples, xinit, pars, priorθ, prio
         # update matching
         # direction, accinfo_ = update_matching(obs_info, X, Xᵒ,W, Q, Qᵒ, x, ll)
         # push!(accinfo, accinfo_)
-
-
 
         # save some of the results
         if i in subsamples
@@ -149,64 +135,10 @@ function lm_mcmc(t, obsinfo, mT, P, ITER, subsamples, xinit, pars, priorθ, prio
         if mod(i,5) == 0
             println();  println("iteration $i")
             println("ρ ", ρ , ",   δ ", δ, ",   covθprop ", covθprop)
-            #println(names(accinfo))
             println(round.([mean(x) for x in eachcol(accinfo[!,1:end-1])];digits=2))
         end
     end
-    #@show accinfo
-
     Xsave, parsave, accinfo, δ, ρ, covθprop
-end
-
-"""
-    update_path!(X,Xᵒ,W,Wᵒ,Wnew,ll,x, Q, ρ, maxnrpaths)
-
-Update bridges for all shapes using Crank-Nicholsen scheme with parameter `ρ` (only in case the method is mcmc).
-Newly accepted bridges are written into `(X,W)`, loglikelihood on each segment is written into vector `ll`
-At most `maxnrpaths` randomly selected Wiener increments are updated.
-"""
-function update_path!(X,Xᵒ,W,Wᵒ,Wnew,ll,x, Q, ρ, maxnrpaths)
-    acc = Int64[]
-    x0 = deepvec2state(x)
-    dw = dimwiener(Q.target)
-    # From current state (x,W) with loglikelihood ll, update to (x, Wᵒ)
-    for k in 1:Q.nshapes
-        sample!(Wnew, Wiener{Vector{PointF}}())
-        # updateset: those indices for which the Wiener increment gets updated
-        if dw <= maxnrpaths
-            updateset = 1:dw
-        else
-            updateset = sample(1:dw, maxnrpaths, replace=false)
-        end
-        updatesetcompl = setdiff(1:dw, updateset)
-        for i in eachindex(W[1].yy) #i in nn
-            for j in updateset
-                Wᵒ.yy[i][j] = ρ * W[k].yy[i][j] + sqrt(1-ρ^2) * Wnew.yy[i][j]
-            end
-            for j in updatesetcompl
-                Wᵒ.yy[i][j] =  W[k].yy[i][j]
-            end
-        end
-
-        llᵒ_ = gp!(LeftRule(), Xᵒ[k], x0, Wᵒ, Q,k;skip=sk)
-        diff_ll = llᵒ_ - ll[k]
-        if log(rand()) <= diff_ll
-            # for i in eachindex(W[1].yy)  #i in nn
-            #     X[k].yy[i] .= Xᵒ[k].yy[i]
-            #     W[k].yy[i] .= Wᵒ.yy[i]
-            # end
-            copyto!(X, Xᵒ)
-            copyto!(W, Wᵒ)
-            #println("update innovation. diff_ll: ",round(diff_ll;digits=3),"  accepted")
-            ll[k] = llᵒ_
-            push!(acc,1)
-        else
-            #println("update innovation. diff_ll: ",round(diff_ll;digits=3),"  rejected")
-            push!(acc,0)
-        end
-    end
-    #[:innov, mean(acc)]
-    mean(acc)
 end
 
 """
@@ -237,18 +169,15 @@ function update_path!(X, W, ll, Xᵒ,Wᵒ, Wnew, Q, ρ)
                 X[k].yy[i] .= Xᵒ[k].yy[i]
                 W[k].yy[i] .= Wᵒ.yy[i]
             end
-            #println("update innovation. diff_ll: ",round(diff_ll;digits=3),"  accepted")
             ll[k] = llᵒ
             push!(acc,1)
         else
-            #println("update innovation. diff_ll: ",round(diff_ll;digits=3),"  rejected")
+
             push!(acc,0)
         end
     end
     mean(acc)
 end
-
-
 
 """
     slogρ!(x0deepv, Q, W,X,priormom,llout)
@@ -291,6 +220,7 @@ slogρ!(Q, W, X,priormom, llout) = (x) -> slogρ!(x, Q, W,X,priormom,llout)
 - `Q`: GuidedProposal
 - `δ`: vector with MALA stepsize for initial state positions (δ[1]) and initial state momenta (δ[2])
 - `update`:  can be `:mala_pos`, `:mala_mom`, :rmmala_pos`, `:rmmala_mom`, ``:rmrw_mom`
+- `priormom`: prior on initial momenta
 
 ## Writes into / modifies
 - `X`: landmarks paths
@@ -299,21 +229,16 @@ slogρ!(Q, W, X,priormom, llout) = (x) -> slogρ!(x, Q, W,X,priormom,llout)
 - `ll`: a vector with as k-th element the loglikelihood for the k-th shape
 
 ## Returns
-- `(kernel = update, acc = accepted)` tuple with name of the executed update and 0/1 indicator (reject/accept)
+-  0/1 indicator (reject/accept)
 
 """
 function update_initialstate!(X,Xᵒ,W,ll,x,xᵒ,∇x, ∇xᵒ,
                 sampler, Q::GuidedProposal, δ, update,priormom)
 
-    # @show xᵒ-x
     @assert x==xᵒ  "x and xᵒ are not the same at start of update_initialstate!"
     P = Q.target
     n = P.n
     x0 = deepvec2state(x)
-
-    #@show x0-X[1].yy[1]
-
-
     llᵒ = copy(ll)
     u = slogρ!(Q, W, X, priormom,ll)
     uᵒ = slogρ!(Q, W, Xᵒ, priormom,llᵒ)
@@ -419,7 +344,7 @@ For fixed Wiener increments and initial state, update parameters by random-walk-
 `ll`: vector of loglikelihoods (one for each shape)
 
 ## Returns
-`Q, (kernel = ":parameterupdate", acc = accept)`: where `accept` is 1/0 according to accept/reject in the MH-step.
+`Q, accept`: where `accept` is 1/0 according to accept/reject in the MH-step.
 """
 function update_pars!(X, ll, Xᵒ, W, Q , priorθ, covθprop, obsinfo)
     θ = getpars(Q)
