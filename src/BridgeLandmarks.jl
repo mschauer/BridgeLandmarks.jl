@@ -16,8 +16,8 @@ using JLD
 using DelimitedFiles
 using CSV
 
-using TimerOutputs
-const to = TimerOutput()
+# using TimerOutputs
+# const to = TimerOutput()
 
 dir() = joinpath(@__DIR__, "..")
 
@@ -45,17 +45,15 @@ include("patches.jl")
 #include("plotlandmarks.jl")  # keep, but presently unused as all is transferred to plotting in R
 include("plotting.jl")
 
-include("pars.jl")
-include("obsinfo.jl")
+include("pars.jl")  # set tuning pars
+include("obsinfo.jl") # set observation info
 include("guidedproposal.jl")
 include("backwardsfiltering.jl")
-
-include("lmguid.jl")
+include("lmguid.jl")  # contains main routines for mcmc
 include("postprocessing.jl")
 
 include("landmarksmatching.jl")
 include("template_estimation.jl")
 #include("updatematching.jl")
-
 
 end # module

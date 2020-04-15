@@ -43,6 +43,7 @@ nshapes = 7
 q0 = [PointF(2.0cos(t), sin(t))  for t in collect(0:(2pi/n):2pi)[2:end]] # initial shape is an ellipse
 x0 = State(q0, randn(PointF,n))
 xobsT = Vector{PointF}[]
+σobs = 0.05
 
 T = 1.0; dt = 0.01; t = 0.0:dt:T
 Ptrue = MarslandShardlow(2.0, 0.1, 1.7, 0.0, n)
