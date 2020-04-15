@@ -28,18 +28,17 @@
 
 ## Example:
 ```
-    dat = load("../experiments/exp1/data_exp1.jld2")
-    xobs0 = dat["xobs0"]
-    xobsT = dat["xobsT"]
-    writedlm("landmarks0.txt", hcat(extractcomp(xobs0,1), extractcomp(xobs0,2)))
-    writedlm("landmarksT.txt", hcat(extractcomp(xobsT,1), extractcomp(xobsT,2)))
+    # prepare some test data
+    n = 7
+    xobs0 = [PointF(2.0cos(t), sin(t))/4.0  for t in collect(0:(2pi/n):2pi)[2:end]]
+    θ, ψ =  π/6, 0.1
+    rot =  SMatrix{2,2}(cos(θ), sin(θ), -sin(θ), cos(θ))
+    stretch = SMatrix{2,2}(1.0 + ψ, 0.0, 0.0, 1.0 - ψ)
+    shift = [0.5, -1.0]
+    xobsT = [rot * stretch * xobs0[i] + shift  for i in 1:n]
 
-    landmarks0 = readdlm("landmarks0.txt")
-    landmarksT = readdlm("landmarksT.txt")
-
-    landmarksmatching(landmarks0, landmarksT; outdir=outdir, ITER=10, pars=BL.Pars_ahs())
-    landmarksmatching(xobs0,xobsT)
-    landmarksmatching(landmarks0, landmarksT; outdir=outdir, ITER=10)
+    landmarksmatching(xobs0,xobsT; ITER=10)
+    landmarksmatching(xobs0,xobsT; ITER=10, pars=BL.Pars_ahs())
 ```
 """
 function landmarksmatching(
@@ -90,17 +89,7 @@ function landmarksmatching(
                 lm_mcmc(tt, obsinfo, mT, P, ITER, subsamples, xinit, pars, priorθ, priormom, updatescheme, outdir)
     elapsed = time() - start
 
-    ################## post processing ##################
-    println("Elapsed time: ",round(elapsed/60;digits=2), " minutes")
-    ave_acc = [mean(x) for x in eachcol(accinfo[!,1:end-1])]
-    println("Average acceptance of updatesteps: ", round.(ave_acc;digits=2))
-        write_mcmc_iterates(Xsave, tt, n, nshapes, subsamples, outdir)
-    write_info(model,ITER, n, tt, updatescheme, Σobs, pars, ρ, δ , ave_acc, elapsed, outdir)
-    write_observations(xobs0, [xobsT], n, nshapes, outdir)
-
-    write_acc(accinfo,outdir)
-    write_params(parsave, 0:ITER, outdir)
-    write_noisefields(P, outdir)
+    write_output(obsinfo.xobs0, obsinfo.xobsT, parsave, Xsave, elapsed, accinfo, tt, n,nshapes,subsamples,ITER, updatescheme, Σobs, pars, ρ, δ, P, outdir)
     nothing
 end
 
@@ -114,6 +103,9 @@ end
         Σobs = nothing,
         ainit = nothing
     )
+
+landmarksmatching, where the input does not consist of arrays of points, but both the initial shape and final shape
+are represented by a matrix. Each row of the matrix gives the coordinates of a landmark.
 """
 function landmarksmatching(
     landmarks0::Matrix{Float64},landmarksT::Matrix{Float64};
@@ -125,6 +117,7 @@ function landmarksmatching(
     ainit = nothing
     )
 
+    @assert size(landmarks0)==size(landmarksT)  "landmarks0 and landmarksT should have the same dimensions."
     # convert landmark coordinates to arrays of PointF
     xobs0 = [PointF(r...) for r in eachrow(landmarks0)]
     xobsT = [PointF(r...) for r in eachrow(landmarksT)]

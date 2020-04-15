@@ -1,18 +1,34 @@
+
+function write_output(xobs0, xobsT, parsave, Xsave, elapsed,accinfo,tt,n,nshapes,subsamples,ITER, updatescheme, Σobs, pars, ρ, δ,P, outdir)
+    println("Elapsed time: ",round(elapsed/60;digits=2), " minutes")
+    ave_acc = [mean(x) for x in eachcol(accinfo[!,1:end-1])]
+    println("Average acceptance of updatesteps: ", round.(ave_acc;digits=2))
+    write_mcmc_iterates(Xsave, tt, n, nshapes, subsamples, outdir)
+    write_info(ITER, n, tt, updatescheme, Σobs, pars, ρ, δ , ave_acc, elapsed, outdir)
+    write_observations(xobs0, xobsT, n, nshapes, outdir)
+    write_acc(accinfo,outdir)
+    write_params(parsave, 0:ITER, outdir)
+    write_noisefields(P, outdir)
+end
+
+
 """
-        Write bridge iterates to file
-        Xsave: contains values of bridges
-        tt_: grid on which bridges are simulated
-        n: nr of bridges
-        nshapes: nr of shapes
-        subsamples: indices of iterates that are kept and saved in Xsave
-        outdir: output directory
+    write_mcmc_iterates(Xsave, tt_, n, nshapes, subsamples, outdir)
+
+Write bridge iterates to file
+
+## Arguments:
+- `Xsave`: contains values of bridges
+- `tt_`: grid on which bridges are simulated
+- `n`: nr of bridges
+- `nshapes`: nr of shapes
+- `subsamples`: indices of iterates that are kept and saved in Xsave
+- `outdir`: output directory
 """
 function write_mcmc_iterates(Xsave, tt_, n, nshapes, subsamples, outdir)
     outdir[end] == "/" && error("provide pathname without trailing '/'")
     iterates = reshape(vcat(Xsave...),2*d*length(tt_)*n*nshapes, length(subsamples)) # each column contains samplepath of an iteration
-
     # total number of rows is nshapes * length(tt_) * n * (2d)
-
     # Ordering in each column is as follows:
     # 0) shape
     # 1) time
@@ -45,42 +61,40 @@ end
 """
     Write info to txt file
 """
-function write_info(model,ITER, n, tt_, updatescheme, Σobs, tp, ρ, δ, perc_acc_pcn, elapsed, outdir)
+function write_info(ITER, n, tt_, updatescheme, Σobs, tp, ρ, δ, perc_acc_pcn, elapsed, outdir)
     outdir[end] == "/" && error("provide pathname without trailing '/'")
 
     f = open(joinpath(outdir,"info.txt"),"w")
-    write(f, "Model: ", string(model),"\n")
     write(f, "Number of iterations: ",string(ITER),"\n")
     write(f, "Number of landmarks: ",string(n),"\n")
     write(f, "Length time grid: ", string(length(tt_)),"\n")
     write(f, "Endpoint: ",string(tt_[end]),"\n")
     write(f, "updatescheme: ", string(updatescheme),"\n")
+    write(f, "Average acceptance rates update steps: ",string(perc_acc_pcn),"\n\n")
     write(f, "Noise Sigma: ",string(Σobs),"\n")
     write(f, "tuningpars_mcmc: ", string(tp),"\n")
     write(f, "Final value  of rho (Crank-Nicholsen parameter: ",string(ρ),"\n")
     write(f, "Final value of MALA parameter (delta): ",string(δ),"\n")
-
     write(f, "skip in evaluation of loglikelihood: ",string(sk),"\n")
-    write(f, "Average acceptance percentage pCN update steps: ",string(perc_acc_pcn),"\n\n")
     write(f, "Elapsed time: ", string(elapsed),"\n")
     close(f)
 end
 
+"""
+    write_acc(accinfo,outdir)
+
+Write dataframe with acceptance numbers of updatesteps to a csv file
+"""
 function write_acc(accinfo,outdir)
     outdir[end] == "/" && error("provide pathname without trailing '/'")
-
-    # extract number of distinct update steps in accinfo
-    # nunique = length(unique(map(x->x[1], accinfo)))
-    # niterates = div(length(accinfo),nunique)
-    # accdf = DataFrame(kernel = map(x->Symbol(x.kernel), accinfo), acc = map(x->x.acc, accinfo), iter = repeat(1:niterates, inner= nunique))
-    # accpcndf = DataFrame(kernel = fill(Symbol("pCN"),length(accpcn)), acc=accpcn, iter=repeat(1:niterates,inner=nshapes))
-    # append!(accdf, accpcndf)
     CSV.write(joinpath(outdir, "accdf.csv"), accinfo; delim=";")
 end
 
 
 """
-    Write observations to file
+    write_observations(xobs0, xobsT, n, nshapes, outdir)
+
+Write observations to csv file
 """
 function write_observations(xobs0, xobsT, n, nshapes, outdir)
     outdir[end] == "/" && error("provide pathname without trailing '/'")
@@ -110,7 +124,9 @@ end
 
 
 """
-    Write parameter iterates to file
+    write_params(parsave,subsamples,outdir)
+
+Write parameter iterates to file
 """
 function write_params(parsave,subsamples,outdir)
     outdir[end] == "/" && error("provide pathname without trailing '/'")
@@ -121,7 +137,9 @@ function write_params(parsave,subsamples,outdir)
 end
 
 """
-    Write noisefields to file (empty in case of MS-model)
+    write_noisefields(P,outdir)
+
+Write noisefields to file (empty in case of MS-model)
 """
 function write_noisefields(P,outdir)
     outdir[end] == "/" && error("provide pathname without trailing '/'")

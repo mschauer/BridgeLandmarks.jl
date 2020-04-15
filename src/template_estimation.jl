@@ -10,6 +10,7 @@
         outdir=@__DIR__,
         Σobs = nothing,
         ainit = nothing
+        xinitq = nothing
     )
 
 ## Arguments
@@ -26,11 +27,22 @@ are represented as an array of PointF)
     the value of pars.σobs
 - `anit`: Hamiltonian kernel parameter. If not provided, defaults to setting
     `ainit = mean(norm.([xobs0[i]-xobs0[i-1] for i in 2:n]))`
-
+- `xinitq::Array{PointF}`: Initialisation for the shape. If not provided xobsT[1] will be taken for initialisation.
 ## Example:
 ```
-    dat = load("../experiments/exp2/data_exp2.jld2")
-    xobsT = dat["xobsT"]
+    # Make test example data set
+    n = 5
+    nshapes = 7
+    q0 = [PointF(2.0cos(t), sin(t))  for t in collect(0:(2pi/n):2pi)[2:end]] # initial shape is an ellipse
+    x0 = State(q0, randn(PointF,n))
+    xobsT = Vector{PointF}[]
+
+    T = 1.0; dt = 0.01; t = 0.0:dt:T
+    Ptrue = MarslandShardlow(2.0, 0.1, 1.7, 0.0, n)
+    for k in 1:nshapes
+            Wf, Xf = BridgeLandmarks.landmarksforward(t, x0, Ptrue)
+            push!(xobsT, Xf.yy[end].q + σobs * randn(PointF,n))
+    end
 
     template_estimation(xobsT)
 `"""
@@ -38,11 +50,10 @@ function template_estimation(
     xobsT;#::Array{Array{PointF}};
     pars = Pars_ms(),
     updatescheme = [:innov, :rmmala_pos, :parameter],
-    ITER = 10,
+    ITER = 100,
     outdir=@__DIR__,
-    Σobs = nothing,
-    ainit = nothing
-    )
+    Σobs = nothing, ainit = nothing, xinitq = nothing)
+
 
     model = pars.model
     xobs0 = [] # as it is not known
@@ -77,31 +88,18 @@ function template_estimation(
     priormom = FlatPrior()
 
     mT = zeros(PointF, n)
-
-    xinitq = xobsT[1]
-    θ, ψ =  π/6, 0.25
-    rot =  SMatrix{2,2}(cos(θ), sin(θ), -sin(θ), cos(θ))
-    stretch = SMatrix{2,2}(1.0 + ψ, 0.0, 0.0, 1.0 - ψ)
-    xinitq_adj = [rot * stretch * xinitq[i] for i in 1:n ]
-    xinit = State(xinitq_adj, mT)
-
+    if isnothing(xinitq)
+        xinitq = xobsT[1]
+    end
     mT = zeros(PointF, n)
+    xinit = State(xinitq, mT)
+
     start = time()
-        Xsave, parsave, accpcn, accinfo, δ , ρ, covθprop =
+          Xsave, parsave, accinfo, δ, ρ, covθprop =
                 lm_mcmc(tt, obsinfo, mT, P, ITER, subsamples, xinit, pars, priorθ, priormom, updatescheme, outdir)
     elapsed = time() - start
 
-    ################## post processing ##################
-    println("Elapsed time: ",round(elapsed/60;digits=2), " minutes")
-    perc_acc_pcn = mean(accpcn)*100
-    println("Acceptance percentage pCN step: ", round(perc_acc_pcn;digits=2))
-    write_mcmc_iterates(Xsave, tt, n, nshapes, subsamples, outdir)
-    write_info(model,ITER, n, tt, updatescheme, Σobs, pars, ρ, δ , perc_acc_pcn, elapsed, outdir)
-    q0 = 0.0 * xobsT[1]
-    write_observations(q0, xobsT, n, nshapes, outdir)
-    write_acc(accinfo, accpcn, nshapes,outdir)
-    write_params(parsave, 0:ITER, outdir)
-    write_noisefields(P, outdir)
+    write_output(obsinfo.xobs0, obsinfo.xobsT, parsave, Xsave, elapsed, accinfo, tt, n,nshapes,subsamples,ITER, updatescheme, Σobs, pars, ρ, δ, P, outdir)
     nothing
 end
 
@@ -126,6 +124,7 @@ function template_estimation(
     ainit = nothing
     )
 
+    @warn "Not fully tested. Please provide landmark configurations as an array with each element of type Vector{PointF}"
     # convert landmark coordinates to arrays of PointF
     xobsT = [ [PointF(r...) for r in eachrow(lmT)]  for lmT in eachindex(landmarksT)]
     template_estimation(xobsT; pars=pars,updatescheme=updatescheme,
