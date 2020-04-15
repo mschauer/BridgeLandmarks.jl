@@ -100,6 +100,8 @@ function lm_mcmc(t, obsinfo, mT, P, ITER, subsamples, xinit, pars, priorθ, prio
                     covθprop = adaptparstep(covθprop, i, accinfo[!,update], pars.η; adaptskip = askip)
                 end
                 #@show Q.target
+            elseif update==:matching
+                Q, obsinfo, accinfo_ = update_cyclicmatching(X, ll, obsinfo, Xᵒ, W, Q)
             elseif update == :sgd
                 accinfo_ = update_initialstate!(X,Xᵒ,W,ll,x,xᵒ,∇x, ∇xᵒ,:sgd, Q, δ, update,priormom)
             end

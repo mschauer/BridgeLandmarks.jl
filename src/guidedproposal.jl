@@ -83,6 +83,17 @@ function update_mT!(Q, mTv, obsinfo)
     update_guidrec!(Q, obsinfo)
 end
 
+"""
+    construct_gp_xobsT(Q, xobsTᵒ)
+
+Update xobsTᵒ into auxiliary process of Q, following by recomputing the backwards ODEs
+"""
+function construct_gp_xobsT(Q, xobsTᵒ)
+    aux = [auxiliary(Q.target,State(xobsTᵒ[k],Q.mT[k])) for k in 1:Q.nshapes]
+    GuidedProposal(Q.target, aux, Q.tt, Q.xobs0, xobsTᵒ, Q.guidrec, Q.nshapes, Q.mT)
+end
+
+
 
 """
     _b!((i,t), x::State, out::State, Q::GuidedProposal,k)
@@ -227,11 +238,11 @@ end
     target(Q::GuidedProposal) = Q.target
 
 """
-    auxiliary(Q::GuidedProposal,k) = Q.aux[k]
+    auxiliary(Q::GuidedProposal,k::Int64) = Q.aux[k]
 
 Extract auxiliary process of k-th shape.
 """
-auxiliary(Q::GuidedProposal,k) = Q.aux[k] # auxiliary process of k-th shape
+auxiliary(Q::GuidedProposal,k::Int64) = Q.aux[k] # auxiliary process of k-th shape
 
 """
     constdiff(Q::GuidedProposal)

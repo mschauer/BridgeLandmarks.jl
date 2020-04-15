@@ -51,6 +51,7 @@ include("guidedproposal.jl")
 include("backwardsfiltering.jl")
 include("lmguid.jl")  # contains main routines for mcmc
 include("postprocessing.jl")
+include("updatematching.jl")
 
 include("landmarksmatching.jl")
 include("template_estimation.jl")

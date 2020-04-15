@@ -33,8 +33,8 @@ shift = [0.5, -1.0]
 xobsT = [rot * stretch * xobs0[i] + shift  for i in 1:n]
 
 landmarksmatching(xobs0,xobsT; ITER=10)
-landmarksmatching(xobs0,xobsT; outdir=outdir,ITER=100,
-                            updatescheme = [:innov, :parameter,:mala_mom],
+landmarksmatching(xobs0,xobsT; outdir=outdir,ITER=500,
+                            updatescheme = [:innov, :parameter,:mala_mom, :matching],
                             pars= Pars_ms(covθprop = Diagonal(fill(0.001,3)),η = n -> min(0.2, 10/(n))  ))
 
 ###################### test template estimation ######################
