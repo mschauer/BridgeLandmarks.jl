@@ -26,38 +26,29 @@ struct GuidRecursions{TL,TM⁺,TM, Tμ, TH, TLt0, TMt⁺0, Tμt0}
     Mt⁺0::TMt⁺0             # inv(Mt) at time 0, after gpupdate step incorporating observation xobs0
     μt0::Tμt0               # μt at time 0, after gpupdate step incorporating observation xobs0
 
-    function GuidRecursions(Lt, Mt⁺,Mt, μt, Ht, Lt0, Mt⁺0, μt0)
-            new{eltype(Lt), eltype(Mt⁺), eltype(Mt),eltype(μt),eltype(Ht), typeof(Lt0), typeof(Mt⁺0), typeof(μt0)}(Lt, Mt⁺,Mt, μt, Ht, Lt0, Mt⁺0, μt0)
+    function GuidRecursions(t,obsinfo)
+        μT = zeros(PointF,obsinfo.n)
+        Pnt = eltype(obsinfo.ΣT)
+        Lt =  [copy(obsinfo.LT) for _ in t]
+        Mt⁺ = [copy(obsinfo.ΣT) for _ in t]
+        Mt = map(X -> InverseCholesky(lchol(X)),Mt⁺)
+        μt = [copy(μT) for _ in t]
+        H = obsinfo.LT' * (obsinfo.ΣT * obsinfo.LT )
+        Ht = [copy(H) for _ in t]
+        Lt0 = copy([obsinfo.L0; obsinfo.LT])
+
+        m = size(obsinfo.Σ0)[1]
+        n = size(obsinfo.ΣT)[2]
+        if m==0
+            Mt⁺0 = copy(obsinfo.ΣT)
+        else
+            Mt⁺0 = [copy(obsinfo.Σ0) zeros(Pnt,m,n); zeros(Pnt,n,m) copy(obsinfo.ΣT)]
+        end
+        μt0 = [0*obsinfo.xobs0; copy(μT)]
+        new{eltype(Lt), eltype(Mt⁺), eltype(Mt),eltype(μt),eltype(Ht), typeof(Lt0), typeof(Mt⁺0), typeof(μt0)}(Lt, Mt⁺,Mt, μt, Ht, Lt0, Mt⁺0, μt0)
     end
 end
 
-
-"""
-    init_guidrec(t,obs_info)
-
-Initialise (allocate memory) a struct of type GuidRecursions for a single shape
-"""
-function init_guidrec(t,obsinfo)
-    μT = zeros(PointF,obsinfo.n)
-    Pnt = eltype(obsinfo.ΣT)
-    Lt =  [copy(obsinfo.LT) for _ in t]
-    Mt⁺ = [copy(obsinfo.ΣT) for _ in t]
-    Mt = map(X -> InverseCholesky(lchol(X)),Mt⁺)
-    μt = [copy(μT) for _ in t]
-    H = obsinfo.LT' * (obsinfo.ΣT * obsinfo.LT )
-    Ht = [copy(H) for _ in t]
-    Lt0 = copy([obsinfo.L0; obsinfo.LT])
-
-    m = size(obsinfo.Σ0)[1]
-    n = size(obsinfo.ΣT)[2]
-    if m==0
-        Mt⁺0 = copy(obsinfo.ΣT)
-    else
-        Mt⁺0 = [copy(obsinfo.Σ0) zeros(Pnt,m,n); zeros(Pnt,n,m) copy(obsinfo.ΣT)]
-    end
-    μt0 = [0*obsinfo.xobs0; copy(μT)]
-    GuidRecursions(Lt, Mt⁺, Mt, μt, Ht, Lt0, Mt⁺0, μt0)
-end
 
 """
     gp_update!(Lt0₊, Mt⁺0₊::Array{Pnt,2}, μt0₊, (L0, Σ0, xobs0), Lt0, Mt⁺0, μt0) where Pnt
@@ -106,11 +97,9 @@ function guidingbackwards!(::Lm, t, (Lt, Mt⁺, μt), Paux, obsinfo; implicit=tr
     σ̃T = Matrix(σ̃(0, Paux))
     dt = t[2] - t[1]
     oldtemp = (0.5*dt) * Bridge.outer(Lt[end] * σ̃T)
-    if lowrank
-        # TBA lowrank on σ̃T, and write into σ̃T
+    if lowrank  # TBA lowrank on σ̃T, and write into σ̃T
         error("not implemented")
     end
-
     for i in length(t)-1:-1:1
         dt = t[i+1]-t[i]
         if implicit
@@ -126,31 +115,6 @@ function guidingbackwards!(::Lm, t, (Lt, Mt⁺, μt), Paux, obsinfo; implicit=tr
     (Lt[1], Mt⁺[1], μt[1])
 end
 
-
-"""
-    update_guidrec!(Q, obs_info)
-
-Compute backward ODEs required for guided proposals (for all shapes) and write into field `Q.guidrec`
-"""
-function update_guidrec(Q, obsinfo)
-    Qgr = copy(Q.guidrec)
-    for k in 1:obsinfo.nshapes  # for all shapes
-        gr = Qgr[k]
-        # solve backward recursions;
-        Lt0₊, Mt⁺0₊, μt0₊ =  guidingbackwards!(Lm(), Q.tt, (gr.Lt, gr.Mt⁺,gr.μt), Q.aux[k], obsinfo)
-        # perform gpupdate step at time zero
-        gp_update!(Lt0₊, Mt⁺0₊, μt0₊, (obsinfo.L0, obsinfo.Σ0, obsinfo.xobs0),gr.Lt0, gr.Mt⁺0, gr.μt0)
-        # compute Cholesky decomposition of Mt at each time on the grid, need to symmetrize gr.Mt⁺; else AHS  gives numerical roundoff errors when mT \neq 0
-        S = map(X -> 0.5*(X+X'), gr.Mt⁺)
-        gr.Mt = map(X -> InverseCholesky(lchol(X)),S)
-        # compute Ht at each time on the grid
-        for i in eachindex(gr.Ht)
-            gr.Ht[i] .= gr.Lt[i]' * (gr.Mt[i] * gr.Lt[i] )
-        end
-    end
-    set_guidrec(Q, Qgr)
-end
-
 function update_guidrec!(Q, obsinfo)
     for k in 1:obsinfo.nshapes  # for all shapes
         # solve backward recursions;
@@ -159,8 +123,6 @@ function update_guidrec!(Q, obsinfo)
         gp_update!(Lt0₊, Mt⁺0₊, μt0₊, (obsinfo.L0, obsinfo.Σ0, obsinfo.xobs0),Q.guidrec[k].Lt0, Q.guidrec[k].Mt⁺0, Q.guidrec[k].μt0)
         # compute Cholesky decomposition of Mt at each time on the grid, need to symmetrize gr.Mt⁺; else AHS  gives numerical roundoff errors when mT \neq 0
         S = map(X -> 0.5*(X+X'), Q.guidrec[k].Mt⁺)
-        #Q.guidrec[k].Mt = map(X -> InverseCholesky(lchol(X)),S)
-        # compute Ht at each time on the grid
         for i in eachindex(S)
             Q.guidrec[k].Mt[i] = InverseCholesky(lchol(S[i]))
             Q.guidrec[k].Ht[i] .= Q.guidrec[k].Lt[i]' * (Q.guidrec[k].Mt[i] * Q.guidrec[k].Lt[i] )

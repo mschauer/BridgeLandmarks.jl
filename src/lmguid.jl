@@ -29,16 +29,13 @@ Backward ODEs used are in terms of the LMμ-parametrisation
 - `covθprop`: value of `covθprop` at the final iteration of the algorithm
 """
 function lm_mcmc(t, obsinfo, mT, P, ITER, subsamples, xinit, pars, priorθ, priormom, updatescheme, outdir)
-    lt = length(t);   StateW = PointF;    dwiener = dimwiener(P)
+    lt = length(t);   StateW = PointF;    dwiener = dimwiener(P);   nshapes = obsinfo.nshapes
 
-    # initialise GuidedProposal, which contains all info for simulating guided proposals
-    nshapes = obsinfo.nshapes
-    guidrec = [init_guidrec(t,obsinfo) for _ in 1:nshapes]  # memory allocation for backward recursion for each shape
+    guidrec = [GuidRecursions(t,obsinfo)  for _ in 1:nshapes]  # initialise guiding terms
     Paux = [auxiliary(P, State(obsinfo.xobsT[k],mT)) for k in 1:nshapes] # auxiliary process for each shape
     Q = GuidedProposal(P,Paux,t,obsinfo.xobs0,obsinfo.xobsT,guidrec,nshapes,[mT for _ in 1:nshapes])
     update_guidrec!(Q, obsinfo)   # compute backwards recursion
 
-    # initialise Wiener increments and forward simulate guided proposals
     X = [initSamplePath(t, xinit) for _ in 1:nshapes]
     W = [initSamplePath(t,  zeros(StateW, dwiener)) for _ in 1:nshapes]
     for k in 1:nshapes   sample!(W[k], Wiener{Vector{StateW}}())  end
@@ -53,7 +50,7 @@ function lm_mcmc(t, obsinfo, mT, P, ITER, subsamples, xinit, pars, priorθ, prio
     xᵒ = deepcopy(x)
     ∇xᵒ = deepcopy(x)
 
-    # compute loglikelihood
+    # sample guided proposal and compute loglikelihood (write into X)
     ll = gp!(LeftRule(), X, xinit, W, Q; skip=sk)
 
     # setup containers for saving objects
@@ -61,9 +58,6 @@ function lm_mcmc(t, obsinfo, mT, P, ITER, subsamples, xinit, pars, priorθ, prio
     push!(Xsave, convert_samplepath(X))
     parsave = Vector{Float64}[]
     push!(parsave, getpars(Q))
-
-    #accinfo = []                        # keeps track of acceptance of mcmc-steps
-
     accinfo = DataFrame(fill([], length(updatescheme)+1), [updatescheme...,:iteration]) # columns are all update types + 1 column for iteration number
     acc = zeros(ncol(accinfo))
 
@@ -116,21 +110,9 @@ function lm_mcmc(t, obsinfo, mT, P, ITER, subsamples, xinit, pars, priorθ, prio
             update_mT!(Q, mTvec, obsinfo)
         end
 
-        # don't remove
-        # update matching
-        # direction, accinfo_ = update_matching(obs_info, X, Xᵒ,W, Q, Qᵒ, x, ll)
-        # push!(accinfo, accinfo_)
-
         # save some of the results
         if i in subsamples
-            # if mergepaths #transform two Xpaths
-            #     Xrev = vcat([reverse(X[1].yy), X[2].yy[2:end]]...)
-            #     ttrev = vcat([-reverse(t), t[2:end]]...)
-            #     Xrevpath = [SamplePath(ttrev, Xrev)]
-            #     push!(Xsave, convert_samplepath(Xrevpath))
-            # else
-                push!(Xsave, convert_samplepath(X))
-            #end
+            push!(Xsave, convert_samplepath(X))
         end
         push!(parsave, getpars(Q))
 
@@ -174,7 +156,6 @@ function update_path!(X, W, ll, Xᵒ,Wᵒ, Wnew, Q, ρ)
             ll[k] = llᵒ
             push!(acc,1)
         else
-
             push!(acc,0)
         end
     end
@@ -206,8 +187,11 @@ function slogρ!(x0deepv, Q, W, X, priormom,llout)
     llout .= ForwardDiff.value.(lltemp)
     sum(lltemp) + logpdf(priormom, vcat(p(x0)...))
 end
-slogρ!(Q, W, X,priormom, llout) = (x) -> slogρ!(x, Q, W,X,priormom,llout)
 
+"""
+    slogρ!(Q, W, X,priormom, llout) = (x) -> slogρ!(x, Q, W,X,priormom,llout)
+"""
+slogρ!(Q, W, X,priormom, llout) = (x) -> slogρ!(x, Q, W,X,priormom,llout)
 
 """
     update_initialstate!(X,Xᵒ,W,ll,x,xᵒ,∇x, ∇xᵒ,sampler, Q::GuidedProposal, δ, update,priormom)
@@ -232,7 +216,6 @@ slogρ!(Q, W, X,priormom, llout) = (x) -> slogρ!(x, Q, W,X,priormom,llout)
 
 ## Returns
 -  0/1 indicator (reject/accept)
-
 """
 function update_initialstate!(X,Xᵒ,W,ll,x,xᵒ,∇x, ∇xᵒ,
                 sampler, Q::GuidedProposal, δ, update,priormom)

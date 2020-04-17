@@ -15,6 +15,7 @@ using PDMats
 using JLD
 using DelimitedFiles
 using CSV
+using RCall
 
 # using TimerOutputs
 # const to = TimerOutput()
@@ -30,7 +31,7 @@ import Bridge: kernelr3!, R3!, target, auxiliary, constdiff, llikelihood, _b!, B
 export Point, PointF, Unc, UncF, State, deepvec
 
 export Landmarks, LandmarksAux, MarslandShardlow, MarslandShardlowAux, Pars_ms, Pars_ahs, FlatPrior
-export landmarksforward, itostrat, construct_nfs, lm_mcmc, gramkernel, landmarksmatching, template_estimation
+export landmarksforward, itostrat, construct_nfs, lm_mcmc, gramkernel, landmarksmatching, template_estimation, plotlandmarksmatching
 
 export Lmplotbounds, extractcomp, tc
 
@@ -55,6 +56,7 @@ include("updatematching.jl")
 
 include("landmarksmatching.jl")
 include("template_estimation.jl")
+include("plots_landmarksmatching.jl")
 #include("updatematching.jl")
 
 end # module
