@@ -1,4 +1,4 @@
-setwd("~/.julia/dev/BridgeLandmarks/src/out")
+  setwd("~/.julia/dev/BridgeLandmarks/src/out")
 library(tidyverse)
 library(stringr)
 library(gridExtra)
@@ -125,19 +125,23 @@ dtime0 <-  dtime0 %>% mutate(phase =
               iterate >= quantile(iterate,1/3) ~ "end")  ) %>% # reorder factor levels
   mutate(phase = fct_relevel(phase, "initial", "middle"))
 dtimeT <- d %>% dplyr::filter(time==1) 
+
 initshapes0 <- ggplot()  + 
   geom_point(data=vT, aes(x=pos1,y=pos2), colour='grey')+
   geom_path(data=vT, aes(x=pos1,y=pos2,group=shape), colour='grey', linetype="dashed",size=0.4) +
-    geom_point(data=v0, aes(x=pos1,y=pos2), colour='red')+
   geom_path(data=v0, aes(x=pos1,y=pos2), colour='red',size=0.8,alpha=0.8) +
     geom_path(data=bind_rows(dtime0,dtime0),aes(x=pos1,y=pos2,colour=iterate)) +
-  facet_wrap(~phase)+ coord_fixed()
+  facet_wrap(~phase,ncol=1)#+ coord_fixed()
 initshapes0
 
+pdf("observed_shapes.pdf")
+  vT %>% ggplot(aes(x=pos1,y=pos2,label=landmark)) + geom_path() +
+    geom_label() + facet_wrap(~shape)
+dev.off()
 
 
-pdf("initial-shapes.pdf",width=6,height=2)  
-initshapes0
+pdf("initial_shapes.pdf")  
+  initshapes0
 dev.off()
 
 accdf <- read_delim("accdf.csv", ";", escape_double = FALSE, trim_ws = TRUE)

@@ -38,7 +38,7 @@ landmarksmatching(xobs0,xobsT; outdir=outdir,ITER=500,
                             pars= Pars_ms(covθprop = Diagonal(fill(0.001,3)),η = n -> min(0.2, 10/(n))  ))
 
 ###################### test template estimation ######################
-n = 5
+n = 10
 nshapes = 7
 q0 = [PointF(2.0cos(t), sin(t))  for t in collect(0:(2pi/n):2pi)[2:end]] # initial shape is an ellipse
 x0 = State(q0, randn(PointF,n))
@@ -48,12 +48,20 @@ xobsT = Vector{PointF}[]
 T = 1.0; dt = 0.01; t = 0.0:dt:T
 Ptrue = MarslandShardlow(2.0, 0.1, 1.7, 0.0, n)
 for k in 1:nshapes
-        Wf, Xf = BridgeLandmarks.landmarksforward(t, x0, Ptrue)
-        push!(xobsT, Xf.yy[end].q + σobs * randn(PointF,n))
+    Wf, Xf = BridgeLandmarks.landmarksforward(t, x0, Ptrue)
+    push!(xobsT, Xf.yy[end].q + σobs * randn(PointF,n))
 end
 
-template_estimation(xobsT; xinitq=2.0*xobsT[1])  # deliberately initialise badly to show it works
 
+template_estimation(xobsT; xinitq=2.0*xobsT[1],outdir=outdir)  # deliberately initialise badly to show it works
+
+# cyclically shift landmarks for a few landmarks
+xobsTshift = copy(xobsT)
+xobsTshift[1] = Base.circshift(xobsT[1],2)
+xobsTshift[2] = Base.circshift(xobsT[2],-1)
+xobsTshift[3] = Base.circshift(xobsT[3],-3)
+template_estimation(xobsTshift; xinitq=2.0*xobsT[3],outdir=outdir, updatescheme = [:innov, :rmmala_pos, :parameter, :matching],
+    ITER=100, pars=Pars_ms(δpos=0.0001,skip_saveITER=5))  # deliberately initialise badly to show it works
 
 ####################### below code for generating input data as matrices for landmarksmatching ######################
 if false

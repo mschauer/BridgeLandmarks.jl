@@ -20,8 +20,10 @@ function update_cyclicmatching(X, ll,obsinfo, Xᵒ, W, Q)
         # - recomputing backward recursion
 
     direction = 2 * rand(Bool) -1
-    #xobsTᵒ = [Base.circshift.(Q.xobsT[k],direction) for k in eachindex(Q.xobsT)]
-    xobsTᵒ = Base.circshift.(Q.xobsT,direction)
+    #    xobsTᵒ = Base.circshift.(Q.xobsT,direction) # this would be for shifting all shapes
+    xobsTᵒ = copy(Q.xobsT)
+    k = sample(1:Q.nshapes) # randomly pick a shape to which we cyclicallyl shift indices
+    xobsTᵒ[k] = Base.circshift(Q.xobsT[k],direction)
     oi = obsinfo
     obsinfoᵒ = ObsInfo(oi.L0, oi.LT, oi.Σ0, oi.ΣT, oi.xobs0, xobsTᵒ, oi.obs_atzero, oi.fixinitmomentato0, oi.n, oi.nshapes)
     Qᵒ = construct_gp_xobsT(Q, xobsTᵒ)
@@ -39,6 +41,7 @@ function update_cyclicmatching(X, ll,obsinfo, Xᵒ, W, Q)
             end
         end
         accept = 1
+        println("Cyclic shift for shape $k in direction $direction.")
     else
         accept = 0
     end
