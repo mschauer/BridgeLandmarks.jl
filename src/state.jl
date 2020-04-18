@@ -14,6 +14,8 @@ function deepmat2unc(A::Matrix)  # d is the dimension of the square subblocks
 end
 
 """
+    Base.show(io::IO, state::State)
+    
 Good display of variable of type State
 """
 function Base.show(io::IO, state::State)
@@ -21,6 +23,8 @@ function Base.show(io::IO, state::State)
 end
 
 """
+    cholinverse!(L, x)
+
 Solve L L'y =x using two backsolves,
 L should be lower triangular
 """
@@ -38,6 +42,8 @@ struct InverseCholesky{T}
 end
 
 """
+    Base.:*(H::InverseCholesky, x::State)
+
 Compute y = H*x where Hinv = L*L' (Cholesky decomposition
 
 Input are L and x, output is y
@@ -62,13 +68,15 @@ function Base.:*(H::InverseCholesky, x::Vector{<:Point})
 end
 
 """
+    Base.:*(H::InverseCholesky, X)
+
 Compute y = H*X where Hinv = L*L' (Cholesky decomposition
 
 Input are L and X, output is Y
 
-y=HX is equivalent to LL'y=X, which can be solved
+y = H X is equivalent to LL'y = X, which can be solved
 by first backsolving LZ=X for z and next
-backsolving L'Y=Z
+backsolving L'Y = Z
 
 L is a lower triangular matrix with element of type UncMat
 X is a matrix with elements of type UncMat
