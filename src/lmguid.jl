@@ -228,7 +228,7 @@ function update_initialstate!(X,Xᵒ,W,ll, x, qᵒ, pᵒ,∇, ∇ᵒ,
     P = Q.target
     n = P.n
     x0 = deepvec2state(x)
-    p,q = split_state(x0)
+    q, p = split_state(x0)
     llᵒ = copy(ll)
 
 
