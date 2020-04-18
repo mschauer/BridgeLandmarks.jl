@@ -50,45 +50,6 @@ vec(x::NState) = vec(x.x)
 Base.broadcastable(x::NState) = x
 Broadcast.BroadcastStyle(::Type{<:NState}) = Broadcast.Style{NState}()
 
-"""
-	split_state(x::NState)
-
-Split a state into its `q` and `p` parts, where the latter are reinterpreted as vectors.
-
-Note that merge does the inverse operation
-
-## Example
-```
-y = State(rand(PointF,3),rand(PointF,3))
-q, p = split_state(y)
-yy = merge_state(q,p)
-yy-y
-```
-"""
-function split_state(x::NState)
-	q =  vec(reinterpret(deepeltype(x), x.x[1,:]))
-	p =  vec(reinterpret(deepeltype(x), x.x[2,:]))
-	q, p
-end
-
-"""
-	merge_state(q,p)
-
-Merge `q` and `p` parts of state to an element of type `NState`.
-
-Note that merge does the inverse operation
-
-## Example
-```
-y = State(rand(PointF,3),rand(PointF,3))
-q, p = split_state(y)
-yy = merge_state(q,p)
-yy-y
-```
-"""
-function merge_state(q,p)
-	BL.NState(reinterpret(Point{eltype(q)}, q),reinterpret(Point{eltype(p)}, p))
-end
 
 
 function Base.getproperty(u::NState, s::Symbol)
