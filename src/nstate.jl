@@ -87,7 +87,7 @@ yy-y
 ```
 """
 function merge_state(q,p)
-	BL.NState(reinterpret(Point{eltype(q)}, q),reinterpret(Point{eltype(p)}, p))
+	NState(reinterpret(Point{eltype(q)}, q),reinterpret(Point{eltype(p)}, p))
 end
 
 
