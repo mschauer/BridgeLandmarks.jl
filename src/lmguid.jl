@@ -184,7 +184,7 @@ Main use of this function is to get gradient information of the loglikelihood wi
 function slogρ_pos!(q,p, Q, W, X, priormom,llout)
     lltemp = gp_pos!(LeftRule(), X, q,p, W, Q; skip=sk)   #overwrites X
     llout .= ForwardDiff.value.(lltemp)
-    sum(lltemp) + logpdf(priormom, vcat(p(x0)...))
+    sum(lltemp) 
 end
 
 function slogρ_mom!(q,p, Q, W, X, priormom,llout)
@@ -250,7 +250,7 @@ function update_initialstate!(X,Xᵒ,W,ll, x, qᵒ, pᵒ,∇, ∇ᵒ,
         if update in [:mala_pos, :rmmala_pos]
             u = slogρ_pos!(p, Q, W, X, priormom,ll)
             uᵒ = slogρ_pos!(p, Q, W, Xᵒ, priormom,llᵒ)
-            cfg = ForwardDiff.GradientConfig(u, x, ForwardDiff.Chunk{d*n}()) # d*P.n is maximal
+            cfg = ForwardDiff.GradientConfig(u, q, ForwardDiff.Chunk{d*n}()) # d*P.n is maximal
             ForwardDiff.gradient!(∇, u, q, cfg) # X and ll get overwritten but do not change
             stepsize = δ[1]
         elseif update in [:mala_mom, :rmmala_mom, :rmrw_mom]
@@ -268,7 +268,6 @@ function update_initialstate!(X,Xᵒ,W,ll, x, qᵒ, pᵒ,∇, ∇ᵒ,
             accinit = sum(llᵒ) - sum(ll) -
                       logpdf(ndistr,qᵒ - q - .5*stepsize *  ∇) +
                       logpdf(ndistr, q - qᵒ - .5*stepsize * ∇ᵒ)
-            logpriorterm = 0.0
         elseif update == :mala_mom
             pᵒ .= p .+ .5 * stepsize *  ∇ .+ sqrt(stepsize) * randn(length(p))
             cfgᵒ = ForwardDiff.GradientConfig(uᵒ, pᵒ, ForwardDiff.Chunk{d*n}())
@@ -276,23 +275,22 @@ function update_initialstate!(X,Xᵒ,W,ll, x, qᵒ, pᵒ,∇, ∇ᵒ,
             ndistr = MvNormal(d * n,sqrt(stepsize))
             accinit = sum(llᵒ) - sum(ll) -
                       logpdf(ndistr, pᵒ - p - .5*stepsize *  ∇) +
-                      logpdf(ndistr, p - pᵒ - .5*stepsize * ∇ᵒ)
-            logpriorterm = logpdf(priormom, pᵒ) - logpdf(priormom, p)
+                      logpdf(ndistr, p - pᵒ - .5*stepsize * ∇ᵒ) +
+                      logpdf(priormom, pᵒ) - logpdf(priormom, p)
         elseif update == :rmmala_pos
-            dK = gramkernel(x0.q,P)
+            dK = gramkernel(x0.q, P)
             ndistr = MvNormal(zeros(d*n),stepsize*dK)
             qᵒ .= q .+ .5 * stepsize * dK * ∇ .+ rand(ndistr)
             cfgᵒ = ForwardDiff.GradientConfig(uᵒ, qᵒ, ForwardDiff.Chunk{d*n}())
             ForwardDiff.gradient!(∇ᵒ, uᵒ, qᵒ, cfgᵒ)
             x0ᵒ = deepvec2state(merge_state(qᵒ,p))
-            dKᵒ = gramkernel(x0ᵒ.q,P)
+            dKᵒ = gramkernel(x0ᵒ.q, P)
             ndistrᵒ = MvNormal(zeros(d*n),stepsize*dKᵒ)  #     ndistrᵒ = MvNormal(stepsize*deepmat(Kᵒ))
             accinit = sum(llᵒ) - sum(ll) -
                      logpdf(ndistr, qᵒ - q - .5*stepsize * dK * ∇) +
                     logpdf(ndistrᵒ, q - qᵒ - .5*stepsize * dKᵒ * ∇ᵒ)
-            logpriorterm = 0.0
         elseif update == :rmmala_mom
-             dK = gramkernel(x0.q,P)
+             dK = gramkernel(x0.q, P)
              inv_dK = inv(dK)
              ndistr = MvNormal(zeros(d*n),stepsize*inv_dK)
              pᵒ .= p .+ .5 * stepsize * inv_dK * ∇ .+  rand(ndistr)
@@ -300,19 +298,19 @@ function update_initialstate!(X,Xᵒ,W,ll, x, qᵒ, pᵒ,∇, ∇ᵒ,
              ForwardDiff.gradient!(∇ᵒ, uᵒ, pᵒ, cfgᵒ) # Xᵒ gets overwritten but does not change
              accinit = sum(llᵒ) - sum(ll) -
                         logpdf(ndistr, pᵒ - p - .5*stepsize * inv_dK * ∇) +
-                       logpdf(ndistr, p - pᵒ - .5*stepsize * inv_dK * ∇ᵒ)
-            logpriorterm = logpdf(priormom, pᵒ) - logpdf(priormom, p)
+                       logpdf(ndistr, p - pᵒ - .5*stepsize * inv_dK * ∇ᵒ) +
+                       logpdf(priormom, pᵒ) - logpdf(priormom, p)
        elseif update == :rmrw_mom
             dK = gramkernel(x0.q, P)
             inv_dK = inv(dK)
             ndistr = MvNormal(zeros(d*n),stepsize*inv_dK)
             pᵒ .= p  .+  rand(ndistr)
             uᵒ(pᵒ)  # writes into llᵒ, don't need gradient info here
-            accinit = sum(llᵒ) - sum(ll)  # proposal is symmetric
-            logpriorterm = logpdf(priormom, pᵒ) - logpdf(priormom, p)
+            accinit = sum(llᵒ) - sum(ll) + # proposal is symmetric
+             logpdf(priormom, pᵒ) - logpdf(priormom, p)
          end
 
-        accinit += logpriorterm
+
         # MH acceptance decision
         if log(rand()) <= accinit
             #println("update initial state ", update, " accinit: ", round(accinit;digits=3), "  accepted")
