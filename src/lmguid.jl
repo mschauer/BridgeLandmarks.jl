@@ -181,17 +181,21 @@ Main use of this function is to get gradient information of the loglikelihood wi
 ## Returns
 - loglikelihood (summed over all shapes) + the logpriordensity of the initial momenta
 """
-function slogρ!(x0deepv, Q, W, X, priormom,llout)
-    x0 = deepvec2state(x0deepv)
-    lltemp = gp!(LeftRule(), X, x0, W, Q; skip=sk)   #overwrites X
+function slogρ_pos!(q,p, Q, W, X, priormom,llout)
+    lltemp = gp_pos!(LeftRule(), X, q,p, W, Q; skip=sk)   #overwrites X
     llout .= ForwardDiff.value.(lltemp)
     sum(lltemp) + logpdf(priormom, vcat(p(x0)...))
 end
 
-"""
-    slogρ!(Q, W, X,priormom, llout) = (x) -> slogρ!(x, Q, W,X,priormom,llout)
-"""
-slogρ!(Q, W, X,priormom, llout) = (x) -> slogρ!(x, Q, W,X,priormom,llout)
+function slogρ_mom!(q,p, Q, W, X, priormom,llout)
+    lltemp = gp_mom!(LeftRule(), X, q,p, W, Q; skip=sk)   #overwrites X
+    llout .= ForwardDiff.value.(lltemp)
+    sum(lltemp) + logpdf(priormom, p)
+end
+
+
+slogρ_pos!(p, Q, W, X,priormom, llout) = (q) -> slogρ_pos!(q, p , Q, W,X,priormom,llout)
+slogρ_mom!(q, Q, W, X,priormom, llout) = (p) -> slogρ_mom!(q, p , Q, W,X,priormom,llout)
 
 """
     update_initialstate!(X,Xᵒ,W,ll,x,xᵒ,∇x, ∇xᵒ,sampler, Q::GuidedProposal, δ, update,priormom)
@@ -220,7 +224,7 @@ slogρ!(Q, W, X,priormom, llout) = (x) -> slogρ!(x, Q, W,X,priormom,llout)
 function update_initialstate!(X,Xᵒ,W,ll, x, qᵒ, pᵒ,∇, ∇ᵒ,
                 sampler, Q::GuidedProposal, δ, update,priormom)
 
-    @assert x==xᵒ  "x and xᵒ are not the same at start of update_initialstate!"
+#    @assert x==xᵒ  "x and xᵒ are not the same at start of update_initialstate!"
     P = Q.target
     n = P.n
     x0 = deepvec2state(x)
@@ -247,13 +251,13 @@ function update_initialstate!(X,Xᵒ,W,ll, x, qᵒ, pᵒ,∇, ∇ᵒ,
             u = slogρ_pos!(p, Q, W, X, priormom,ll)
             uᵒ = slogρ_pos!(p, Q, W, Xᵒ, priormom,llᵒ)
             cfg = ForwardDiff.GradientConfig(u, x, ForwardDiff.Chunk{d*n}()) # d*P.n is maximal
-            ForwardDiff.gradient!(∇, q, x, cfg) # X and ll get overwritten but do not change
+            ForwardDiff.gradient!(∇, u, q, cfg) # X and ll get overwritten but do not change
             stepsize = δ[1]
         elseif update in [:mala_mom, :rmmala_mom, :rmrw_mom]
             u = slogρ_mom!(q, Q, W, X, priormom,ll)
             uᵒ = slogρ_mom!(q, Q, W, Xᵒ, priormom,llᵒ)
             cfg = ForwardDiff.GradientConfig(u, p, ForwardDiff.Chunk{d*n}()) # d*P.n is maximal
-            ForwardDiff.gradient!(∇, p, x, cfg) # X and ll get overwritten but do not change
+            ForwardDiff.gradient!(∇, u, p, cfg) # X and ll get overwritten but do not change
             stepsize = δ[2]
         end
         if update == :mala_pos
@@ -264,7 +268,7 @@ function update_initialstate!(X,Xᵒ,W,ll, x, qᵒ, pᵒ,∇, ∇ᵒ,
             accinit = sum(llᵒ) - sum(ll) -
                       logpdf(ndistr,qᵒ - q - .5*stepsize *  ∇) +
                       logpdf(ndistr, q - qᵒ - .5*stepsize * ∇ᵒ)
-            logpriormom = 0.0
+            logpriorterm = 0.0
         elseif update == :mala_mom
             pᵒ .= p .+ .5 * stepsize *  ∇ .+ sqrt(stepsize) * randn(length(p))
             cfgᵒ = ForwardDiff.GradientConfig(uᵒ, pᵒ, ForwardDiff.Chunk{d*n}())
@@ -273,7 +277,7 @@ function update_initialstate!(X,Xᵒ,W,ll, x, qᵒ, pᵒ,∇, ∇ᵒ,
             accinit = sum(llᵒ) - sum(ll) -
                       logpdf(ndistr, pᵒ - p - .5*stepsize *  ∇) +
                       logpdf(ndistr, p - pᵒ - .5*stepsize * ∇ᵒ)
-            logpriormom = logpdf(priormom, pᵒ) - logpdf(priormom, p)
+            logpriorterm = logpdf(priormom, pᵒ) - logpdf(priormom, p)
         elseif update == :rmmala_pos
             dK = gramkernel(x0.q,P)
             ndistr = MvNormal(zeros(d*n),stepsize*dK)
@@ -286,6 +290,7 @@ function update_initialstate!(X,Xᵒ,W,ll, x, qᵒ, pᵒ,∇, ∇ᵒ,
             accinit = sum(llᵒ) - sum(ll) -
                      logpdf(ndistr, qᵒ - q - .5*stepsize * dK * ∇) +
                     logpdf(ndistrᵒ, q - qᵒ - .5*stepsize * dKᵒ * ∇ᵒ)
+            logpriorterm = 0.0
         elseif update == :rmmala_mom
              dK = gramkernel(x0.q,P)
              inv_dK = inv(dK)
@@ -296,7 +301,7 @@ function update_initialstate!(X,Xᵒ,W,ll, x, qᵒ, pᵒ,∇, ∇ᵒ,
              accinit = sum(llᵒ) - sum(ll) -
                         logpdf(ndistr, pᵒ - p - .5*stepsize * inv_dK * ∇) +
                        logpdf(ndistr, p - pᵒ - .5*stepsize * inv_dK * ∇ᵒ)
-            logpriormom = logpdf(priormom, pᵒ) - logpdf(priormom, p)
+            logpriorterm = logpdf(priormom, pᵒ) - logpdf(priormom, p)
        elseif update == :rmrw_mom
             dK = gramkernel(x0.q, P)
             inv_dK = inv(dK)
@@ -304,7 +309,7 @@ function update_initialstate!(X,Xᵒ,W,ll, x, qᵒ, pᵒ,∇, ∇ᵒ,
             pᵒ .= p  .+  rand(ndistr)
             uᵒ(pᵒ)  # writes into llᵒ, don't need gradient info here
             accinit = sum(llᵒ) - sum(ll)  # proposal is symmetric
-            logpriormom = logpdf(priormom, pᵒ) - logpdf(priormom, p)
+            logpriorterm = logpdf(priormom, pᵒ) - logpdf(priormom, p)
          end
 
         accinit += logpriorterm

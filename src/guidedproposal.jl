@@ -204,6 +204,25 @@ function gp!(::LeftRule,  X::Vector, x0, W, Q::GuidedProposal; skip = 0, ll0 = t
     logliks
 end
 
+function gp_pos!(::LeftRule,  X::Vector, q, p, W, Q::GuidedProposal; skip = 0, ll0 = true)
+    logliks  = zeros(deepeltype(q), Q.nshapes)
+    x0 = merge_state(q,p)
+    for k in 1:Q.nshapes
+        logliks[k] = gp!(LeftRule(), X[k],x0,W[k],Q, k ;skip=skip,ll0=ll0)
+    end
+    logliks
+end
+
+function gp_mom!(::LeftRule,  X::Vector, q, p, W, Q::GuidedProposal; skip = 0, ll0 = true)
+    logliks  = zeros(deepeltype(p), Q.nshapes)
+    x0 = merge_state(q,p)
+    for k in 1:Q.nshapes
+        logliks[k] = gp!(LeftRule(), X[k],x0,W[k],Q, k ;skip=skip,ll0=ll0)
+    end
+    logliks
+end
+
+
 """
     getpars(Q::GuidedProposal)
 
