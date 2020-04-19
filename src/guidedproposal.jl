@@ -206,7 +206,8 @@ end
 
 function gp_pos!(::LeftRule,  X::Vector, q, p, W, Q::GuidedProposal; skip = 0, ll0 = true)
     logliks  = zeros(deepeltype(q), Q.nshapes)
-    x0 = merge_state(q,p)
+    #x0 = merge_state(q,p)
+    x0 = State(reinterpret(Point, q), reinterpret(Point, 0*q + p))
     for k in 1:Q.nshapes
         logliks[k] = gp!(LeftRule(), X[k],x0,W[k],Q, k ;skip=skip,ll0=ll0)
     end
@@ -215,7 +216,9 @@ end
 
 function gp_mom!(::LeftRule,  X::Vector, q, p, W, Q::GuidedProposal; skip = 0, ll0 = true)
     logliks  = zeros(deepeltype(p), Q.nshapes)
-    x0 = merge_state(q,p)
+    #x0 = merge_state(q,p)
+    #x0 = State(reinterpret(Point, q + 0*p), reinterpret(Point, p))
+    x0 = NState(reinterpret(Point{eltype(p)}, q+0*p),reinterpret(Point{eltype(p)}, p))
     for k in 1:Q.nshapes
         logliks[k] = gp!(LeftRule(), X[k],x0,W[k],Q, k ;skip=skip,ll0=ll0)
     end
