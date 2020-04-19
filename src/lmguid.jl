@@ -53,6 +53,10 @@ function lm_mcmc(t, obsinfo, mT, P, ITER, subsamples, xinit, pars, priorθ, prio
     # sample guided proposal and compute loglikelihood (write into X)
     ll = gp!(LeftRule(), X, xinit, W, Q; skip=sk)
 
+    # for Riemannian updates on the momenta, assuming initial point is fixed
+    dK = gramkernel(xinit.q, P)
+    invK = inv(dK)
+
     # setup containers for saving objects
     Xsave = typeof(zeros(length(t) * P.n * 2 * d * nshapes))[]
     push!(Xsave, convert_samplepath(X))
@@ -77,13 +81,13 @@ function lm_mcmc(t, obsinfo, mT, P, ITER, subsamples, xinit, pars, priorθ, prio
                 end
             elseif update in [:mala_mom, :rmmala_mom, :rmrw_mom]
                 #@timeit to "update mom"
-                accinfo_ = update_initialstate!(X,Xᵒ,W,ll,x,xᵒ,∇x, ∇xᵒ,:mcmc, Q, δ, update, priormom)
+                accinfo_ = update_initialstate!(X,Xᵒ,W,ll,x,xᵒ,∇x, ∇xᵒ,:mcmc, Q, δ, update, priormom, invK)
                 if (i > 2askip) & (mod(i,askip)==0)
                     δ[2] = adaptmalastep(δ[2], i, accinfo[!,update], pars.η, update; adaptskip = askip)
                 end
             elseif update in [:mala_pos, :rmmala_pos]
                 #@timeit to "update pos"
-                accinfo_ = update_initialstate!(X,Xᵒ,W,ll,x,xᵒ,∇x, ∇xᵒ,:mcmc, Q, δ, update, priormom)
+                accinfo_ = update_initialstate!(X,Xᵒ,W,ll,x,xᵒ,∇x, ∇xᵒ,:mcmc, Q, δ, update, priormom, invK)
                 if (i > 2askip) & (mod(i,askip)==0)
                     δ[1] = adaptmalastep(δ[1], i, accinfo[!,update], pars.η, update; adaptskip = askip)
                 end
@@ -218,7 +222,7 @@ slogρ!(Q, W, X,priormom, llout) = (x) -> slogρ!(x, Q, W,X,priormom,llout)
 -  0/1 indicator (reject/accept)
 """
 function update_initialstate!(X,Xᵒ,W,ll,x,xᵒ,∇x, ∇xᵒ,
-                sampler, Q::GuidedProposal, δ, update,priormom)
+                sampler, Q::GuidedProposal, δ, update, priormom, invK)
 
     @assert x==xᵒ  "x and xᵒ are not the same at start of update_initialstate!"
     P = Q.target
@@ -274,9 +278,8 @@ function update_initialstate!(X,Xᵒ,W,ll,x,xᵒ,∇x, ∇xᵒ,
                      logpdf(ndistr,xᵒ[mask_id] - x[mask_id] - .5*stepsize * dK * ∇x[mask_id]) +
                     logpdf(ndistrᵒ,x[mask_id] - xᵒ[mask_id] - .5*stepsize * dKᵒ * ∇xᵒ[mask_id])
         elseif update == :rmmala_mom
-             dK = gramkernel(x0.q,P)
-             inv_dK = inv(dK)
-             ndistr = MvNormal(zeros(d*n),stepsize*inv_dK)
+
+             ndistr = MvNormal(zeros(d*n),stepsize*invK)
              xᵒ[mask_id] .= x[mask_id] .+ .5 * stepsize * inv_dK * ∇x[mask_id] .+  rand(ndistr)
              cfgᵒ = ForwardDiff.GradientConfig(uᵒ, xᵒ, ForwardDiff.Chunk{2*d*n}())
              ForwardDiff.gradient!(∇xᵒ, uᵒ, xᵒ, cfgᵒ) # Xᵒ gets overwritten but does not change
@@ -284,9 +287,8 @@ function update_initialstate!(X,Xᵒ,W,ll,x,xᵒ,∇x, ∇xᵒ,
                         logpdf(ndistr,xᵒ[mask_id] - x[mask_id] - .5*stepsize * inv_dK * ∇x[mask_id]) +
                        logpdf(ndistr,x[mask_id] - xᵒ[mask_id] - .5*stepsize * inv_dK * ∇xᵒ[mask_id])
        elseif update == :rmrw_mom
-            dK = gramkernel(x0.q, P)
-            inv_dK = inv(dK)
-            ndistr = MvNormal(zeros(d*n),stepsize*inv_dK)
+
+            ndistr = MvNormal(zeros(d*n),stepsize*invK)
             xᵒ[mask_id] .= x[mask_id]  .+  rand(ndistr)
             uᵒ(xᵒ)  # writes into llᵒ, don't need gradient info here
             accinit = sum(llᵒ) - sum(ll)  # proposal is symmetric
