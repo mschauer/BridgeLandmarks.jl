@@ -96,7 +96,7 @@ LandmarksAux(P::Landmarks, xT) = LandmarksAux(P.a,P.c, xT, P.n, P.nfs)
 """
     auxiliary(P::Union{MarslandShardlow, Landmarks}, xT)
 
-Construct auxiliary process corresponding to `P` and `xT`    
+Construct auxiliary process corresponding to `P` and `xT`
 """
 function auxiliary(P::Union{MarslandShardlow, Landmarks}, xT)
     if isa(P,MarslandShardlow)
@@ -114,14 +114,17 @@ Bridge.constdiff(::Landmarks) = false
 
 
 """
-kernel in Hamiltonian
+    kernel(q, P::LandmarkModel)
+
+kernel in Hamiltonian: P.c * exp(-Bridge.inner(q)/(2*P.a^2))
 """
 function kernel(q, P::LandmarkModel)
- #(2*π*P.a^2)^(-d/2)*exp(-Bridge.inner(q)/(2*P.a^2))
- P.c * exp(-Bridge.inner(q)/(2*P.a^2))
+   P.c * exp(-Bridge.inner(q)/(2*P.a^2))
 end
 
 """
+    ∇kernel(q, P::LandmarkModel)
+
 gradient of kernel in hamiltonian
 """
 function ∇kernel(q, P::LandmarkModel)
@@ -136,6 +139,8 @@ function ∇kernel(q, qT, P::LandmarkModel)
 end
 
 """
+    hamiltonian(x, P)
+
 Hamiltonian for deterministic part of landmarks model
 """
 function hamiltonian(x, P)
@@ -156,6 +161,8 @@ Bridge.σ(t, x, dm, P) =  Bridge.σ!(t, x, dm , 0*x, P)
 
 
 """
+    Bridge.b!(t, x, out, P::MarslandShardlow)
+
 Evaluate drift of landmarks in (t,x) and save to out
 x is a state and out as well
 """
@@ -172,6 +179,8 @@ function Bridge.b!(t, x, out, P::MarslandShardlow)
 end
 
 """
+    Bridge.b!(t, x, out, Paux::MarslandShardlowAux)
+
 Evaluate drift of landmarks auxiliary process in (t,x) and save to out
 x is a state and out as well
 """
@@ -198,6 +207,8 @@ end
 
 
 """
+    Bridge.B(t, Paux::MarslandShardlowAux)
+
 Compute tildeB(t) for landmarks auxiliary process
 """
 function Bridge.B(t, Paux::MarslandShardlowAux) # not AD safe
@@ -213,6 +224,8 @@ end
 
 
 """
+    Bridge.B!(t,X,out, Paux::MarslandShardlowAux)
+
 Compute B̃(t) * X (B̃ from auxiliary process) and write to out
 Both B̃(t) and X are of type UncMat
 """
@@ -619,6 +632,8 @@ Bridge.a(t, P::LandmarksAux) =  Bridge.a(t, 0, P)
 
 
 """
+    amul(t, x::State, xin::Vector{<:Point}, P::Union{Landmarks,LandmarksAux})
+
 Multiply a(t,x) times a vector of points
 Returns a State
 (first multiply with sigma', via function σtmul, next left-multiply this vector with σ)
@@ -642,6 +657,9 @@ function amul(t, x::State, xin::State, P::Union{Landmarks,LandmarksAux})
     Bridge.σ!(t, x, σtmul(t, x, xin, P),out,P)
 end
 
+"""
+    Bridge.a!(t, x_, out, P::Union{Landmarks,LandmarksAux})
+"""
 function Bridge.a!(t, x_, out, P::Union{Landmarks,LandmarksAux})
     zero!(out)
     if P isa Landmarks
@@ -691,8 +709,10 @@ function dimwiener(P)
 end
 
 """
-    Gram matrix for kernel with vector of landmarks given by q::Vector(PointF)
-    ϵ*I is added to avoid numerical problems that destroy PSDness of the Gram matrix
+    gramkernel(q, P; ϵ = 10^(-12))
+
+Gram matrix for kernel with vector of landmarks given by q::Vector(PointF)
+ϵ*I is added to avoid numerical problems that destroy PSDness of the Gram matrix
 """
 function gramkernel(q, P; ϵ = 10^(-12))
     K =  [(kernel(q[i]- q[j],P) + (i==j)*ϵ) * one(UncF)   for i  in eachindex(q), j in eachindex(q)]
@@ -706,81 +726,4 @@ function hamiltonian(x::NState, P::MarslandShardlow)
         s += dot(x.p[i], x.p[j])*kernel(x.q[i] - x.q[j], P)
     end
     0.5 * s
-end
-
-
-######################################################################################################
-
-
-
-
-
-
-if false # some failed attempts to compute tr(aH) right away faster, with less memory allocation
-
-    """
-    Compute row_i{sigmaq(t,x)} * dm where dm is a vector of points and sigma is the diffusion coefficient of landmarks
-    write to out which is of Vector{Points}
-    """
-    function σq!(t, x_, dm, out, P::Union{Landmarks,LandmarksAux})
-        if P isa Landmarks
-            x = x_
-        else
-            x = P.xT
-        end
-        zero!(out)
-        for j in 1:length(P.nfs)
-            out += σq(q(x, i), P.nfs[j]) * dm[j]
-        end
-
-        out
-    end
-
-
-    """
-    Compute row_i{sigmap(t,x)} * dm where dm is a vector of points and sigma is the diffusion coefficient of landmarks
-    write to out which is of Vector{Points}
-    """
-    function σp!(t, x_, dm, out, P::Union{Landmarks,LandmarksAux})
-        if P isa Landmarks
-            x = x_
-        else
-            x = P.xT
-        end
-        zero!(out)
-        for j in 1:length(P.nfs)
-            out += σp(q(x, i), p(x, i), P.nfs[j]) * dm[j]
-        end
-        out
-    end
-    #######################
-    function tr_aH(t, x::State,H, P::Union{Landmarks,LandmarksAux})
-        som = 0.0
-        outq = zeros(UncF, length(P.nfs))
-        outp = zeros(UncF, length(P.nfs))
-        for i in 1:P.n
-            σtHcol!(outq,x,H[:,2i-1],P.nfs) # compute σ' times Col_i(H) (should give J x 1 column-vector of Unc)
-            σtHcol!(outp,x,H[:,2i],P.nfs) # compute σ' times Col_i(H) (should give J x 1 column-vector of Unc)
-            for j in 1:length(P.nfs)
-                    som += tr(σq(q(x,i),P.nfs[j]) * outq[j]) +
-                                tr(σp(q(x,i),p(x,i),P.nfs[j]) * outp[j])
-            end
-
-        end
-        som
-    end
-
-    function σtHcol!(out,x,Hvec,nfs)
-        zero!(out)
-        for j in 1:length(nfs)
-            for i in 1:P.n
-                out[j] += σq(q(x,i),nfs[j]) * Hvec[2i-1] +  σp(q(x,i),p(x,i),nfs[j]) * Hvec[2i]
-            end
-        end
-        out
-    end
-
-    # @time tr_aH(1.0,x0,H,P)
-    # @time  sum(sum(Bridge.a((2,3.0,), x0, P).*H))
-    # @time dot(Bridge.a((2,3.0,), x0, P),H)
 end
