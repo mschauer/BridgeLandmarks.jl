@@ -163,39 +163,42 @@ function update_path!(X, W, ll, Xᵒ,Wᵒ, Wnew, Q, ρ)
 end
 
 """
-    slogρ!(x0deepv, Q, W,X,priormom,llout)
+    slogρ!(q, p, Q, W, X, priormom,llout)
 
 Main use of this function is to get gradient information of the loglikelihood with respect ot the initial state.
 
 ## Arguments
-- `x0deepv`: initial state, converted to a deepvector (i.e. all elements stacked)
+- `q` and `p` make up the initial state (which could be obtained from `x0 = merge_state(q,p)`)
 - `Q`: GuidePropsoal!
+- `W`: vector of innovations
 - `X`: sample path
 - `priormom`: prior on the initial momenta
 - `llout`: vector where loglikelihoods for each shape are written into
 
 ## Writes into
-- A guided proposal is simulated forward starting in `x0` which is the state corresponding to `x0deepv`. The guided proposal is written into `X`.
+- The guided proposal is written into `X`.
 - The computed loglikelihood for each shape is written into `llout`
 
 ## Returns
 - loglikelihood (summed over all shapes) + the logpriordensity of the initial momenta
 """
-function slogρ_pos!(q,p, Q, W, X, priormom,llout)
-    lltemp = gp_pos!(LeftRule(), X, q,p, W, Q; skip=sk)   #overwrites X
-    llout .= ForwardDiff.value.(lltemp)
-    sum(lltemp) 
-end
-
-function slogρ_mom!(q,p, Q, W, X, priormom,llout)
-    lltemp = gp_mom!(LeftRule(), X, q,p, W, Q; skip=sk)   #overwrites X
+function slogρ!(q,p, Q, W, X, priormom,llout)
+    lltemp = gp!(LeftRule(), X, q, p, W, Q; skip=sk)   # writes into X
     llout .= ForwardDiff.value.(lltemp)
     sum(lltemp) + logpdf(priormom, p)
 end
 
+"""
+    slogρ_pos!(p, Q, W, X,priormom, llout) = (q) -> slogρ!(q, p , Q, W, X, priormom, llout)
+"""
+slogρ_pos!(p, Q, W, X,priormom, llout) = (q) -> slogρ!(q, p , Q, W, X, priormom, llout)
 
-slogρ_pos!(p, Q, W, X,priormom, llout) = (q) -> slogρ_pos!(q, p , Q, W,X,priormom,llout)
-slogρ_mom!(q, Q, W, X,priormom, llout) = (p) -> slogρ_mom!(q, p , Q, W,X,priormom,llout)
+
+"""
+    slogρ_mom!(q, Q, W, X,priormom, llout) = (p) -> slogρ!(q, p , Q, W, X, priormom, llout)
+"""
+slogρ_mom!(q, Q, W, X,priormom, llout) = (p) -> slogρ!(q, p , Q, W, X, priormom, llout)
+
 
 """
     update_initialstate!(X,Xᵒ,W,ll,x,xᵒ,∇x, ∇xᵒ,sampler, Q::GuidedProposal, δ, update,priormom)
@@ -224,13 +227,11 @@ slogρ_mom!(q, Q, W, X,priormom, llout) = (p) -> slogρ_mom!(q, p , Q, W,X,prior
 function update_initialstate!(X,Xᵒ,W,ll, x, qᵒ, pᵒ,∇, ∇ᵒ,
                 sampler, Q::GuidedProposal, δ, update,priormom)
 
-#    @assert x==xᵒ  "x and xᵒ are not the same at start of update_initialstate!"
     P = Q.target
     n = P.n
     x0 = deepvec2state(x)
     q, p = split_state(x0)
     llᵒ = copy(ll)
-
 
     if sampler ==:sgd  # CHECK VALIDITY LATER
         @warn "Option :sgd has not been checked so far; don't use as yet."
@@ -245,6 +246,7 @@ function update_initialstate!(X,Xᵒ,W,ll, x, qᵒ, pᵒ,∇, ∇ᵒ,
         #obj = gp!(LeftRule(), X, deepvec2state(x), W, Q; skip=sk)
         accepted = 1
     end
+
     if sampler==:mcmc
         accinit = 0.0
         if update in [:mala_pos, :rmmala_pos]
@@ -266,7 +268,7 @@ function update_initialstate!(X,Xᵒ,W,ll, x, qᵒ, pᵒ,∇, ∇ᵒ,
             ForwardDiff.gradient!(∇ᵒ, uᵒ, qᵒ, cfgᵒ)
             ndistr = MvNormal(d * n,sqrt(stepsize))
             accinit = sum(llᵒ) - sum(ll) -
-                      logpdf(ndistr,qᵒ - q - .5*stepsize *  ∇) +
+                      logpdf(ndistr, qᵒ - q - .5*stepsize * ∇) +
                       logpdf(ndistr, q - qᵒ - .5*stepsize * ∇ᵒ)
         elseif update == :mala_mom
             pᵒ .= p .+ .5 * stepsize *  ∇ .+ sqrt(stepsize) * randn(length(p))
@@ -274,7 +276,7 @@ function update_initialstate!(X,Xᵒ,W,ll, x, qᵒ, pᵒ,∇, ∇ᵒ,
             ForwardDiff.gradient!(∇ᵒ, uᵒ, pᵒ, cfgᵒ)
             ndistr = MvNormal(d * n,sqrt(stepsize))
             accinit = sum(llᵒ) - sum(ll) -
-                      logpdf(ndistr, pᵒ - p - .5*stepsize *  ∇) +
+                      logpdf(ndistr, pᵒ - p - .5*stepsize * ∇) +
                       logpdf(ndistr, p - pᵒ - .5*stepsize * ∇ᵒ) +
                       logpdf(priormom, pᵒ) - logpdf(priormom, p)
         elseif update == :rmmala_pos
@@ -283,12 +285,13 @@ function update_initialstate!(X,Xᵒ,W,ll, x, qᵒ, pᵒ,∇, ∇ᵒ,
             qᵒ .= q .+ .5 * stepsize * dK * ∇ .+ rand(ndistr)
             cfgᵒ = ForwardDiff.GradientConfig(uᵒ, qᵒ, ForwardDiff.Chunk{d*n}())
             ForwardDiff.gradient!(∇ᵒ, uᵒ, qᵒ, cfgᵒ)
-            x0ᵒ = deepvec2state(merge_state(qᵒ,p))
-            dKᵒ = gramkernel(x0ᵒ.q, P)
+            # x0ᵒ = merge_state(qᵒ,p)
+            # dKᵒ = gramkernel(x0ᵒ.q, P)
+            dKᵒ = gramkernel(reinterpret(PointF,qᵒ), P)
             ndistrᵒ = MvNormal(zeros(d*n),stepsize*dKᵒ)  #     ndistrᵒ = MvNormal(stepsize*deepmat(Kᵒ))
             accinit = sum(llᵒ) - sum(ll) -
                      logpdf(ndistr, qᵒ - q - .5*stepsize * dK * ∇) +
-                    logpdf(ndistrᵒ, q - qᵒ - .5*stepsize * dKᵒ * ∇ᵒ)
+                     logpdf(ndistrᵒ, q - qᵒ - .5*stepsize * dKᵒ * ∇ᵒ)
         elseif update == :rmmala_mom
              dK = gramkernel(x0.q, P)
              inv_dK = inv(dK)
@@ -297,7 +300,7 @@ function update_initialstate!(X,Xᵒ,W,ll, x, qᵒ, pᵒ,∇, ∇ᵒ,
              cfgᵒ = ForwardDiff.GradientConfig(uᵒ, pᵒ, ForwardDiff.Chunk{d*n}())
              ForwardDiff.gradient!(∇ᵒ, uᵒ, pᵒ, cfgᵒ) # Xᵒ gets overwritten but does not change
              accinit = sum(llᵒ) - sum(ll) -
-                        logpdf(ndistr, pᵒ - p - .5*stepsize * inv_dK * ∇) +
+                       logpdf(ndistr, pᵒ - p - .5*stepsize * inv_dK * ∇) +
                        logpdf(ndistr, p - pᵒ - .5*stepsize * inv_dK * ∇ᵒ) +
                        logpdf(priormom, pᵒ) - logpdf(priormom, p)
        elseif update == :rmrw_mom
@@ -306,14 +309,11 @@ function update_initialstate!(X,Xᵒ,W,ll, x, qᵒ, pᵒ,∇, ∇ᵒ,
             ndistr = MvNormal(zeros(d*n),stepsize*inv_dK)
             pᵒ .= p  .+  rand(ndistr)
             uᵒ(pᵒ)  # writes into llᵒ, don't need gradient info here
-            accinit = sum(llᵒ) - sum(ll) + # proposal is symmetric
-             logpdf(priormom, pᵒ) - logpdf(priormom, p)
+            accinit = sum(llᵒ) - sum(ll) + logpdf(priormom, pᵒ) - logpdf(priormom, p)  # proposal is symmetric
          end
-
 
         # MH acceptance decision
         if log(rand()) <= accinit
-            #println("update initial state ", update, " accinit: ", round(accinit;digits=3), "  accepted")
             for k in 1:Q.nshapes
                 for i in eachindex(X[1].yy)
                     X[k].yy[i] .= Xᵒ[k].yy[i]
