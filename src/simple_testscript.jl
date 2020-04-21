@@ -21,10 +21,10 @@ cd(workdir)
 outdir = joinpath(workdir,"out")
 
 ## available update steps implemented:
-println("available steps are [:mala_mom, :rmmala_mom, :rmrw_mom, :mala_pos, :rmmala_pos, :parameter, :innov]")
+println("available steps are [:mala_mom, :rmmala_mom, :rmrw_mom, :mala_pos, :rmmala_pos, :sgd_mom :parameter, :innov]")
 
 ####################### test landmarksmatching ######################
-n = 7
+n = 8
 xobs0 = [PointF(2.0cos(t), sin(t))/4.0  for t in collect(0:(2pi/n):2pi)[2:end]]
 θ, ψ =  π/6, 0.1
 rot =  SMatrix{2,2}(cos(θ), sin(θ), -sin(θ), cos(θ))
@@ -32,14 +32,20 @@ stretch = SMatrix{2,2}(1.0 + ψ, 0.0, 0.0, 1.0 - ψ)
 shift = [0.5, -1.0]
 xobsT = [rot * stretch * xobs0[i] + shift  for i in 1:n]
 
-landmarksmatching(xobs0,xobsT; ITER=10)
+@time landmarksmatching(xobs0,xobsT; ITER=100,pars=Pars_ms(δmom=0.01), outdir=outdir)
+
+@time landmarksmatching(xobs0,xobsT; ITER=300,pars=Pars_ms(δmom=0.001), outdir=outdir,updatescheme=[:innov, :sgd_mom, :parameter])
+
+@time landmarksmatching(xobs0,xobsT; updatescheme=[:innov, :rmrw_mom], ITER=500,pars=Pars_ms(δmom=0.01), outdir=outdir)
+
 landmarksmatching(xobs0,xobsT; outdir=outdir,ITER=500,
                             updatescheme = [:innov, :parameter,:mala_mom, :matching],
                             pars= Pars_ms(covθprop = Diagonal(fill(0.001,3)),η = n -> min(0.2, 10/(n))  ))
 
+plotlandmarksmatching(outdir)
 ###################### test template estimation ######################
-n = 10
-nshapes = 7
+n = 6
+nshapes = 8
 q0 = [PointF(2.0cos(t), sin(t))  for t in collect(0:(2pi/n):2pi)[2:end]] # initial shape is an ellipse
 x0 = State(q0, randn(PointF,n))
 xobsT = Vector{PointF}[]
@@ -61,7 +67,7 @@ xobsTshift[1] = Base.circshift(xobsT[1],2)
 xobsTshift[2] = Base.circshift(xobsT[2],-1)
 xobsTshift[3] = Base.circshift(xobsT[3],-3)
 template_estimation(xobsTshift; xinitq=2.0*xobsT[3],outdir=outdir, updatescheme = [:innov, :rmmala_pos, :parameter, :matching],
-    ITER=100, pars=Pars_ms(δpos=0.0001,skip_saveITER=5))  # deliberately initialise badly to show it works
+    ITER=200, pars=Pars_ms(δpos=0.0001,skip_saveITER=5))  # deliberately initialise badly to show it works
 
 ####################### below code for generating input data as matrices for landmarksmatching ######################
 if false

@@ -141,7 +141,11 @@ end
 Simulate guided proposal as specified in `Q` and compute loglikelihood for one shape,
 starting from `x0`, using Wiener increments `W`
 
-Returns logliklihood.
+## Write into
+Xᵒ
+
+## Returns
+logliklihood.
 """
 function gp!(::LeftRule,  Xᵒ, x0, W, Q::GuidedProposal,k; skip = 0, ll0 = true)
     Pnt = eltype(x0)

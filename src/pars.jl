@@ -39,15 +39,15 @@ parameters is performed.
     ρinit::Float64 = 0.9
     covθprop::Array{Float64,2}  = [0.01 0. 0.; 0. 0.01 0.; 0. 0. 0.04]
     η::Any = n -> min(0.2, 10/n)
-    adaptskip::Int64  =20
-    σobs :: Float64 = 0.01
-    dt :: Float64 =0.01
-    cinit :: Float64 = 0.2
-    γinit :: Float64 = 0.1
-    κ :: Float64 = 100.0
-    δpos :: Float64 = 0.001
-    δmom :: Float64 = 0.1
-    skip_saveITER :: Int64 = 10
+    adaptskip::Int64 = 20
+    σobs:: Float64 = 0.01
+    dt:: Float64 = 0.01
+    cinit:: Float64 = 0.1
+    γinit:: Float64 = 0.1
+    κ:: Float64 = 100.0
+    δpos:: Float64 = 0.01
+    δmom:: Float64 = 0.01
+    skip_saveITER:: Int64 = 10
 end
 
 
@@ -94,15 +94,15 @@ parameters is performed.
     ρinit::Float64  = 0.9
     covθprop::Array{Float64,2}  = [0.01 0. 0.; 0. 0.01 0.; 0. 0. 0.01]
     η::Any = n -> min(0.2, 10/n)
-    adaptskip::Int64  =20
-    σobs :: Float64 = 0.01
-    dt :: Float64 = 0.01
-    cinit :: Float64 = 0.02
-    γinit :: Float64 = 0.1
-    stdev :: Float64 = 0.75
-    db :: Float64 = 2.5
-    κ :: Float64 = 100.0
-    δpos :: Float64 = 0.1
-    δmom :: Float64 = 0.1
-    skip_saveITER :: Int64 = 10
+    adaptskip::Int64 = 20
+    σobs:: Float64 = 0.01
+    dt:: Float64 = 0.01
+    cinit:: Float64 = 0.1
+    γinit:: Float64 = 0.1
+    stdev:: Float64 = 0.75
+    db:: Float64 = 2.5
+    κ:: Float64 = 100.0
+    δpos:: Float64 = 0.01
+    δmom:: Float64 = 0.01
+    skip_saveITER:: Int64 = 10
 end

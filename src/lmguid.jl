@@ -48,8 +48,6 @@ function lm_mcmc(t, obsinfo, mT, P, ITER, subsamples, xinit, pars, priorθ, prio
     Xᵒ = deepcopy(X)
     Wᵒ = initSamplePath(t,  zeros(StateW, dwiener))
     Wnew = initSamplePath(t,  zeros(StateW, dwiener))
-
-
     # sample guided proposal and compute loglikelihood (write into X)
     ll = gp!(LeftRule(), X, xinit, W, Q; skip=sk)
 
@@ -77,13 +75,13 @@ function lm_mcmc(t, obsinfo, mT, P, ITER, subsamples, xinit, pars, priorθ, prio
                 end
             elseif update in [:mala_mom, :rmmala_mom, :rmrw_mom]
                 #@timeit to "update mom"
-                accinfo_ = update_initialstate!(X,Xᵒ,W,ll, x, qᵒ, pᵒ,∇, ∇ᵒ,:mcmc, Q, δ, update, priormom)
+                accinfo_ = update_initialstate!(X,Xᵒ,W,ll, x, qᵒ, pᵒ,∇, ∇ᵒ, Q, δ, update, priormom)
                 if (i > 2askip) & (mod(i,askip)==0)
                     δ[2] = adaptmalastep(δ[2], i, accinfo[!,update], pars.η, update; adaptskip = askip)
                 end
             elseif update in [:mala_pos, :rmmala_pos]
                 #@timeit to "update pos"
-                accinfo_ = update_initialstate!(X,Xᵒ,W,ll, x, qᵒ, pᵒ,∇, ∇ᵒ,:mcmc, Q, δ, update, priormom)
+                accinfo_ = update_initialstate!(X,Xᵒ,W,ll, x, qᵒ, pᵒ,∇, ∇ᵒ, Q, δ, update, priormom)
                 if (i > 2askip) & (mod(i,askip)==0)
                     δ[1] = adaptmalastep(δ[1], i, accinfo[!,update], pars.η, update; adaptskip = askip)
                 end
@@ -96,8 +94,8 @@ function lm_mcmc(t, obsinfo, mT, P, ITER, subsamples, xinit, pars, priorθ, prio
                 #@show Q.target
             elseif update==:matching
                 Q, obsinfo, accinfo_ = update_cyclicmatching(X, ll, obsinfo, Xᵒ, W, Q)
-            elseif update == :sgd
-                accinfo_ = update_initialstate!(X,Xᵒ,W,ll,x,xᵒ,∇x, ∇xᵒ,:sgd, Q, δ, update,priormom)
+            elseif update==:sgd_mom
+                accinfo_ = update_initialstate!(X,Xᵒ,W,ll, x, qᵒ, pᵒ,∇, ∇ᵒ, Q, δ, update, priormom)
             end
             acc[k] = accinfo_
             k += 1
@@ -201,7 +199,7 @@ slogρ_mom!(q, Q, W, X,priormom, llout) = (p) -> slogρ!(q, p , Q, W, X, priormo
 
 
 """
-    update_initialstate!(X,Xᵒ,W,ll,x,xᵒ,∇x, ∇xᵒ,sampler, Q::GuidedProposal, δ, update,priormom)
+    update_initialstate!(X,Xᵒ,W,ll,x,xᵒ,∇x, ∇xᵒ, Q::GuidedProposal, δ, update,priormom)
 
 ## Arguments
 - `X`:  current iterate of vector of sample paths
@@ -225,30 +223,24 @@ slogρ_mom!(q, Q, W, X,priormom, llout) = (p) -> slogρ!(q, p , Q, W, X, priormo
 -  0/1 indicator (reject/accept)
 """
 function update_initialstate!(X,Xᵒ,W,ll, x, qᵒ, pᵒ,∇, ∇ᵒ,
-                sampler, Q::GuidedProposal, δ, update,priormom)
+                 Q::GuidedProposal, δ, update,priormom)
 
-    P = Q.target
-    n = P.n
+    P = Q.target;   n = P.n
     x0 = deepvec2state(x)
     q, p = split_state(x0)
-    llᵒ = copy(ll)
 
-    if sampler ==:sgd  # CHECK VALIDITY LATER
-        @warn "Option :sgd has not been checked so far; don't use as yet."
-        mask = deepvec(State(0*x0.q, onemask(x0.p)))
-        # StateW = PointF
-        # sample!(W, Wiener{Vector{StateW}}())
-        ForwardDiff.gradient!(∇x, u, x, cfg) # X gets overwritten but does not chang
-        xᵒ = x .+ δ[2] * mask .* ∇x
-        slogρ!(Q, W, X, priormom, llout)(xᵒ)
-
-        obj = sum(llout)
-        #obj = gp!(LeftRule(), X, deepvec2state(x), W, Q; skip=sk)
-        accepted = 1
-    end
-
-    if sampler==:mcmc
+    if update ==:sgd_mom
+    #    @warn "Option :sgd_mom has not been checked/tested so far; don't use as yet."
+        u = slogρ_mom!(q, Q, W, X, priormom,ll)
+        cfg = ForwardDiff.GradientConfig(u, p, ForwardDiff.Chunk{d*n}()) # d*P.n is maximal
+        ForwardDiff.gradient!(∇, u, p, cfg) # X gets overwritten but does not chang
+        pᵒ = p .+ δ[2] * ∇
+        x0ᵒ = merge_state(q, pᵒ)
+        gp!(LeftRule(), X, x0ᵒ, W, Q)
+        accepted = 1.0
+    else
         accinit = 0.0
+        llᵒ = copy(ll)
         if update in [:mala_pos, :rmmala_pos]
             u = slogρ_pos!(p, Q, W, X, priormom,ll)
             uᵒ = slogρ_pos!(p, Q, W, Xᵒ, priormom,llᵒ)
@@ -310,7 +302,7 @@ function update_initialstate!(X,Xᵒ,W,ll, x, qᵒ, pᵒ,∇, ∇ᵒ,
             pᵒ .= p  .+  rand(ndistr)
             uᵒ(pᵒ)  # writes into llᵒ, don't need gradient info here
             accinit = sum(llᵒ) - sum(ll) + logpdf(priormom, pᵒ) - logpdf(priormom, p)  # proposal is symmetric
-         end
+        end
 
         # MH acceptance decision
         if log(rand()) <= accinit
