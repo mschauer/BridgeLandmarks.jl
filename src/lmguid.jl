@@ -234,7 +234,7 @@ function update_initialstate!(X,Xᵒ,W,ll, x, qᵒ, pᵒ,∇, ∇ᵒ,
         u = slogρ_mom!(q, Q, W, X, priormom,ll)
         cfg = ForwardDiff.GradientConfig(u, p, ForwardDiff.Chunk{d*n}()) # d*P.n is maximal
         ForwardDiff.gradient!(∇, u, p, cfg) # X gets overwritten but does not chang
-        pᵒ = p .+ δ[2] * ∇
+        pᵒ = p .- δ[2] * ∇
         x0ᵒ = merge_state(q, pᵒ)
         gp!(LeftRule(), X, x0ᵒ, W, Q)
         accepted = 1.0
