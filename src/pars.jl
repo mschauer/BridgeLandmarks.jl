@@ -79,7 +79,7 @@ parameters is performed.
 
 - `stdev`: For the AHS-model we take noise fields centred at points that are both horizontally and vertically separaeted by a distance  that is an integer multiple of 2`stdev`
 
-- `db`: assign noisefields within the box [-db, db] x [-db, db]
+- `db`: assign noisefields within the box [-db[1], db[1]] x [-db[2], db[2]] (and similarly for other dimensions than 2)
 
 - `κ`: in case of landmarksmatching, κ quantifies diffusiveness of the prior on the initial momenta
 
