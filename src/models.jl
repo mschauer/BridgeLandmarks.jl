@@ -60,7 +60,7 @@ struct  Landmarks{S,T} <: ContinuousTimeProcess{State{PointF}}
     a::T # kernel std
     c::T # kernel multiplicate parameter
     n::Int64   # numer of landmarks
-    db::Float64 # domainbound
+    db::Array{Float64,1} # domainbound
     nfstd::Float64
     nfs::Vector{Noisefield{S}}  # vector containing pars of noisefields
 end
@@ -372,25 +372,27 @@ end
 σq(nfs) = (x) -> σq(x,nfs) # inefficient
 
 """
-    Construct sequence of Noisefields for AHS model
-    db: domainbound (sources are places on square grid specified by
-        (-db:2nfstd:db) x -db:2nfstd:db
+    construct_nfs(db::Array{Float64,1}, nfstd, γ)
+
+Construct sequence of Noisefields for AHS model
+db: domainbound. Vector [db[1], db[2]] (in case d=2), where sources are places on square grid specified by
+        (-db[1]:2nfstd:db[1]) x -db[2]:2nfstd:db[2]
     nfstd: standard deviation of noise fields (the smaller: the more noise fields we use)
     γ: if set to one, then the value of the  noise field on the positions is approximately 1 at all locations in the domain
 """
-function construct_nfs(db, nfstd, γ)
-    r1 = -db:2nfstd:db
+function construct_nfs(db::Array{Float64,1}, nfstd, γ)
+    r1 = -db[1]:2nfstd:db[1]
     if d==1
         nfloc = Point.(collect(r1))[:]
         nfscales = [2/pi*γ*Point(1.0) for x in nfloc]  # intensity
     elseif d==2
-        r2 = -db:2nfstd:db
+        r2 = -db[2]:2nfstd:db[2]
         nfloc = Point.(collect(product(r1, r2)))[:]
         nfscales = [2/pi*γ*Point(1.0, 1.0) for x in nfloc]  # intensity
     elseif d==3
         error("first test carefully whether construct_nfs is ok for d=3")
-        r2 = -db:2nfstd:db
-        r3 = -db:2nfstd:db
+        r2 = -db[2]:2nfstd:db[2]
+        r3 = -db[3]:2nfstd:db[3]
         nfloc = Point.(collect(product(r1, r2,r3)))[:]
         nfscales = [2/pi*γ*Point(1.0, 1.0, 1.0) for x in nfloc]  # intensity
     end

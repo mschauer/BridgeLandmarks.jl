@@ -24,7 +24,7 @@ outdir = joinpath(workdir,"out")
 println("available steps are [:mala_mom, :rmmala_mom, :rmrw_mom, :mala_pos, :rmmala_pos, :sgd_mom :parameter, :innov]")
 
 ####################### test landmarksmatching ######################
-n = 18
+n = 6# 18
 xobs0 = [PointF(2.0cos(t), sin(t))/4.0  for t in collect(0:(2pi/n):2pi)[2:end]]
 θ, ψ =  π/3, 0.1
 rot =  SMatrix{2,2}(cos(θ), sin(θ), -sin(θ), cos(θ))
@@ -37,7 +37,7 @@ plotlandmarksmatching(outdir)
 
 @time landmarksmatching(xobs0,xobsT; ITER=300,pars=Pars_ms(δmom=0.01), outdir=outdir,updatescheme=[:innov, :mala_mom, :parameter])
 
-@time landmarksmatching(xobs0,xobsT; ITER=100,pars=Pars_ahs(δmom=0.01, db=2,stdev=1.0), outdir=outdir)
+@time landmarksmatching(xobs0,xobsT; ITER=100,pars=Pars_ahs(δmom=0.01, db=[1.0,2.0],stdev=1.0), outdir=outdir)
 
 
 @time landmarksmatching(xobs0,xobsT; ITER=300,pars=Pars_ms(δmom=0.001), outdir=outdir,updatescheme=[:innov, :sgd_mom, :parameter])
@@ -64,7 +64,8 @@ for k in 1:nshapes
     push!(xobsT, Xf.yy[end].q + σobs * randn(PointF,n))
 end
 
-template_estimation(xobsT; xinitq=2.0*xobsT[1],outdir=outdir, ITER=500, updatescheme = [:innov, :rmmala_pos, :parameter])  # deliberately initialise badly to show it works
+template_estimation(xobsT; xinitq=2.0*xobsT[1],outdir=outdir, ITER=100, updatescheme = [:innov, :rmmala_pos, :parameter])  # deliberately initialise badly to show it works
+plottemplate_estimation(outdir)
 
 # cyclically shift landmarks for a few landmarks
 xobsTshift = copy(xobsT)

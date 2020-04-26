@@ -100,7 +100,7 @@ parameters is performed.
     cinit:: Float64 = 0.1
     γinit:: Float64 = 0.1
     stdev:: Float64 = 0.75
-    db:: Float64 = 2.5
+    db::Array{Float64,1} = [2.0, 2.0]
     κ:: Float64 = 100.0
     δpos:: Float64 = 0.01
     δmom:: Float64 = 0.01
