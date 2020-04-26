@@ -56,7 +56,7 @@ include("updatematching.jl")
 
 include("landmarksmatching.jl")
 include("template_estimation.jl")
-include("plots_landmarksmatching.jl")
+include("basic_outplots.jl")
 #include("updatematching.jl")
 
 end # module

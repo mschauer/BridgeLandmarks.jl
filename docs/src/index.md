@@ -12,9 +12,18 @@ A Julia package for stochastic landmarks matching and template estimation. Infer
 - The model by Arnaudon, Holm and Sommer based on stochastic Euler-Poincare equations.
 - The model by Trouve and Vialard, which adds a Wiener term to the equation of the momentum of a landmark.  
 
-### Representation of an element of the state space
+### Matching of two landmark configurations
 
-At each time, the state of the landmarks process is a vector of positions and momenta. Each of such a vector is a `Point{Float64}` (with alias `PointF`) and hence a `State` can be constructed ```julia
+### Estimation of a template configuration
+
+### Setting parameters
+
+### Plotting methods (based on R - ggplot)
+
+### Internal details
+
+At each time, the state of the landmarks process is a vector of positions and momenta. Each of such a vector is a `Point{Float64}` (with alias `PointF`) and hence a `State` can be constructed
+```julia
 st = State(rand(PointF),5), rand(PointF,5))
 ```
 
