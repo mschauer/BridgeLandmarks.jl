@@ -70,25 +70,25 @@ function lm_mcmc(t, obsinfo, mT, P, ITER, subsamples, xinit, pars, priorθ, prio
             if update == :innov
                 #@timeit to "path update"
                 accinfo_ = update_path!(X, W, ll, Xᵒ,Wᵒ, Wnew, Q, ρ)
-                if (i > 2askip) & (mod(i,askip)==0)
+                if (i > 1.5*askip) & (mod(i,askip)==0)
                     ρ = adaptpcnstep(ρ, i, accinfo[!,update], pars.η;  adaptskip = askip)
                 end
             elseif update in [:mala_mom, :rmmala_mom, :rmrw_mom]
                 #@timeit to "update mom"
                 accinfo_ = update_initialstate!(X,Xᵒ,W,ll, x, qᵒ, pᵒ,∇, ∇ᵒ, Q, δ, update, priormom)
-                if (i > 2askip) & (mod(i,askip)==0)
+                if (i > 1.5*askip) & (mod(i,askip)==0)
                     δ[2] = adaptmalastep(δ[2], i, accinfo[!,update], pars.η, update; adaptskip = askip)
                 end
             elseif update in [:mala_pos, :rmmala_pos]
                 #@timeit to "update pos"
                 accinfo_ = update_initialstate!(X,Xᵒ,W,ll, x, qᵒ, pᵒ,∇, ∇ᵒ, Q, δ, update, priormom)
-                if (i > 2askip) & (mod(i,askip)==0)
+                if (i > 1.5*askip) & (mod(i,askip)==0)
                     δ[1] = adaptmalastep(δ[1], i, accinfo[!,update], pars.η, update; adaptskip = askip)
                 end
             elseif update == :parameter
                 #@timeit to "update par"
                 Q, accinfo_ = update_pars!(X, ll, Xᵒ,W, Q, priorθ, covθprop, obsinfo)
-                if (i > 2askip) & (mod(i,askip)==0)
+                if (i > 1.5*askip) & (mod(i,askip)==0)
                     covθprop = adaptparstep(covθprop, i, accinfo[!,update], pars.η; adaptskip = askip)
                 end
                 #@show Q.target

@@ -55,8 +55,8 @@ function plotlandmarksmatching(outdir)
       geom_path(data=v0, aes(x=pos1,y=pos2), colour='black',size=1.0)+geom_path(data=vT, aes(x=pos1,y=pos2,group=shape), colour='orange',size=1.0) +
       theme(axis.title.x=element_blank(), axis.title.y=element_blank()) +
       geom_point(data=nfsdf, aes(x=locx, y=locy), color="Grey")+
-    geom_circle(aes(x0 = locx, y0 = locy, r = nfstd), data = nfsdf,color="Grey",linetype="dotted")+
-     theme(legend.position='none')#+ coord_fixed()
+    geom_circle(aes(x0 = locx, y0 = locy, r = nfstd), data = nfsdf,color="Grey",linetype="dotted")
+
   pdf("bridges-overlaid.pdf",width=widthfig,height=4)
     show(bridges)
   dev.off()
@@ -121,7 +121,7 @@ function plottemplate_estimation(outdir)
   obsTdf <- read_delim("obsT.csv", ";", escape_double = FALSE, trim_ws = TRUE) %>% spread(key=pos,value=value) %>%
     mutate(shape=as.factor(shape))
   vT <- bind_rows(obsTdf, obsTdf)
-  dlabelT <- obsTdf; dlabelT$landmarkid <- unique(d$landmarkid)
+
 
 
   #######  read noisefields
@@ -161,7 +161,7 @@ function plottemplate_estimation(outdir)
     theme(axis.title.x=element_blank(), axis.title.y=element_blank()) +
     geom_point(data=nfsdf, aes(x=locx, y=locy), color="Grey")+
     geom_circle(aes(x0 = locx, y0 = locy, r = nfstd), data = nfsdf,color="Grey",linetype="dotted")+
-    theme(legend.position='none')#+ coord_fixed()
+    theme(legend.position='none')
   pdf("bridges-overlaid.pdf",width=widthfig,height=4)
   show(bridges)
   dev.off()
@@ -217,7 +217,7 @@ function plottemplate_estimation(outdir)
     geom_point(data=vT, aes(x=pos1,y=pos2), colour='grey')+
     geom_path(data=vT, aes(x=pos1,y=pos2,group=shape), colour='grey', linetype="dashed",size=0.4) +
     geom_path(data=bind_rows(dtime0,dtime0),aes(x=pos1,y=pos2,colour=iterate)) +
-    facet_wrap(~phase,ncol=1)#+ coord_fixed()
+    facet_wrap(~phase,ncol=1)
 
   pdf("initial_shapes.pdf")
     show(initshapes0)

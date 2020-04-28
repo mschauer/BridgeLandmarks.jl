@@ -14,7 +14,7 @@ theme_set(theme_light())
 obsTdf <- read_delim("obsT.csv", ";", escape_double = FALSE, trim_ws = TRUE) %>% spread(key=pos,value=value) %>%
   mutate(shape=as.factor(shape))
 vT <- bind_rows(obsTdf, obsTdf)
-dlabelT <- obsTdf; dlabelT$landmarkid <- unique(d$landmarkid)
+#dlabelT <- obsTdf; dlabelT$landmarkid <- unique(d$landmarkid)
 
 
 #######  read noisefields
