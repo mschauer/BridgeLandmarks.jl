@@ -74,15 +74,6 @@ A3 === A1
 A1[1] === A3[1]
 
 
-struct TestS2{T}
-	a::T
-	b::T
-	function TestS(v,w,s)
-		new{typeof(v)}(sin.(v+w),cos.(s))
-	end
-end
-
-TestS2([1.,2.],[3.,4.],[5.,6.])
 
 nshapes=3
 xinit=BL.NState(rand(PointF,5),rand(PointF,5))
@@ -104,3 +95,136 @@ X[2] = Xk
 Xᵒ = deepcopy(X)
 Qᵒ = deepcopy(Q)
 Wᵒ = initSamplePath(t,  zeros(StateW, dwiener))
+
+
+
+struct Test{S,T}
+	a::S
+	b::T
+	function TestS(v,w)
+		new{typeof(v),typeof(w)}(v,w)
+	end
+end
+
+mutable struct MTest{S,T}
+	a::S
+	b::T
+	function MTestS(v,w)
+		new{typeof(v),typeof(w)}(v,w)
+	end
+end
+
+
+adjust = function(x::Test,anew)
+	TestS(anew,x.b)
+end
+
+adjustm = function(x::MTestSanew)
+	x.a = anew
+	x
+end
+
+using BenchmarkTools
+
+x = TestS(rand(4),[3.,4.])
+xm = MTestS(rand(4),[3.,4.])
+
+@benchmark adjust(x,rand(10_000))
+
+@benchmark adjustm(xm,rand(10_000))
+
+
+d = [[:innov, 1.0, 1], [:parameter, 1, 3], [:parameter, 0, 10], [:innov, 1.0, 6],[:rmmala_mom, 0, 4]]
+
+updatescheme = [:innov, :mala_mom]
+
+dfacc_names = push!(updatescheme, :iteration)
+dfacc = DataFrame(fill([], length(updatescheme)),updatescheme)
+push!(df, [1,0,3])
+
+DataFrames.names!(df, updatescheme)
+
+updatescheme = [:innov, :mala_mom]
+accinfo = DataFrame(fill([], length(updatescheme)+1),push!(updatescheme,:iteration))
+
+
+
+function adaptpcnstep!(ρ, n, accinfo, nshapes, η; adaptskip = 15, targetaccept=0.5)
+
+    recentmean = mean(accinfo[end-adaptskip+1:end])
+        # ind1 =  findall(first.(accinfo).==:innov)[end-adaptskip*nshapes+1:end]
+        # recent_mean = mean(last.(accinfo)[ind1])
+        if recentmean > targetaccept
+            u = sigmoid(invsigmoid(ρ) - η(n))
+        else
+            u = sigmoid(invsigmoid(ρ) + η(n))
+        end
+		ρ = u
+    nothing
+end
+
+sigmoid(z::Real) = 1.0 / (1.0 + exp(-z))
+invsigmoid(z::Real) = log(z/(1-z))
+
+adaptskip = 15; targetaccept=0.5
+η = n -> min(0.2, 10/n)                          # stepsize cooling function
+nshapes = 1
+accinfo = rand(Bernoulli(0.2),30)
+n = 5
+
+ρ = 0.9
+adaptpcnstep!(ρ, n, accinfo, nshapes, η)
+ρ
+
+
+struct MyS{T}
+	x::T
+	y
+
+	function MyS(ξ)
+		y = sum(ξ)
+		new{typeof(ξ)}(ξ,y)
+	end
+end
+x = State(rand(PointF,3),zeros(PointF,3))
+deepx = deepvec(x)
+BL.deepvec2state(deepx)-x # check
+x.p
+x.q
+
+MyS(1:10)
+MyS(rand(6))
+
+x = State(rand(PointF,3),zeros(PointF,3))
+deepx = deepvec(x)
+BL.deepvec2state(deepx)-x # check
+x.p
+x.q
+BL.deepvec(x.q)
+vec(x)
+
+
+testfun = function(p,q)
+	norm(p+q)
+end
+
+testfun2(q)  = (p) -> testfun(p,q)
+x.x[1,:]
+ForwardDiff.gradient(testfun2(x.q), x.p)
+
+using BridgeLandmarks
+
+function split_state(x::BL.NState)
+	q =  vec(reinterpret(BL.deepeltype(x), x.x[1,:]))
+	p =  vec(reinterpret(BL.deepeltype(x), x.x[2,:]))
+	q, p
+end
+
+y = State(rand(PointF,3),rand(PointF,3))
+q, p = split_state(y)
+yy = merge_state(q,p)
+yy-y
+
+function merge_state(q,p)
+	BL.NState(reinterpret(Point{eltype(q)}, q),reinterpret(Point{eltype(p)}, p))
+end

@@ -28,13 +28,14 @@ xobs0 = dat["xobs0"]
 xobsT = dat["xobsT"]
 
 
-p_ms = Pars_ms(δmom=0.1,cinit = 0.2, γinit = 2.0,ρinit = 0.95)
+p_ms = Pars_ms(δmom=0.01/n,cinit = 0.2, γinit = 2.0/√n, ρinit = 0.95)
 p_ahs = Pars_ahs(δmom=0.1,cinit = 0.02, γinit = 0.2, ρinit = 0.95, stdev=0.75, db=[2.5, 2.5])
 
 ainit = mean(norm.(diff(xobs0)))
 ups = [:innov, :mala_mom]
+ups = [:innov, :rmrw_mom, :parameter]
 
-@time landmarksmatching(xobs0,xobsT; ITER=500,pars=p_ms, outdir=outdir, ainit=ainit, updatescheme=ups)
-@time landmarksmatching(xobs0,xobsT; ITER=500,pars=p_ahs, outdir=outdir, ainit=ainit, updatescheme=ups)
+@time landmarksmatching(xobs0,xobsT; ITER=100,pars=p_ms, outdir=outdir, ainit=ainit, updatescheme=ups)
+#@time landmarksmatching(xobs0,xobsT; ITER=500,pars=p_ahs, outdir=outdir, ainit=ainit, updatescheme=ups)
 
 plotlandmarksmatching(outdir)

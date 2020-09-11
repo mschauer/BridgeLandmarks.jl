@@ -64,6 +64,10 @@ function lm_mcmc(t, obsinfo, mT, P, ITER, subsamples, xinit, pars, priorθ, prio
     covθprop = pars.covθprop
     askip = pars.adaptskip
 
+    x0 = X[1].yy[1]
+    dK = gramkernel(x0.q, P)
+    inv_dK = inv(dK)
+
     for i in 1:ITER
         k = 1
         for update in updatescheme
@@ -75,13 +79,13 @@ function lm_mcmc(t, obsinfo, mT, P, ITER, subsamples, xinit, pars, priorθ, prio
                 end
             elseif update in [:mala_mom, :rmmala_mom, :rmrw_mom]
                 #@timeit to "update mom"
-                accinfo_ = update_initialstate!(X,Xᵒ,W,ll, x, qᵒ, pᵒ,∇, ∇ᵒ, Q, δ, update, priormom)
+                accinfo_ = update_initialstate!(X,Xᵒ,W,ll, x, qᵒ, pᵒ,∇, ∇ᵒ, Q, δ, update, priormom, (dK, inv_dK))
                 if (i > 1.5*askip) & (mod(i,askip)==0)
                     δ[2] = adaptmalastep(δ[2], i, accinfo[!,update], pars.η, update; adaptskip = askip)
                 end
             elseif update in [:mala_pos, :rmmala_pos]
                 #@timeit to "update pos"
-                accinfo_ = update_initialstate!(X,Xᵒ,W,ll, x, qᵒ, pᵒ,∇, ∇ᵒ, Q, δ, update, priormom)
+                accinfo_ = update_initialstate!(X,Xᵒ,W,ll, x, qᵒ, pᵒ,∇, ∇ᵒ, Q, δ, update, priormom, (dK, inv_dK))
                 if (i > 1.5*askip) & (mod(i,askip)==0)
                     δ[1] = adaptmalastep(δ[1], i, accinfo[!,update], pars.η, update; adaptskip = askip)
                 end
@@ -199,7 +203,7 @@ slogρ_mom!(q, Q, W, X,priormom, llout) = (p) -> slogρ!(q, p , Q, W, X, priormo
 
 
 """
-    update_initialstate!(X,Xᵒ,W,ll,x,xᵒ,∇x, ∇xᵒ, Q::GuidedProposal, δ, update,priormom)
+    update_initialstate!(X,Xᵒ,W,ll,x,xᵒ,∇x, ∇xᵒ, Q::GuidedProposal, δ, update,priormom, (dK, inv_dK))
 
 ## Arguments
 - `X`:  current iterate of vector of sample paths
@@ -212,6 +216,7 @@ slogρ_mom!(q, Q, W, X,priormom, llout) = (p) -> slogρ!(q, p , Q, W, X, priormo
 - `δ`: vector with MALA stepsize for initial state positions (δ[1]) and initial state momenta (δ[2])
 - `update`:  can be `:mala_pos`, `:mala_mom`, :rmmala_pos`, `:rmmala_mom`, ``:rmrw_mom`
 - `priormom`: prior on initial momenta
+- (dK, inv_dK): gramkernel at x0.q and its inverse
 
 ## Writes into / modifies
 - `X`: landmarks paths
@@ -223,7 +228,7 @@ slogρ_mom!(q, Q, W, X,priormom, llout) = (p) -> slogρ!(q, p , Q, W, X, priormo
 -  0/1 indicator (reject/accept)
 """
 function update_initialstate!(X,Xᵒ,W,ll, x, qᵒ, pᵒ,∇, ∇ᵒ,
-                 Q::GuidedProposal, δ, update,priormom)
+                 Q::GuidedProposal, δ, update, priormom, (dK, inv_dK))
 
     P = Q.target;   n = P.n
     x0 = deepvec2state(x)
@@ -234,6 +239,7 @@ function update_initialstate!(X,Xᵒ,W,ll, x, qᵒ, pᵒ,∇, ∇ᵒ,
         u = slogρ_mom!(q, Q, W, X, priormom,ll)
         cfg = ForwardDiff.GradientConfig(u, p, ForwardDiff.Chunk{d*n}()) # d*P.n is maximal
         ForwardDiff.gradient!(∇, u, p, cfg) # X gets overwritten but does not chang
+        #∇ = Zygote.gradient(u, p)[1]
         pᵒ = p .- δ[2] * ∇
         x0ᵒ = merge_state(q, pᵒ)
         gp!(LeftRule(), X, x0ᵒ, W, Q)
@@ -272,21 +278,17 @@ function update_initialstate!(X,Xᵒ,W,ll, x, qᵒ, pᵒ,∇, ∇ᵒ,
                       logpdf(ndistr, p - pᵒ - .5*stepsize * ∇ᵒ) +
                       logpdf(priormom, pᵒ) - logpdf(priormom, p)
         elseif update == :rmmala_pos
-            dK = gramkernel(x0.q, P)
+            #dK = gramkernel(x0.q, P)
             ndistr = MvNormal(zeros(d*n),stepsize*dK)
             qᵒ .= q .+ .5 * stepsize * dK * ∇ .+ rand(ndistr)
             cfgᵒ = ForwardDiff.GradientConfig(uᵒ, qᵒ, ForwardDiff.Chunk{d*n}())
             ForwardDiff.gradient!(∇ᵒ, uᵒ, qᵒ, cfgᵒ)
-            # x0ᵒ = merge_state(qᵒ,p)
-            # dKᵒ = gramkernel(x0ᵒ.q, P)
             dKᵒ = gramkernel(reinterpret(PointF,qᵒ), P)
             ndistrᵒ = MvNormal(zeros(d*n),stepsize*dKᵒ)  #     ndistrᵒ = MvNormal(stepsize*deepmat(Kᵒ))
             accinit = sum(llᵒ) - sum(ll) -
                      logpdf(ndistr, qᵒ - q - .5*stepsize * dK * ∇) +
                      logpdf(ndistrᵒ, q - qᵒ - .5*stepsize * dKᵒ * ∇ᵒ)
         elseif update == :rmmala_mom
-             dK = gramkernel(x0.q, P)
-             inv_dK = inv(dK)
              ndistr = MvNormal(zeros(d*n),stepsize*inv_dK)
              pᵒ .= p .+ .5 * stepsize * inv_dK * ∇ .+  rand(ndistr)
              cfgᵒ = ForwardDiff.GradientConfig(uᵒ, pᵒ, ForwardDiff.Chunk{d*n}())
@@ -296,8 +298,6 @@ function update_initialstate!(X,Xᵒ,W,ll, x, qᵒ, pᵒ,∇, ∇ᵒ,
                        logpdf(ndistr, p - pᵒ - .5*stepsize * inv_dK * ∇ᵒ) +
                        logpdf(priormom, pᵒ) - logpdf(priormom, p)
        elseif update == :rmrw_mom
-            dK = gramkernel(x0.q, P)
-            inv_dK = inv(dK)
             ndistr = MvNormal(zeros(d*n),stepsize*inv_dK)
             pᵒ .= p  .+  rand(ndistr)
             uᵒ(pᵒ)  # writes into llᵒ, don't need gradient info here
@@ -426,4 +426,17 @@ function adaptpcnstep(ρ, n, accinfo, η; adaptskip = 15, targetaccept=0.5)
     else
         return sigmoid(invsigmoid(ρ) + η(n))
     end
+end
+
+"""
+    show_updates()
+
+Convenience function to show the available implemted updates.
+"""
+function show_updates()
+    println("Available implemented update steps are:")
+    println(":innov")
+    println(":mala_mom, :rmmala_mom, :rmrw_mom")
+    println(":mala_pos, :rmmala_pos")
+    println(":parameter, :matching")
 end

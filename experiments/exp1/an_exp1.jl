@@ -1,11 +1,14 @@
 # ellipse to rotated and shifted ellipse, initial and final landmark positions observed
 using Revise
+using Polynomials.PolyCompat
 using BridgeLandmarks
 const BL = BridgeLandmarks
 using Distributions
 using LinearAlgebra
 using Random
 using FileIO
+using JLD2
+
 
 # using RCall
 # using Random
@@ -30,7 +33,7 @@ xobsT = dat["xobsT"]
 p_ms = Pars_ms(δmom=0.1, cinit=0.2, γinit=2.0, σobs = 0.01)
 p_ahs = Pars_ahs(δmom=0.1, cinit=0.02, γinit=0.2, db=[2.5,2.5],stdev=0.75, σobs = 0.01)
 ainit = mean(norm.(diff(xobs0)))/2.0
-ups = [:innov, :mala_mom]
+ups = [:innov, :mala_mom, :parameter]
 
 # run algorithm
 @time landmarksmatching(xobs0,xobsT; ITER=500,pars=p_ms, outdir=outdir, ainit=ainit, updatescheme=ups)

@@ -19,7 +19,7 @@ xobs0vec =  get(testshapes,"q0",0)
 xobsTvec =  get(testshapes,"v",0)
 nb = div(length(xobs0vec),2)
 
-subs = 1:3:nb
+subs = 1:1:nb
 xobs0 = [PointF(xobs0vec[2i-1],xobs0vec[2i]) for i in subs]
 xobsT = [PointF(xobsTvec[2i-1],xobsTvec[2i]) for i in subs]
 n = length(subs)

@@ -36,7 +36,7 @@ parameters is performed.
 """
 @with_kw struct Pars_ms <: Pars
     model:: Symbol = :ms
-    ρinit::Float64 = 0.9
+    ρinit::Float64 = 0.95
     covθprop::Array{Float64,2}  = [0.01 0. 0.; 0. 0.01 0.; 0. 0. 0.04]
     η::Any = n -> min(0.2, 10/n)
     adaptskip::Int64 = 20
@@ -91,7 +91,7 @@ parameters is performed.
 """
 @with_kw struct Pars_ahs <: Pars
     model:: Symbol = :ahs
-    ρinit::Float64  = 0.9
+    ρinit::Float64  = 0.95
     covθprop::Array{Float64,2}  = [0.01 0. 0.; 0. 0.01 0.; 0. 0. 0.01]
     η::Any = n -> min(0.2, 10/n)
     adaptskip::Int64 = 20

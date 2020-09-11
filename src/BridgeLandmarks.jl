@@ -12,10 +12,11 @@ using Parameters
 
 using LinearAlgebra, Base.Iterators
 using PDMats
-using JLD
+using JLD2
 using DelimitedFiles
 using CSV
 using RCall
+using Zygote
 
 # using TimerOutputs
 # const to = TimerOutput()
@@ -30,7 +31,7 @@ import Bridge: kernelr3!, R3!, target, auxiliary, constdiff, llikelihood, _b!, B
 
 export Point, PointF, Unc, UncF, State, deepvec
 
-export Landmarks, LandmarksAux, MarslandShardlow, MarslandShardlowAux, Pars_ms, Pars_ahs, FlatPrior
+export Landmarks, LandmarksAux, MarslandShardlow, MarslandShardlowAux, Pars_ms, Pars_ahs, FlatPrior, show_updates
 export landmarksforward, itostrat, construct_nfs, lm_mcmc, gramkernel, landmarksmatching, template_estimation, plotlandmarksmatching, plottemplate_estimation
 
 export Lmplotbounds, extractcomp, tc
@@ -57,6 +58,6 @@ include("updatematching.jl")
 include("landmarksmatching.jl")
 include("template_estimation.jl")
 include("basic_outplots.jl")
-#include("updatematching.jl")
+
 
 end # module

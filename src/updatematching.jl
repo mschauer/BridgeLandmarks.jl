@@ -11,8 +11,6 @@
 `Q`, `obsinfo`, `accept`
 """
 function update_cyclicmatching(X, ll,obsinfo, Xᵒ, W, Q)
-    direction = rand(Bool)
-
     # shift each element in xobsT, this means
         # - creating xobsTᵒ (shift each element of xobsT)
         # - creating obsinfoᵒ
@@ -22,7 +20,7 @@ function update_cyclicmatching(X, ll,obsinfo, Xᵒ, W, Q)
     direction = 2 * rand(Bool) -1
     #    xobsTᵒ = Base.circshift.(Q.xobsT,direction) # this would be for shifting all shapes
     xobsTᵒ = copy(Q.xobsT)
-    k = sample(1:Q.nshapes) # randomly pick a shape to which we cyclicallyl shift indices
+    k = sample(1:Q.nshapes) # randomly pick a shape to which we cyclically shift indices
     xobsTᵒ[k] = Base.circshift(Q.xobsT[k],direction)
     oi = obsinfo
     obsinfoᵒ = ObsInfo(oi.L0, oi.LT, oi.Σ0, oi.ΣT, oi.xobs0, xobsTᵒ, oi.obs_atzero, oi.fixinitmomentato0, oi.n, oi.nshapes)

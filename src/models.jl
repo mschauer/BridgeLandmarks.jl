@@ -247,7 +247,9 @@ function Bridge.β(t, Paux::MarslandShardlowAux) # Not AD save
 end
 
 """
-    compute σ(t,x) * dm and write to out
+    Bridge.σ!(t, x, dm, out, P::Union{MarslandShardlow, MarslandShardlowAux})
+
+Compute σ(t,x) * dm and write to out
 """
 function Bridge.σ!(t, x, dm, out, P::Union{MarslandShardlow, MarslandShardlowAux})
     #zero!(out.q)
@@ -258,6 +260,8 @@ end
 
 
 """
+    Bridge.a(t,  P::Union{MarslandShardlow, MarslandShardlowAux})
+
 Returns matrix a(t) for Marsland-Shardlow model
 """
 function Bridge.a(t,  P::Union{MarslandShardlow, MarslandShardlowAux})
@@ -275,7 +279,9 @@ Bridge.a(t, x, P::Union{MarslandShardlow, MarslandShardlowAux}) = Bridge.a(t, P)
 
 
 """
-    Return matrix σ̃(t)
+    σ̃(t,  P::Union{MarslandShardlow, MarslandShardlowAux})
+
+Return sparse matrix  matrix σ̃(t)
 """
 function σ̃(t,  P::Union{MarslandShardlow, MarslandShardlowAux})
     Iind = Int[]
@@ -293,6 +299,8 @@ end
 
 
 """
+    amul(t, x::State, xin::State, P::Union{MarslandShardlow, MarslandShardlowAux})
+
 Multiply a(t,x) times xin (which is of type state)
 Returns variable of type State
 """
@@ -311,16 +319,29 @@ end
 
 ########################################################################################################################################################################################
 ################ AHS model #########################################################################################
-# kernel for noisefields
+
+"""
+    K̄(q,τ)
+
+K̄(q,τ) = exp(-Bridge.inner(q)/(2*τ^2))
+Kernel for noisefields of AHS-model
+"""
 function K̄(q,τ)
-     exp(-Bridge.inner(q)/(2*τ^2))# (2*π*τ^2)^(-d/2)*exp(-norm(x)^2/(2*τ^2))
+     exp(-Bridge.inner(q)/(2*τ^2))
 end
-# gradient of kernel for noisefields
+
+"""
+    ∇K̄(q,τ)
+
+Gradient of kernel for noisefields
+"""
 function ∇K̄(q,τ)
      -τ^(-2) * K̄(q,τ) * q
 end
 
 """
+    ∇K̄(q, qT, τ)
+
 Needed for b! in case P is auxiliary process
 """
 function ∇K̄(q, qT, τ)
@@ -341,14 +362,18 @@ z(q,τ,δ,λ) =  Bridge.inner(∇K̄(q - δ,τ),λ)
 
 # function for specification of diffusivity of landmarks
 """
-    Suppose one noise field nf
-    Returns diagonal matrix with noisefield for position at point location q (can be vector or Point)
+    σq(q, nf::Noisefield) = Diagonal(nf.γ * K̄(q - nf.δ,nf.τ))
+
+Suppose one noise field nf
+Returns diagonal matrix with noisefield for position at point location q (can be vector or Point)
 """
 σq(q, nf::Noisefield) = Diagonal(nf.γ * K̄(q - nf.δ,nf.τ))
 
 """
-    Suppose one noise field nf
-    Returns diagonal matrix with noisefield for momentum at point location q (can be vector or Point)
+    σp(q, p, nf::Noisefield) = -Diagonal(p .* nf.γ .* ∇K̄(q - nf.δ,nf.τ))
+
+Suppose one noise field nf
+Returns diagonal matrix with noisefield for momentum at point location q (can be vector or Point)
 """
 σp(q, p, nf::Noisefield) = -Diagonal(p .* nf.γ .* ∇K̄(q - nf.δ,nf.τ))
 
@@ -423,6 +448,8 @@ function Bridge.b!(t, x, out, P::Landmarks)
 end
 
 """
+    Bridge.b!(t, x, out, Paux::LandmarksAux)
+
 Evaluate drift of landmarks auxiliary process in (t,x) and save to out
 x is a state and out as well
 """
@@ -447,6 +474,8 @@ end
 
 
 """
+    Bridge.B(t, Paux::LandmarksAux)
+
 Compute tildeB(t) for landmarks auxiliary process
 """
 function Bridge.B(t, Paux::LandmarksAux)
@@ -467,6 +496,8 @@ function Bridge.B(t, Paux::LandmarksAux)
 end
 
 """
+    Bridge.B!(t,X,out, Paux::LandmarksAux)
+
 Compute B̃(t) * X (B̃ from auxiliary process) and write to out
 Both B̃(t) and X are of type UncMat
 """
@@ -512,6 +543,8 @@ end
 
 
 """
+    Bridge.σ!(t, x_, dm, out, P::Union{Landmarks,LandmarksAux})
+
 Compute sigma(t,x) * dm where dm is a vector and sigma is the diffusion coefficient of landmarks
 write to out which is of type State
 """
@@ -552,7 +585,9 @@ function σtmul(t, x_, y::State{Pnt}, P::Union{Landmarks,LandmarksAux}) where Pn
 end
 
 """
-    Return matrix σ̃(t) for LandmarksAux
+    σ̃(t,  Paux::LandmarksAux)
+
+Return matrix σ̃(t) for LandmarksAux
 """
 function σ̃(t,  Paux::LandmarksAux)
     x = Paux.xT
@@ -570,8 +605,10 @@ end
 
 
 """
-    compute σ(t,x)' y, where y::State
-    the result is a vector of points that is written to out
+    σt!(t, x_, y::State{Pnt}, out, P::MarslandShardlow) where Pnt
+
+compute σ(t,x)' y, where y::State
+the result is a vector of points that is written to out
 """
 function σt!(t, x_, y::State{Pnt}, out, P::MarslandShardlow) where Pnt
     zero!(out)
@@ -608,9 +645,7 @@ function Bridge.a(t, x_, P::Union{Landmarks,LandmarksAux})
         x = P.xT
     end
     out = zeros(Unc{deepeltype(x)}, 2P.n,2P.n)
-    for i in 1:P.n
-        for k in i:P.n
-            for j in 1:length(P.nfs)
+    @inbounds for i in 1:P.n, k in i:P.n,  j in 1:length(P.nfs)
                 a11 = σq(q(x,i),P.nfs[j])
                 a21 = σp(q(x,i),p(x,i),P.nfs[j])
                 a12 = σq(q(x,k),P.nfs[j])
@@ -619,13 +654,9 @@ function Bridge.a(t, x_, P::Union{Landmarks,LandmarksAux})
                 out[2i-1,2k] += a11 * a22'
                 out[2i,2k-1] += a21 * a12'
                 out[2i,2k] += a21 * a22'
-            end
-      end
     end
-    for i in 2:2P.n
-        for k in 1:i-1
+    @inbounds for i in 2:2P.n,  k in 1:i-1
             out[i,k] = out[k,i]
-        end
     end
     out
 end
@@ -669,24 +700,18 @@ function Bridge.a!(t, x_, out, P::Union{Landmarks,LandmarksAux})
     else
         x = P.xT
     end
-    for i in 1:P.n
-        for k in i:P.n
-            for j in 1:length(P.nfs)
-                a11 = σq(q(x,i),P.nfs[j])
-                a21 = σp(q(x,i),p(x,i),P.nfs[j])
-                a12 = σq(q(x,k),P.nfs[j])
-                a22 = σp(q(x,k),p(x,k),P.nfs[j])
-                out[2i-1,2k-1] += a11 * a12'
-                out[2i-1,2k] += a11 * a22'
-                out[2i,2k-1] += a21 * a12'
-                out[2i,2k] += a21 * a22'
-            end
-      end
+    @inbounds for i in 1:P.n,  k in i:P.n, j in 1:length(P.nfs)
+        a11 = σq(q(x,i),P.nfs[j])
+        a21 = σp(q(x,i),p(x,i),P.nfs[j])
+        a12 = σq(q(x,k),P.nfs[j])
+        a22 = σp(q(x,k),p(x,k),P.nfs[j])
+        out[2i-1,2k-1] += a11 * a12'
+        out[2i-1,2k] += a11 * a22'
+        out[2i,2k-1] += a21 * a12'
+        out[2i,2k] += a21 * a22'
     end
-    for i in 2:2P.n
-        for k in 1:i-1
+    @inbounds for i in 2:2P.n, k in 1:i-1
             out[i,k] = out[k,i]
-        end
     end
     out
 end
