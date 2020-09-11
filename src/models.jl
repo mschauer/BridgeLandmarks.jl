@@ -555,8 +555,8 @@ function Bridge.σ!(t, x_, dm, out, P::Union{Landmarks,LandmarksAux})
         x = P.xT
     end
     zero!(out)
-    for i in 1:P.n
-        for j in 1:length(P.nfs)
+    @inbounds for i in 1:P.n
+        @inbounds for j in 1:length(P.nfs)
             out.q[i] += σq(q(x, i), P.nfs[j]) * dm[j]
             out.p[i] += σp(q(x, i), p(x, i), P.nfs[j]) * dm[j]
         end
@@ -575,8 +575,8 @@ function σtmul(t, x_, y::State{Pnt}, P::Union{Landmarks,LandmarksAux}) where Pn
         x = P.xT
     end
     out = zeros(Pnt, length(P.nfs))
-    for j in 1:length(P.nfs)
-        for i in 1:P.n
+    @inbounds for j in 1:length(P.nfs)
+        @inbounds for i in 1:P.n
             out[j] += σq(q(x, i), P.nfs[j])' * y.q[i] +
                         σp(q(x, i), p(x, i), P.nfs[j])' * y.p[i]
         end
@@ -629,8 +629,8 @@ function σt!(t, x_, y::State{Pnt}, out, P::Union{Landmarks,LandmarksAux}) where
     else
         x = P.xT
     end
-    for j in 1:length(P.nfs)
-        for i in 1:P.n
+    @inbounds for j in 1:length(P.nfs)
+        @inbounds for i in 1:P.n
             out[j] += σq(q(x, i), P.nfs[j])' * q(y, i) +
                     σp(q(x, i), p(x, i), P.nfs[j])' * p(y, i)
         end

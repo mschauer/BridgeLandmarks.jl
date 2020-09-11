@@ -77,7 +77,7 @@ See documentation for GuidedProposal to contruct an example instance, say `Q`
     BridgeLandmarks.update_mT!(Q, mTv, obsinfo)
 """
 function update_mT!(Q, mTv, obsinfo)
-    for k in Q.nshapes
+    for k in 1:Q.nshapes
         Q.aux[k] = auxiliary(Q.target,State(Q.xobsT[k],mTv[k]))  # auxiliary process for each shape
     end
     update_guidrec!(Q, obsinfo)
