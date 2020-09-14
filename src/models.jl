@@ -388,7 +388,7 @@ Returns diagonal matrix with noisefield for momentum at point location q (can be
 """
 function σq(x, nfs::Array{<:Noisefield,1})
     out = σq(x, nfs[1])
-        for j in 2:length(nfs)
+        @inbounds for j in 2:length(nfs)
             out += σq(x, nfs[j])
     end
     out

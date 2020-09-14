@@ -109,7 +109,7 @@ function lm_mcmc(t, obsinfo, mT, P, ITER, subsamples, xinit, pars, priorθ, prio
 
         if mod(i,askip)==0 && i < 100  # adjust mT (the momenta at time T used in the construction of the guided proposal)
             mTvec = [X[k][lt][2].p  for k in 1:nshapes]     # extract momenta at time T for each shape
-            update_mT!(Q, mTvec, obsinfo)
+    #        update_mT!(Q, mTvec, obsinfo)
         end
 
         # save some of the results

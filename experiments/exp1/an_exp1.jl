@@ -39,4 +39,5 @@ ups = [:innov, :mala_mom, :parameter]
 @time landmarksmatching(xobs0,xobsT; ITER=500,pars=p_ms, outdir=outdir, ainit=ainit, updatescheme=ups)
 @time landmarksmatching(xobs0,xobsT; ITER=500,pars=p_ahs, outdir=outdir, ainit=ainit, updatescheme=ups)
 
+@time landmarksmatching(xobs0,xobsT; ITER=5,pars=p_ahs, outdir=outdir, ainit=ainit, updatescheme=ups)
 plotlandmarksmatching(outdir)
