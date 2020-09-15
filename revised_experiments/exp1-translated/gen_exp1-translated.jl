@@ -24,7 +24,7 @@ c = 0.1     # multiplicative factor in kernel
 
 Ptrue = MarslandShardlow(a, c, γ, 0.0, n)
 
-xobs0 = [PointF(2.0cos(t), sin(t))/4.0  for t in collect(0:(2pi/n):2pi)[2:end]]
+xobs0 = [PointF(2.0cos(t)-1.0, sin(t)-0.5)/4.0  for t in collect(0:(2pi/n):2pi)[2:end]]
 
 θ, ψ =  π/10, 0.1
 rot =  SMatrix{2,2}(cos(θ), sin(θ), -sin(θ), cos(θ))

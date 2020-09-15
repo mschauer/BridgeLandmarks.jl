@@ -99,7 +99,7 @@ function lm_mcmc(t, obsinfo, mT, P, ITER, subsamples, xinit, pars, priorθ, prio
             elseif update==:matching
                 Q, obsinfo, accinfo_ = update_cyclicmatching(X, ll, obsinfo, Xᵒ, W, Q)
             elseif update==:sgd_mom
-                accinfo_ = update_initialstate!(X,Xᵒ,W,ll, x, qᵒ, pᵒ,∇, ∇ᵒ, Q, δ, update, priormom)
+                accinfo_ = update_initialstate!(X,Xᵒ,W,ll, x, qᵒ, pᵒ,∇, ∇ᵒ, Q, δ, update, priormom, (dK, inv_dK))
             end
             acc[k] = accinfo_
             k += 1
@@ -359,6 +359,7 @@ function update_pars!(X, ll, Xᵒ, W, Q , priorθ, covθprop, obsinfo)
             end
         end
         Q = Qᵒ
+        #Q = deepcopy(Qᵒ)
         accept = 1.0
     else
         accept = 0.0
