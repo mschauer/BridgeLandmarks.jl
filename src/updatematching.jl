@@ -43,5 +43,5 @@ function update_cyclicmatching(X, ll,obsinfo, Xᵒ, W, Q)
     else
         accept = 0
     end
-    Q, obsinfo, accept
+    obsinfo, accept, Q, X, ll
 end

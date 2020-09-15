@@ -2,8 +2,8 @@ Number of iterations: 1005
 Number of landmarks: 5
 Length time grid: 101
 Endpoint: 1.0
-updatescheme: [:innov, :mala_mom]
-Average acceptance rates update steps: [0.18407960199004975, 0.5651741293532339]
+updatescheme: [:innov, :mala_mom, :parameter]
+Average acceptance rates update steps: [0.7442786069651741, 0.4666666666666667, 0.746268656716418]
 
 Noise Sigma: Array{SArray{Tuple{2,2},Float64,2,4},1}[[[0.0001 0.0; 0.0 0.0001], [0.0001 0.0; 0.0 0.0001], [0.0001 0.0; 0.0 0.0001], [0.0001 0.0; 0.0 0.0001], [0.0001 0.0; 0.0 0.0001]], [[0.0001 0.0; 0.0 0.0001], [0.0001 0.0; 0.0 0.0001], [0.0001 0.0; 0.0 0.0001], [0.0001 0.0; 0.0 0.0001], [0.0001 0.0; 0.0 0.0001]]]
 tuningpars_mcmc: Pars_ms
@@ -18,10 +18,10 @@ tuningpars_mcmc: Pars_ms
   γinit: Float64 0.1
   κ: Float64 100.0
   δpos: Float64 0.01
-  δmom: Float64 0.001
+  δmom: Float64 0.01
   skip_saveITER: Int64 10
 
-Final value  of rho (Crank-Nicholsen parameter: 0.9904728953916632
-Final value of MALA parameter (delta): [0.01, 0.0008789730514298915]
+Final value  of rho (Crank-Nicholsen parameter: 0.8544925382540479
+Final value of MALA parameter (delta): [0.01, 0.005214184528928627]
 skip in evaluation of loglikelihood: 1
-Elapsed time: 16.30642318725586
+Elapsed time: 31.607171058654785

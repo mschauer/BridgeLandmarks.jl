@@ -128,4 +128,5 @@ function update_guidrec!(Q, obsinfo)
             Q.guidrec[k].Ht[i] .= Q.guidrec[k].Lt[i]' * (Q.guidrec[k].Mt[i] * Q.guidrec[k].Lt[i] )
         end
     end
+    Q
 end

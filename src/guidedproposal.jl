@@ -80,7 +80,8 @@ function update_mT!(Q, mTv, obsinfo)
     for k in 1:Q.nshapes
         Q.aux[k] = auxiliary(Q.target,State(Q.xobsT[k],mTv[k]))  # auxiliary process for each shape
     end
-    update_guidrec!(Q, obsinfo)
+    Q = update_guidrec!(Q, obsinfo)
+    Q
 end
 
 """
@@ -192,7 +193,7 @@ function gp!(::LeftRule,  Xᵒ, x0, W, Q::GuidedProposal,k; skip = 0, ll0 = true
         logρ0 = 0.0 # don't compute
     end
     copyto!(Xᵒ.yy[end], Bridge.endpoint(Xᵒ.yy[end],Q))
-    som + logρ0
+    som + logρ0, Xᵒ
 end
 
 """
@@ -204,9 +205,9 @@ Simulate guided proposal and compute loglikelihood (vector version, multiple sha
 function gp!(::LeftRule,  X::Vector, x0, W, Q::GuidedProposal; skip = 0, ll0 = true)
      logliks  = zeros(deepeltype(x0), Q.nshapes)
      for k in 1:Q.nshapes
-         logliks[k] = gp!(LeftRule(), X[k],x0,W[k],Q, k ;skip=skip,ll0=ll0)
+         logliks[k], X[k] = gp!(LeftRule(), X[k],x0,W[k],Q, k ;skip=skip,ll0=ll0)
      end
-     logliks
+     logliks, X
 end
 
 """
@@ -220,9 +221,9 @@ function gp!(::LeftRule,  X::Vector, q, p , W, Q::GuidedProposal; skip = 0, ll0 
     x0 = NState(reinterpret(Point{T}, T.(q)),reinterpret(Point{T}, T.(p)))
     logliks  = zeros(deepeltype(x0), Q.nshapes)
     for k in 1:Q.nshapes
-        logliks[k] = gp!(LeftRule(), X[k],x0,W[k],Q, k ;skip=skip,ll0=ll0)
+        logliks[k], X[k] = gp!(LeftRule(), X[k],x0,W[k],Q, k ;skip=skip,ll0=ll0)
     end
-    logliks
+    logliks, X
 end
 
 """
@@ -241,7 +242,7 @@ end
 Provide new parameter values for GuidedProposal `Q`, these are written into fields `target` and `aux`.
 Returns a new instance of `GuidedProposal`, adjusted to the new set of parameters.
 """
-function adjust_to_newpars(Q::GuidedProposal,θᵒ)
+function adjust_to_newpars(Q::GuidedProposal,θᵒ, obsinfo)
     (aᵒ,cᵒ,γᵒ) = θᵒ
     if isa(Q.target,MarslandShardlow)
         target = MarslandShardlow(aᵒ,cᵒ,γᵒ,Q.target.λ, Q.target.n)
@@ -250,7 +251,9 @@ function adjust_to_newpars(Q::GuidedProposal,θᵒ)
         target = Landmarks(aᵒ,cᵒ,Q.target.n,Q.target.db,Q.target.nfstd,nfs)
     end
     aux = [auxiliary(target,State(Q.xobsT[k],Q.mT[k])) for k in 1:Q.nshapes]
-    GuidedProposal(target, aux, Q.tt, Q.xobs0, Q.xobsT, Q.guidrec,Q.nshapes, Q.mT)
+    Qnew = GuidedProposal(target, aux, Q.tt, Q.xobs0, Q.xobsT, Q.guidrec,Q.nshapes, Q.mT)
+    Qᵒ = update_guidrec!(Qnew, obsinfo)
+    Qᵒ
 end
 
 """

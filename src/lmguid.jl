@@ -34,7 +34,7 @@ function lm_mcmc(t, obsinfo, mT, P, ITER, subsamples, xinit, pars, priorθ, prio
     guidrec = [GuidRecursions(t,obsinfo)  for _ in 1:nshapes]  # initialise guiding terms
     Paux = [auxiliary(P, State(obsinfo.xobsT[k],mT)) for k in 1:nshapes] # auxiliary process for each shape
     Q = GuidedProposal(P,Paux,t,obsinfo.xobs0,obsinfo.xobsT,guidrec,nshapes,[mT for _ in 1:nshapes])
-    update_guidrec!(Q, obsinfo)   # compute backwards recursion
+    Q = update_guidrec!(Q, obsinfo)   # compute backwards recursion
 
     X = [initSamplePath(t, xinit) for _ in 1:nshapes]
     W = [initSamplePath(t,  zeros(StateW, dwiener)) for _ in 1:nshapes]
@@ -49,7 +49,7 @@ function lm_mcmc(t, obsinfo, mT, P, ITER, subsamples, xinit, pars, priorθ, prio
     Wᵒ = initSamplePath(t,  zeros(StateW, dwiener))
     Wnew = initSamplePath(t,  zeros(StateW, dwiener))
     # sample guided proposal and compute loglikelihood (write into X)
-    ll = gp!(LeftRule(), X, xinit, W, Q; skip=sk)
+    ll, X = gp!(LeftRule(), X, xinit, W, Q; skip=sk)
 
     # setup containers for saving objects
     Xsave = typeof(zeros(length(t) * P.n * 2 * d * nshapes))[]
@@ -73,33 +73,33 @@ function lm_mcmc(t, obsinfo, mT, P, ITER, subsamples, xinit, pars, priorθ, prio
         for update in updatescheme
             if update == :innov
                 #@timeit to "path update"
-                accinfo_ = update_path!(X, W, ll, Xᵒ,Wᵒ, Wnew, Q, ρ)
+                accinfo_, X, W, ll = update_path!(X, W, ll, Xᵒ,Wᵒ, Wnew, Q, ρ)
                 if (i > 1.5*askip) & (mod(i,askip)==0)
                     ρ = adaptpcnstep(ρ, i, accinfo[!,update], pars.η;  adaptskip = askip)
                 end
             elseif update in [:mala_mom, :rmmala_mom, :rmrw_mom]
                 #@timeit to "update mom"
-                accinfo_ = update_initialstate!(X,Xᵒ,W,ll, x, qᵒ, pᵒ,∇, ∇ᵒ, Q, δ, update, priormom, (dK, inv_dK))
+                accinfo_, X, x, ∇, ll = update_initialstate!(X,Xᵒ,W,ll, x, qᵒ, pᵒ,∇, ∇ᵒ, Q, δ, update, priormom, (dK, inv_dK))
                 if (i > 1.5*askip) & (mod(i,askip)==0)
                     δ[2] = adaptmalastep(δ[2], i, accinfo[!,update], pars.η, update; adaptskip = askip)
                 end
             elseif update in [:mala_pos, :rmmala_pos]
                 #@timeit to "update pos"
-                accinfo_ = update_initialstate!(X,Xᵒ,W,ll, x, qᵒ, pᵒ,∇, ∇ᵒ, Q, δ, update, priormom, (dK, inv_dK))
+                accinfo_ , X, x, ∇, ll= update_initialstate!(X,Xᵒ,W,ll, x, qᵒ, pᵒ,∇, ∇ᵒ, Q, δ, update, priormom, (dK, inv_dK))
                 if (i > 1.5*askip) & (mod(i,askip)==0)
                     δ[1] = adaptmalastep(δ[1], i, accinfo[!,update], pars.η, update; adaptskip = askip)
                 end
             elseif update == :parameter
                 #@timeit to "update par"
-                Q, accinfo_ = update_pars!(X, ll, Xᵒ,W, Q, priorθ, covθprop, obsinfo)
+                Q, accinfo_, X, ll = update_pars!(X, ll, Xᵒ,W, Q, priorθ, covθprop, obsinfo)
                 if (i > 1.5*askip) & (mod(i,askip)==0)
                     covθprop = adaptparstep(covθprop, i, accinfo[!,update], pars.η; adaptskip = askip)
                 end
                 #@show Q.target
             elseif update==:matching
-                Q, obsinfo, accinfo_ = update_cyclicmatching(X, ll, obsinfo, Xᵒ, W, Q)
+                obsinfo, accinfo_, Q, X, ll = update_cyclicmatching(X, ll, obsinfo, Xᵒ, W, Q)
             elseif update==:sgd_mom
-                accinfo_ = update_initialstate!(X,Xᵒ,W,ll, x, qᵒ, pᵒ,∇, ∇ᵒ, Q, δ, update, priormom, (dK, inv_dK))
+                accinfo_, X, x, ∇, ll = update_initialstate!(X,Xᵒ,W,ll, x, qᵒ, pᵒ,∇, ∇ᵒ, Q, δ, update, priormom, (dK, inv_dK))
             end
             acc[k] = accinfo_
             k += 1
@@ -109,7 +109,7 @@ function lm_mcmc(t, obsinfo, mT, P, ITER, subsamples, xinit, pars, priorθ, prio
 
         if mod(i,askip)==0 && i < 100  # adjust mT (the momenta at time T used in the construction of the guided proposal)
             mTvec = [X[k][lt][2].p  for k in 1:nshapes]     # extract momenta at time T for each shape
-    #        update_mT!(Q, mTvec, obsinfo)
+    #       Q = update_mT!(Q, mTvec, obsinfo)
         end
 
         # save some of the results
@@ -143,12 +143,12 @@ function update_path!(X, W, ll, Xᵒ,Wᵒ, Wnew, Q, ρ)
     acc = Int64[]
     x0 = X[1].yy[1]
     # From current state (x,W) with loglikelihood ll, update to (x, Wᵒ)
-    for k in 1:Q.nshapes
+    for k ∈ 1:Q.nshapes
         sample!(Wnew, Wiener{Vector{PointF}}())
-        for i in eachindex(W[1].yy)
+        for i ∈ eachindex(W[1].yy)
             Wᵒ.yy[i] = ρ * W[k].yy[i] + sqrt(1-ρ^2) * Wnew.yy[i]
         end
-        llᵒ = gp!(LeftRule(), Xᵒ[k], x0, Wᵒ, Q, k; skip=sk)
+        llᵒ, Xᵒ[k] = gp!(LeftRule(), Xᵒ[k], x0, Wᵒ, Q, k; skip=sk)
         diff_ll = llᵒ - ll[k]
         if log(rand()) <= diff_ll
             for i in eachindex(W[1].yy)
@@ -161,7 +161,7 @@ function update_path!(X, W, ll, Xᵒ,Wᵒ, Wnew, Q, ρ)
             push!(acc,0)
         end
     end
-    mean(acc)
+    mean(acc), X, W, ll
 end
 
 """
@@ -185,7 +185,7 @@ Main use of this function is to get gradient information of the loglikelihood wi
 - loglikelihood (summed over all shapes) + the logpriordensity of the initial momenta
 """
 function slogρ!(q,p, Q, W, X, priormom,llout)
-    lltemp = gp!(LeftRule(), X, q, p, W, Q; skip=sk)   # writes into X
+    lltemp, X = gp!(LeftRule(), X, q, p, W, Q; skip=sk)   # writes into X
     llout .= ForwardDiff.value.(lltemp)
     sum(lltemp) + logpdf(priormom, p)
 end
@@ -203,7 +203,7 @@ slogρ_mom!(q, Q, W, X,priormom, llout) = (p) -> slogρ!(q, p , Q, W, X, priormo
 
 
 """
-    update_initialstate!(X,Xᵒ,W,ll,x,xᵒ,∇x, ∇xᵒ, Q::GuidedProposal, δ, update,priormom, (dK, inv_dK))
+    update_initialstate!(X,Xᵒ,W,ll,x,xᵒ,∇, ∇ᵒ, Q::GuidedProposal, δ, update,priormom, (dK, inv_dK))
 
 ## Arguments
 - `X`:  current iterate of vector of sample paths
@@ -221,7 +221,7 @@ slogρ_mom!(q, Q, W, X,priormom, llout) = (p) -> slogρ!(q, p , Q, W, X, priormo
 ## Writes into / modifies
 - `X`: landmarks paths
 - `x`: initial state of the landmark paths
-- ``∇x`: gradient of loglikelihood with respect to initial state `x`
+- ``∇`: gradient of loglikelihood with respect to initial state `x`
 - `ll`: a vector with as k-th element the loglikelihood for the k-th shape
 
 ## Returns
@@ -322,8 +322,9 @@ function update_initialstate!(X,Xᵒ,W,ll, x, qᵒ, pᵒ,∇, ∇ᵒ,
             accepted = 0.0
         end
     end
-    accepted
+    accepted, X, x, ∇, ll
 end
+
 
 
 """
@@ -340,17 +341,28 @@ For fixed Wiener increments and initial state, update parameters by random-walk-
 """
 function update_pars!(X, ll, Xᵒ, W, Q , priorθ, covθprop, obsinfo)
     θ = getpars(Q)
-    distr = MvLogNormal(MvNormal(log.(θ),covθprop))
-    θᵒ = rand(distr)
-    distrᵒ = MvLogNormal(MvNormal(log.(θᵒ),covθprop))
-    Qᵒ = adjust_to_newpars(Q, θᵒ)
-    update_guidrec!(Qᵒ, obsinfo)   # compute backwards recursion with parameter θᵒ
+    # distr = MvLogNormal(MvNormal(log.(θ),covθprop))
+    # θᵒ = rand(distr)
+    # distrᵒ = MvLogNormal(MvNormal(log.(θᵒ),covθprop))
+
+    a = θ[1]; c = θ[2]; γ = θ[3]
+    h = covθprop[1,1]
+    aᵒ = a * exp(h*randn())
+    #cᵒ = c * exp(0.1*randn())
+    θᵒ = [aᵒ, θ[2:3]...]
+    #θᵒ = [aᵒ, θ[2], γᵒ]
+    #θᵒ = [aᵒ, cᵒ, θ[3]]
+
+    Qᵒ = adjust_to_newpars(Q, θᵒ, obsinfo)
+    #Qᵒ = update_guidrec!(Qᵒ, obsinfo)   # compute backwards recursion with parameter θᵒ
     x0 = X[1].yy[1]
-    llᵒ = gp!(LeftRule(), Xᵒ,x0, W, Qᵒ; skip=sk)
+    llᵒ, Xᵒ = gp!(LeftRule(), Xᵒ,x0, W, Qᵒ; skip=sk)
 
     A = sum(llᵒ) - sum(ll) +
         logpdf(priorθ, θᵒ) - logpdf(priorθ, θ) +
-        logpdf(distrᵒ, θ) - logpdf(distr, θᵒ)
+        log(aᵒ) - log(a) #+ log(cᵒ) - log(c)
+        #log(aᵒ) - log(a) + log(γᵒ) - log(γ)
+        #logpdf(distrᵒ, θ) - logpdf(distr, θᵒ)
     if log(rand()) <= A
         ll .= llᵒ
         for k in 1:Q.nshapes
@@ -364,7 +376,7 @@ function update_pars!(X, ll, Xᵒ, W, Q , priorθ, covθprop, obsinfo)
     else
         accept = 0.0
     end
-    Q, accept
+    Q, accept, X, ll
 end
 
 
