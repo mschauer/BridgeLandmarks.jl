@@ -40,7 +40,7 @@ ups = [:innov, :rmrw_mom, :parameter]#, :matching]
 ups = [:rmrw_mom, :parameter]
 
 # run algorithm
-@time landmarksmatching(xobs0,xobsT; ITER=1000,pars=p_ms, outdir=outdir, ainit=ainit, updatescheme=ups)
+@time landmarksmatching(xobs0,xobsT; ITER=200,pars=p_ms, outdir=outdir, ainit=ainit, updatescheme=ups)
 @time landmarksmatching(xobs0,xobsT; ITER=130,pars=p_ahs, outdir=outdir, ainit=ainit, updatescheme=ups)
 
 
