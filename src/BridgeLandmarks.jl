@@ -16,7 +16,7 @@ using JLD2
 using DelimitedFiles
 using CSV
 using RCall
-using Zygote
+
 
 # using TimerOutputs
 # const to = TimerOutput()
@@ -33,9 +33,7 @@ export Point, PointF, Unc, UncF, State, deepvec
 
 export Landmarks, LandmarksAux, MarslandShardlow, MarslandShardlowAux, Pars_ms, Pars_ahs, FlatPrior, show_updates
 export landmarksforward, itostrat, construct_nfs, lm_mcmc, gramkernel, landmarksmatching, template_estimation, plotlandmarksmatching, plottemplate_estimation
-
 export Lmplotbounds, extractcomp, tc
-
 export d, sk, to
 
 plotlandmarkpositions = Ref{Any}((args...) -> nothing )

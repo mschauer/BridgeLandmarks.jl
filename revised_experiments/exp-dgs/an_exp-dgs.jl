@@ -38,7 +38,7 @@ ainit = 0.5*mean(norm.(diff(xobs0)))
 ups = [:innov, :mala_mom]
 ups = [:innov, :rmrw_mom, :parameter]
 
-@time landmarksmatching(xobs0,xobsT; ITER=35,pars=p_ms, outdir=outdir, ainit=ainit, updatescheme=ups)
+@time landmarksmatching(xobs0,xobsT; ITER=350,pars=p_ms, outdir=outdir, ainit=ainit, updatescheme=ups)
 @time landmarksmatching(xobs0,xobsT; ITER=50,pars=p_ahs, outdir=outdir, ainit=ainit, updatescheme=ups)
 
 plotlandmarksmatching(outdir)

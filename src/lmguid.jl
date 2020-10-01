@@ -60,8 +60,8 @@ function lm_mcmc(t, obsinfo, mT, P, ITER, subsamples, xinit, pars, priorθ, prio
     acc = zeros(ncol(accinfo))
 
     δ = [pars.δpos, pars.δmom]
+    δa, δγ = pars.δa, pars.δγ
     ρ = pars.ρinit
-    covθprop = pars.covθprop
     askip = pars.adaptskip
 
     x0 = X[1].yy[1]
@@ -81,19 +81,19 @@ function lm_mcmc(t, obsinfo, mT, P, ITER, subsamples, xinit, pars, priorθ, prio
                 #@timeit to "update mom"
                 accinfo_, X, x, ∇, ll = update_initialstate!(X,Xᵒ,W,ll, x, qᵒ, pᵒ,∇, ∇ᵒ, Q, δ, update, priormom, (dK, inv_dK))
                 if (i > 1.5*askip) & (mod(i,askip)==0)
-                    δ[2] = adaptmalastep(δ[2], i, accinfo[!,update], pars.η, update; adaptskip = askip)
+                    δ[2] = adapt_pospar_step(δ[2], i, accinfo[!,update], pars.η; adaptskip = askip)
                 end
             elseif update in [:mala_pos, :rmmala_pos]
                 #@timeit to "update pos"
                 accinfo_ , X, x, ∇, ll= update_initialstate!(X,Xᵒ,W,ll, x, qᵒ, pᵒ,∇, ∇ᵒ, Q, δ, update, priormom, (dK, inv_dK))
                 if (i > 1.5*askip) & (mod(i,askip)==0)
-                    δ[1] = adaptmalastep(δ[1], i, accinfo[!,update], pars.η, update; adaptskip = askip)
+                    δ[1] = adapt_pospar_step(δ[1], i, accinfo[!,update], pars.η; adaptskip = askip)
                 end
             elseif update == :parameter
                 #@timeit to "update par"
-                Q, accinfo_, X, ll = update_pars!(X, ll, Xᵒ,W, Q, priorθ, covθprop, obsinfo)
+                Q, accinfo_, X, ll = update_pars!(X, ll, Xᵒ,W, Q, priorθ, obsinfo, δa, δγ)
                 if (i > 1.5*askip) & (mod(i,askip)==0)
-                    covθprop = adaptparstep(covθprop, i, accinfo[!,update], pars.η; adaptskip = askip)
+                    δa = adapt_pospar_step(δa, i, accinfo[!,update], pars.η; adaptskip = askip)
                 end
                 #@show Q.target
             elseif update==:matching
@@ -120,11 +120,11 @@ function lm_mcmc(t, obsinfo, mT, P, ITER, subsamples, xinit, pars, priorθ, prio
 
         if mod(i,5) == 0
             println();  println("iteration $i")
-            println("ρ ", ρ , ",   δ ", δ, ",   covθprop ", covθprop)
+            println("ρ ", ρ , ",   δ ", δ, ",   δa ", δa)
             println(round.([mean(x) for x in eachcol(accinfo[!,1:end-1])];digits=2))
         end
     end
-    Xsave, parsave, accinfo, δ, ρ, covθprop
+    Xsave, parsave, accinfo, δ, ρ, δa
 end
 
 """
@@ -339,30 +339,19 @@ For fixed Wiener increments and initial state, update parameters by random-walk-
 ## Returns
 `Q, accept`: where `accept` is 1/0 according to accept/reject in the MH-step.
 """
-function update_pars!(X, ll, Xᵒ, W, Q , priorθ, covθprop, obsinfo)
+function update_pars!(X, ll, Xᵒ, W, Q , priorθ,  obsinfo, δa, δγ)
     θ = getpars(Q)
-    # distr = MvLogNormal(MvNormal(log.(θ),covθprop))
-    # θᵒ = rand(distr)
-    # distrᵒ = MvLogNormal(MvNormal(log.(θᵒ),covθprop))
-
-    a = θ[1]; c = θ[2]; γ = θ[3]
-    h = covθprop[1,1]
-    aᵒ = a * exp(h*randn())
-    #cᵒ = c * exp(0.1*randn())
-    θᵒ = [aᵒ, θ[2:3]...]
-    #θᵒ = [aᵒ, θ[2], γᵒ]
-    #θᵒ = [aᵒ, cᵒ, θ[3]]
-
+    a = θ[1];  γ = θ[2]
+    aᵒ = a * exp(δa*randn())
+    γᵒ = γ * exp(δγ*randn())
+    θᵒ = [aᵒ, γᵒ]
     Qᵒ = adjust_to_newpars(Q, θᵒ, obsinfo)
-    #Qᵒ = update_guidrec!(Qᵒ, obsinfo)   # compute backwards recursion with parameter θᵒ
     x0 = X[1].yy[1]
     llᵒ, Xᵒ = gp!(LeftRule(), Xᵒ,x0, W, Qᵒ; skip=sk)
 
     A = sum(llᵒ) - sum(ll) +
         logpdf(priorθ, θᵒ) - logpdf(priorθ, θ) +
-        log(aᵒ) - log(a) #+ log(cᵒ) - log(c)
-        #log(aᵒ) - log(a) + log(γᵒ) - log(γ)
-        #logpdf(distrᵒ, θ) - logpdf(distr, θᵒ)
+        log(γᵒ) - log(γ) + log(aᵒ) - log(a)
     if log(rand()) <= A
         ll .= llᵒ
         for k in 1:Q.nshapes
@@ -383,12 +372,12 @@ end
 ######### adaptation of mcmc tuning parameters #################
 
 """
-    adaptmalastep!(δ, n, accinfo, η, update; adaptskip = 15, targetaccept=0.5)
+    adapt_pospar_step!(δ, n, accinfo, η, update; adaptskip = 15, targetaccept=0.5)
 
-Adapt the step size for mala_mom updates.
+Adapt the step size for updates, where tuning par has to be positive.
 The adaptation is multiplication/divsion by exp(η(n)).
 """
-function adaptmalastep(δ, n, accinfo, η, update; adaptskip = 15, targetaccept=0.5)
+function adapt_pospar_step(δ, n, accinfo, η; adaptskip = 15, targetaccept=0.5)
     recent_mean = mean(accinfo[end-adaptskip+1:end])
     if recent_mean > targetaccept
         return δ *= exp(η(n))
@@ -397,24 +386,24 @@ function adaptmalastep(δ, n, accinfo, η, update; adaptskip = 15, targetaccept=
     end
 end
 
-"""
-"""
-    adaptpcnstep(n, accpcn, ρ, nshapes, η; adaptskip = 15, targetaccept=0.5)
 
-"""
-    adaptparstep(n,accinfo,covθprop, η;  adaptskip = 15, targetaccept=0.5)
 
-Adjust `covθprop-parameter` adaptively, every `adaptskip` steps.
-For that the assumed multiplicative parameter is first tranformed to (-∞, ∞), then updated, then mapped back to (0,∞)
-"""
-function adaptparstep(covθprop, n, accinfo, η;  adaptskip = 15, targetaccept=0.5)
-    recent_mean = mean(accinfo[end-adaptskip+1:end])
-    if recent_mean > targetaccept
-        return    covθprop *= exp(2*η(n))
-    else
-        return    covθprop *= exp(-2*η(n))
-    end
-end
+
+
+# """
+#     adaptparstep(n,accinfo,covθprop, η;  adaptskip = 15, targetaccept=0.5)
+#
+# Adjust `covθprop-parameter` adaptively, every `adaptskip` steps.
+# For that the assumed multiplicative parameter is first tranformed to (-∞, ∞), then updated, then mapped back to (0,∞)
+# """
+# function adaptparstep(covθprop, n, accinfo, η;  adaptskip = 15, targetaccept=0.5)
+#     recent_mean = mean(accinfo[end-adaptskip+1:end])
+#     if recent_mean > targetaccept
+#         return    covθprop *= exp(2*η(n))
+#     else
+#         return    covθprop *= exp(-2*η(n))
+#     end
+# end
 
 """
     sigmoid(z::Real) = 1.0 / (1.0 + exp(-z))

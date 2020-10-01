@@ -77,7 +77,7 @@ See documentation for GuidedProposal to contruct an example instance, say `Q`
     BridgeLandmarks.update_mT!(Q, mTv, obsinfo)
 """
 function update_mT!(Q, mTv, obsinfo)
-    for k in 1:Q.nshapes
+    for k ∈ 1:Q.nshapes
         Q.aux[k] = auxiliary(Q.target,State(Q.xobsT[k],mTv[k]))  # auxiliary process for each shape
     end
     Q = update_guidrec!(Q, obsinfo)
@@ -166,7 +166,7 @@ function gp!(::LeftRule,  Xᵒ, x0, W, Q::GuidedProposal,k; skip = 0, ll0 = true
         At = Bridge.a((1,0), x0, auxiliary(Q,k))  # auxtimehomogeneous switch
         A = zeros(Unc{deepeltype(x0)}, 2Q.target.n,2Q.target.n)
     end
-    for i in 1:length(tt)-1
+    for i ∈ 1:length(tt)-1
         dt = tt[i+1]-tt[i]
         b!(tt[i], x, bout, target(Q)) # b(t,x)
         _r!((i,tt[i]), x, rout, Q,k) # tilder(t,x)
@@ -233,7 +233,7 @@ Extract parameters from GuidedProposal `Q`, that is, `(a,c,γ)``
 """
 function getpars(Q::GuidedProposal)
     P = Q.target
-    [P.a, P.c, getγ(P)]
+    [P.a, getγ(P)]
 end
 
 """
@@ -243,14 +243,14 @@ Provide new parameter values for GuidedProposal `Q`, these are written into fiel
 Returns a new instance of `GuidedProposal`, adjusted to the new set of parameters.
 """
 function adjust_to_newpars(Q::GuidedProposal,θᵒ, obsinfo)
-    (aᵒ,cᵒ,γᵒ) = θᵒ
+    (aᵒ,γᵒ) = θᵒ
     if isa(Q.target,MarslandShardlow)
-        target = MarslandShardlow(aᵒ,cᵒ,γᵒ,Q.target.λ, Q.target.n)
+        target = MarslandShardlow(aᵒ,Q.target.c,γᵒ,Q.target.λ, Q.target.n)
     elseif isa(Q.target,Landmarks)
         nfs = construct_nfs(Q.target.db, Q.target.nfstd, γᵒ)
-        target = Landmarks(aᵒ,cᵒ,Q.target.n,Q.target.db,Q.target.nfstd,nfs)
+        target = Landmarks(aᵒ,Q.target.c,Q.target.n,Q.target.db,Q.target.nfstd,nfs)
     end
-    aux = [auxiliary(target,State(Q.xobsT[k],Q.mT[k])) for k in 1:Q.nshapes]
+    aux = [auxiliary(target,State(Q.xobsT[k],Q.mT[k])) for k ∈ 1:Q.nshapes]
     Qnew = GuidedProposal(target, aux, Q.tt, Q.xobs0, Q.xobsT, Q.guidrec,Q.nshapes, Q.mT)
     Qᵒ = update_guidrec!(Qnew, obsinfo)
     Qᵒ

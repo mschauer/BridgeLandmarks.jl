@@ -131,8 +131,8 @@ Write parameter iterates to file
 function write_params(parsave,subsamples,outdir)
     outdir[end] == "/" && error("provide pathname without trailing '/'")
 
-    parsdf = DataFrame(a=extractcomp(parsave,1),c=extractcomp(parsave,2),
-            gamma=extractcomp(parsave,3), iterate=subsamples)
+    parsdf = DataFrame(a=extractcomp(parsave,1),#c=extractcomp(parsave,2),
+            gamma=extractcomp(parsave,2), iterate=subsamples)
     CSV.write(joinpath(outdir, "parameters.csv"), parsdf; delim=";")
 end
 

@@ -79,13 +79,13 @@ function landmarksmatching(
     end
 
     ################## prior specification with θ = (a, c, γ) ########################
-    priorθ = product_distribution([Exponential(ainit), Exponential(cinit), Exponential(γinit)])
+    priorθ = product_distribution([pars.aprior, pars.γprior])
     priormom = MvNormalCanon(zeros(d*n), gramkernel(xobs0,P)/pars.κ)
 
     xinit = State(xobs0, zeros(PointF,P.n))
     mT = zeros(PointF, n)
     start = time()
-          Xsave, parsave, accinfo, δ, ρ, covθprop =
+          Xsave, parsave, accinfo, δ, ρ, δa =
                 lm_mcmc(tt, obsinfo, mT, P, ITER, subsamples, xinit, pars, priorθ, priormom, updatescheme, outdir)
     elapsed = time() - start
 

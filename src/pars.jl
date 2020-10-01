@@ -26,6 +26,12 @@ parameters is performed.
 
 - `γinit`: initial value for `gamma` which quantifies the amount of intrinsic noise.
 
+- `aprior`: prior on `a`
+
+- `cprior`: prior on `c`
+
+- `γprior`: prior on `γ`
+
 - `κ`: in case of landmarksmatching, κ quantifies diffusiveness of the prior on the initial momenta
 
 - `δpos`: stepsize for updating intial positions. Note that the value of δpos is adapted during mcmc-iterations.
@@ -37,16 +43,19 @@ parameters is performed.
 @with_kw struct Pars_ms <: Pars
     model:: Symbol = :ms
     ρinit::Float64 = 0.95
-    covθprop::Array{Float64,2}  = [0.01 0. 0.; 0. 0.01 0.; 0. 0. 0.04]
     η::Any = n -> min(0.2, 10/n)
     adaptskip::Int64 = 20
     σobs:: Float64 = 0.01
     dt:: Float64 = 0.01
-    cinit:: Float64 = 0.1
-    γinit:: Float64 = 0.1
+    aprior:: Exponential{Float64} = Exponential(1.0)
+    γprior:: Exponential{Float64} = Exponential(1.0)
+    cinit::  Float64 = 1.0
+    γinit::  Float64 = 0.1
     κ:: Float64 = 100.0
     δpos:: Float64 = 0.01
     δmom:: Float64 = 0.01
+    δa:: Float64 = 0.1
+    δγ:: Float64 = 0.0
     skip_saveITER:: Int64 = 10
 end
 
@@ -77,6 +86,12 @@ parameters is performed.
 
 - `γinit`: initial value for `gamma` which quantifies the amount of intrinsic noise.
 
+- `aprior`: prior on `a`
+
+- `cprior`: prior on `c`
+
+- `γprior`: prior on `γ`
+
 - `stdev`: For the AHS-model we take noise fields centred at points that are both horizontally and vertically separaeted by a distance  that is an integer multiple of 2`stdev`
 
 - `db`: assign noisefields within the box [-db[1], db[1]] x [-db[2], db[2]] (and similarly for other dimensions than 2)
@@ -92,17 +107,20 @@ parameters is performed.
 @with_kw struct Pars_ahs <: Pars
     model:: Symbol = :ahs
     ρinit::Float64  = 0.95
-    covθprop::Array{Float64,2}  = [0.01 0. 0.; 0. 0.01 0.; 0. 0. 0.01]
     η::Any = n -> min(0.2, 10/n)
     adaptskip::Int64 = 20
     σobs:: Float64 = 0.01
     dt:: Float64 = 0.01
-    cinit:: Float64 = 0.1
-    γinit:: Float64 = 0.1
+    aprior:: Exponential{Float64} = Exponential(1.0)
+    γprior:: Exponential{Float64} = Exponential(1.0)
+    cinit::  Float64 = 1.0
+    γinit::  Float64 = 0.1
     stdev:: Float64 = 0.75
     db::Array{Float64,1} = [2.0, 2.0]
     κ:: Float64 = 100.0
     δpos:: Float64 = 0.01
     δmom:: Float64 = 0.01
+    δa:: Float64 = 0.1
+    δγ:: Float64 = 0.0
     skip_saveITER:: Int64 = 10
 end

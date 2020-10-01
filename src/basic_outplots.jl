@@ -62,7 +62,7 @@ function plotlandmarksmatching(outdir)
   dev.off()
 
   # traceplot of parameters
-  tracepars <- parsdf %>% gather(key=par, value=value, a, c, gamma)  %>%
+  tracepars <- parsdf %>% gather(key=par, value=value, a,  gamma)  %>%
     ggplot(aes(x=iterate, y=value)) + geom_path() + facet_wrap(~par, scales="free_y",ncol=1) +
    xlab("iterate") + ylab("")
   pdf("trace-pars.pdf",width=widthfig,height=4)
