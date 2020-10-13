@@ -35,7 +35,6 @@ p_ahs = Pars_ahs(δmom=0.01,db=[2.5,1.5],stdev=.25)
 
 
 ainit =  0.5*mean(norm.(diff(xobs0)))
-
 ups = [:innov, :mala_mom, :parameter]
 
 
