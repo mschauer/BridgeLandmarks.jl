@@ -31,14 +31,14 @@ Backward ODEs used are in terms of the LMμ-parametrisation
 function lm_mcmc(t, obsinfo, mT, P, ITER, subsamples, xinit, pars, priorθ, priormom, updatescheme, outdir)
     lt = length(t);   StateW = PointF;    dwiener = dimwiener(P);   nshapes = obsinfo.nshapes
 
-    guidrec = [GuidRecursions(t,obsinfo)  for _ in 1:nshapes]  # initialise guiding terms
-    Paux = [auxiliary(P, State(obsinfo.xobsT[k],mT)) for k in 1:nshapes] # auxiliary process for each shape
-    Q = GuidedProposal(P,Paux,t,obsinfo.xobs0,obsinfo.xobsT,guidrec,nshapes,[mT for _ in 1:nshapes])
+    guidrec = [GuidRecursions(t,obsinfo)  for _ ∈ 1:nshapes]  # initialise guiding terms
+    Paux = [auxiliary(P, State(obsinfo.xobsT[k],mT)) for k ∈ 1:nshapes] # auxiliary process for each shape
+    Q = GuidedProposal(P,Paux,t,obsinfo.xobs0,obsinfo.xobsT,guidrec,nshapes,[mT for _ ∈ 1:nshapes])
     Q = update_guidrec!(Q, obsinfo)   # compute backwards recursion
 
-    X = [initSamplePath(t, xinit) for _ in 1:nshapes]
-    W = [initSamplePath(t,  zeros(StateW, dwiener)) for _ in 1:nshapes]
-    for k in 1:nshapes   sample!(W[k], Wiener{Vector{StateW}}())  end
+    X = [initSamplePath(t, xinit) for _ ∈ 1:nshapes]
+    W = [initSamplePath(t,  zeros(StateW, dwiener)) for _ ∈ 1:nshapes]
+    for k ∈ 1:nshapes   sample!(W[k], Wiener{Vector{StateW}}())  end
 
     x = deepvec(xinit)
     q, p = split_state(xinit)
@@ -68,22 +68,22 @@ function lm_mcmc(t, obsinfo, mT, P, ITER, subsamples, xinit, pars, priorθ, prio
     dK = gramkernel(x0.q, P)
     inv_dK = inv(dK)
 
-    for i in 1:ITER
+    for i ∈ 1:ITER
         k = 1
-        for update in updatescheme
+        for update ∈ updatescheme
             if update == :innov
                 #@timeit to "path update"
                 accinfo_, X, W, ll = update_path!(X, W, ll, Xᵒ,Wᵒ, Wnew, Q, ρ)
                 if (i > 1.5*askip) & (mod(i,askip)==0)
                     ρ = adaptpcnstep(ρ, i, accinfo[!,update], pars.η;  adaptskip = askip)
                 end
-            elseif update in [:mala_mom, :rmmala_mom, :rmrw_mom]
+            elseif update ∈ [:mala_mom, :rmmala_mom, :rmrw_mom]
                 #@timeit to "update mom"
                 accinfo_, X, x, ∇, ll = update_initialstate!(X,Xᵒ,W,ll, x, qᵒ, pᵒ,∇, ∇ᵒ, Q, δ, update, priormom, (dK, inv_dK))
                 if (i > 1.5*askip) & (mod(i,askip)==0)
                     δ[2] = adapt_pospar_step(δ[2], i, accinfo[!,update], pars.η; adaptskip = askip)
                 end
-            elseif update in [:mala_pos, :rmmala_pos]
+            elseif update ∈ [:mala_pos, :rmmala_pos]
                 #@timeit to "update pos"
                 accinfo_ , X, x, ∇, ll= update_initialstate!(X,Xᵒ,W,ll, x, qᵒ, pᵒ,∇, ∇ᵒ, Q, δ, update, priormom, (dK, inv_dK))
                 if (i > 1.5*askip) & (mod(i,askip)==0)
@@ -98,7 +98,7 @@ function lm_mcmc(t, obsinfo, mT, P, ITER, subsamples, xinit, pars, priorθ, prio
                 #@show Q.target
             elseif update==:matching
                 obsinfo, accinfo_, Q, X, ll = update_cyclicmatching(X, ll, obsinfo, Xᵒ, W, Q)
-            elseif update==:sgd_mom
+            elseif update == :sgd_mom
                 accinfo_, X, x, ∇, ll = update_initialstate!(X,Xᵒ,W,ll, x, qᵒ, pᵒ,∇, ∇ᵒ, Q, δ, update, priormom, (dK, inv_dK))
             end
             acc[k] = accinfo_
@@ -151,7 +151,7 @@ function update_path!(X, W, ll, Xᵒ,Wᵒ, Wnew, Q, ρ)
         llᵒ, Xᵒ[k] = gp!(LeftRule(), Xᵒ[k], x0, Wᵒ, Q, k; skip=sk)
         diff_ll = llᵒ - ll[k]
         if log(rand()) <= diff_ll
-            for i in eachindex(W[1].yy)
+            for i ∈ eachindex(W[1].yy)
                 X[k].yy[i] .= Xᵒ[k].yy[i]
                 W[k].yy[i] .= Wᵒ.yy[i]
             end
@@ -235,14 +235,13 @@ function update_initialstate!(X,Xᵒ,W,ll, x, qᵒ, pᵒ,∇, ∇ᵒ,
     q, p = split_state(x0)
 
     if update ==:sgd_mom
-    #    @warn "Option :sgd_mom has not been checked/tested so far; don't use as yet."
+        @warn "Option :sgd_mom has not been checked/tested so far; don't use as yet."
         u = slogρ_mom!(q, Q, W, X, priormom,ll)
         cfg = ForwardDiff.GradientConfig(u, p, ForwardDiff.Chunk{d*n}()) # d*P.n is maximal
-        ForwardDiff.gradient!(∇, u, p, cfg) # X gets overwritten but does not chang
-        #∇ = Zygote.gradient(u, p)[1]
+        ForwardDiff.gradient!(∇, u, p, cfg) # X gets overwritten but does not change
         pᵒ = p .- δ[2] * ∇
         x0ᵒ = merge_state(q, pᵒ)
-        gp!(LeftRule(), X, x0ᵒ, W, Q)
+        ll, X = gp!(LeftRule(), X, x0ᵒ, W, Q)
         accepted = 1.0
     else
         accinit = 0.0
@@ -253,7 +252,8 @@ function update_initialstate!(X,Xᵒ,W,ll, x, qᵒ, pᵒ,∇, ∇ᵒ,
             cfg = ForwardDiff.GradientConfig(u, q, ForwardDiff.Chunk{d*n}()) # d*P.n is maximal
             ForwardDiff.gradient!(∇, u, q, cfg) # X and ll get overwritten but do not change
             stepsize = δ[1]
-        elseif update in [:mala_mom, :rmmala_mom, :rmrw_mom]
+        end
+        if update in [:mala_mom, :rmmala_mom, :rmrw_mom]
             u = slogρ_mom!(q, Q, W, X, priormom,ll)
             uᵒ = slogρ_mom!(q, Q, W, Xᵒ, priormom,llᵒ)
             cfg = ForwardDiff.GradientConfig(u, p, ForwardDiff.Chunk{d*n}()) # d*P.n is maximal
@@ -306,8 +306,8 @@ function update_initialstate!(X,Xᵒ,W,ll, x, qᵒ, pᵒ,∇, ∇ᵒ,
 
         # MH acceptance decision
         if log(rand()) <= accinit
-            for k in 1:Q.nshapes
-                for i in eachindex(X[1].yy)
+            for k ∈ 1:Q.nshapes
+                for i ∈ eachindex(X[1].yy)
                     X[k].yy[i] .= Xᵒ[k].yy[i]
                 end
             end
@@ -354,11 +354,12 @@ function update_pars!(X, ll, Xᵒ, W, Q , priorθ,  obsinfo, δa, δγ)
         log(γᵒ) - log(γ) + log(aᵒ) - log(a)
     if log(rand()) <= A
         ll .= llᵒ
-        for k in 1:Q.nshapes
-            for i in eachindex(X[1].yy)
-                X[k].yy[i] .= Xᵒ[k].yy[i]
-            end
-        end
+        X = copyto!(X,Xᵒ)
+            # for k ∈ 1:Q.nshapes
+            #     for i ∈ eachindex(X[1].yy)
+            #         X[k].yy[i] .= Xᵒ[k].yy[i]
+            #     end
+            # end
         Q = Qᵒ
         #Q = deepcopy(Qᵒ)
         accept = 1.0
@@ -367,6 +368,22 @@ function update_pars!(X, ll, Xᵒ, W, Q , priorθ,  obsinfo, δa, δγ)
     end
     Q, accept, X, ll
 end
+
+
+```
+    function copyto!(X,Xᵒ)
+
+Write Xᵒ into X
+```
+function copyto!(X,Xᵒ)
+    for k ∈ eachindex(X)
+        for i ∈ eachindex(X[1].yy)
+            X[k].yy[i] .= Xᵒ[k].yy[i]
+        end
+    end
+    X
+end
+
 
 
 ######### adaptation of mcmc tuning parameters #################
@@ -385,10 +402,6 @@ function adapt_pospar_step(δ, n, accinfo, η; adaptskip = 15, targetaccept=0.5)
         return δ *= exp(-η(n))
     end
 end
-
-
-
-
 
 # """
 #     adaptparstep(n,accinfo,covθprop, η;  adaptskip = 15, targetaccept=0.5)

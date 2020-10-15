@@ -67,7 +67,7 @@ function landmarksmatching(
 
     ################################# initialise P #################################
     if isnothing(ainit)
-        ainit = mean(norm.([xobs0[i]-xobs0[i-1] for i in 2:n]))
+        ainit 0.5*mean(norm.(diff(xobs0)))
     end
     cinit = pars.cinit
     γinit = pars.γinit

@@ -25,19 +25,20 @@ function update_cyclicmatching(X, ll,obsinfo, Xᵒ, W, Q)
     oi = obsinfo
     obsinfoᵒ = ObsInfo(oi.L0, oi.LT, oi.Σ0, oi.ΣT, oi.xobs0, xobsTᵒ, oi.obs_atzero, oi.fixinitmomentato0, oi.n, oi.nshapes)
     Qᵒ = construct_gp_xobsT(Q, xobsTᵒ)
-    update_guidrec!(Qᵒ, obsinfoᵒ)
+    Qᵒ = update_guidrec!(Qᵒ, obsinfoᵒ)
 
     x0 = X[1].yy[1]
-    llᵒ = gp!(LeftRule(), Xᵒ, x0, W, Qᵒ; skip=sk)
+    llᵒ, Xᵒ = gp!(LeftRule(), Xᵒ, x0, W, Qᵒ; skip=sk)
     if log(rand()) <= (sum(llᵒ) - sum(ll))
         ll .= llᵒ
         Q = Qᵒ
         obsinfo = obsinfoᵒ
-        for k in 1:Q.nshapes
-            for i in eachindex(X[1].yy)
-                X[k].yy[i] .= Xᵒ[k].yy[i]
-            end
-        end
+                # for k ∈ 1:Q.nshapes
+                #     for i ∈ eachindex(X[1].yy)
+                #         X[k].yy[i] .= Xᵒ[k].yy[i]
+                #     end
+                # end
+        X = copyto!(X,Xᵒ)
         accept = 1
         println("Cyclic shift for shape $k in direction $direction.")
     else
