@@ -62,7 +62,7 @@ function lm_mcmc(t, obsinfo, mT, P, ITER, subsamples, xinit, pars, priorθ, prio
     δ = [pars.δpos, pars.δmom]
     δa, δγ = pars.δa, pars.δγ
     ρ = pars.ρinit
-    askip = pars.adaptskip
+    adapt(i) = (i > 1.5*pars.adaptskip) & (mod(i,pars.adaptskip)==0)
 
     x0 = X[1].yy[1]
     dK = gramkernel(x0.q, P)
@@ -72,30 +72,25 @@ function lm_mcmc(t, obsinfo, mT, P, ITER, subsamples, xinit, pars, priorθ, prio
         k = 1
         for update ∈ updatescheme
             if update == :innov
-                #@timeit to "path update"
                 accinfo_, X, W, ll = update_path!(X, W, ll, Xᵒ,Wᵒ, Wnew, Q, ρ)
-                if (i > 1.5*askip) & (mod(i,askip)==0)
-                    ρ = adaptpcnstep(ρ, i, accinfo[!,update], pars.η;  adaptskip = askip)
+                if adapt(i)
+                    ρ = adaptpcnstep(ρ, i, accinfo[!,update], pars.η, pars.adaptskip)
                 end
             elseif update ∈ [:mala_mom, :rmmala_mom, :rmrw_mom]
-                #@timeit to "update mom"
                 accinfo_, X, x, ∇, ll = update_initialstate!(X,Xᵒ,W,ll, x, qᵒ, pᵒ,∇, ∇ᵒ, Q, δ, update, priormom, (dK, inv_dK))
-                if (i > 1.5*askip) & (mod(i,askip)==0)
-                    δ[2] = adapt_pospar_step(δ[2], i, accinfo[!,update], pars.η; adaptskip = askip)
+                if adapt(i)
+                    δ[2] = adapt_pospar_step(δ[2], i, accinfo[!,update], pars.η, pars.adaptskip)
                 end
             elseif update ∈ [:mala_pos, :rmmala_pos]
-                #@timeit to "update pos"
                 accinfo_ , X, x, ∇, ll= update_initialstate!(X,Xᵒ,W,ll, x, qᵒ, pᵒ,∇, ∇ᵒ, Q, δ, update, priormom, (dK, inv_dK))
-                if (i > 1.5*askip) & (mod(i,askip)==0)
-                    δ[1] = adapt_pospar_step(δ[1], i, accinfo[!,update], pars.η; adaptskip = askip)
+                if adapt(i)
+                    δ[1] = adapt_pospar_step(δ[1], i, accinfo[!,update], pars.η, pars.adaptskip)
                 end
             elseif update == :parameter
-                #@timeit to "update par"
                 Q, accinfo_, X, ll = update_pars!(X, ll, Xᵒ,W, Q, priorθ, obsinfo, δa, δγ)
-                if (i > 1.5*askip) & (mod(i,askip)==0)
-                    δa = adapt_pospar_step(δa, i, accinfo[!,update], pars.η; adaptskip = askip)
+                if adapt(i)
+                    δa = adapt_pospar_step(δa, i, accinfo[!,update], pars.η, pars.adaptskip)
                 end
-                #@show Q.target
             elseif update==:matching
                 obsinfo, accinfo_, Q, X, ll = update_cyclicmatching(X, ll, obsinfo, Xᵒ, W, Q)
             elseif update == :sgd_mom
@@ -107,7 +102,7 @@ function lm_mcmc(t, obsinfo, mT, P, ITER, subsamples, xinit, pars, priorθ, prio
         acc[end] = i
         push!(accinfo, acc)
 
-        if mod(i,askip)==0 && i < 100  # adjust mT (the momenta at time T used in the construction of the guided proposal)
+        if mod(i,pars.adaptskip)==0 && i < 100  # adjust mT (the momenta at time T used in the construction of the guided proposal)
             mTvec = [X[k][lt][2].p  for k in 1:nshapes]     # extract momenta at time T for each shape
     #       Q = update_mT!(Q, mTvec, obsinfo)
         end
@@ -306,11 +301,12 @@ function update_initialstate!(X,Xᵒ,W,ll, x, qᵒ, pᵒ,∇, ∇ᵒ,
 
         # MH acceptance decision
         if log(rand()) <= accinit
-            for k ∈ 1:Q.nshapes
-                for i ∈ eachindex(X[1].yy)
-                    X[k].yy[i] .= Xᵒ[k].yy[i]
-                end
-            end
+            # for k ∈ 1:Q.nshapes
+            #     for i ∈ eachindex(X[1].yy)
+            #         X[k].yy[i] .= Xᵒ[k].yy[i]
+            #     end
+            # end
+            X = copypaths!(X,Xᵒ)
             ll .= llᵒ
             if update in [:mala_pos, :rmmala_pos]
                 x .= deepvec(merge_state(qᵒ, p))
@@ -392,7 +388,7 @@ end
 Adapt the step size for updates, where tuning par has to be positive.
 The adaptation is multiplication/divsion by exp(η(n)).
 """
-function adapt_pospar_step(δ, n, accinfo, η; adaptskip = 15, targetaccept=0.5)
+function adapt_pospar_step(δ, n, accinfo, η, adaptskip = 15; targetaccept=0.5)
     recent_mean = mean(accinfo[end-adaptskip+1:end])
     if recent_mean > targetaccept
         return δ *= exp(η(n))
@@ -432,7 +428,7 @@ invsigmoid(z::Real) = log(z/(1-z))
 Adjust pcN-parameter `ρ` adaptive every `adaptskip` steps.
 For that `ρ` is first tranformed to (-∞, ∞), then updated, then mapped back to (0,1)
 """
-function adaptpcnstep(ρ, n, accinfo, η; adaptskip = 15, targetaccept=0.5)
+function adaptpcnstep(ρ, n, accinfo, η, adaptskip = 15; targetaccept=0.5)
     recentmean = mean(accinfo[end-adaptskip+1:end])
     if recentmean > targetaccept
         return sigmoid(invsigmoid(ρ) - η(n))

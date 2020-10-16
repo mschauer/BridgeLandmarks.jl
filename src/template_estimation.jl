@@ -97,12 +97,12 @@ function template_estimation(
     start = time()
           Xsave, parsave, accinfo, δ, ρ, δa =
                 lm_mcmc(tt, obsinfo, mT, P, ITER, subsamples, xinit, pars, priorθ, priormom, updatescheme, outdir,printskip)
+    elapsed = time() - start
 
-
-    # start = time()
+    
     #       Xsave, parsave, accinfo, δ, ρ, covθprop =
     #             lm_mcmc(tt, obsinfo, mT, P, ITER, subsamples, xinit, pars, priorθ, priormom, updatescheme, outdir)
-    # elapsed = time() - start
+
 
     write_output(obsinfo.xobs0, obsinfo.xobsT, parsave, Xsave, elapsed, accinfo, tt, n,nshapes,subsamples,ITER, updatescheme, Σobs, pars, ρ, δ, P, outdir)
     nothing

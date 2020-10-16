@@ -244,6 +244,19 @@ Returns a new instance of `GuidedProposal`, adjusted to the new set of parameter
 """
 function adjust_to_newpars(Q::GuidedProposal,θᵒ, obsinfo)
     (aᵒ,γᵒ) = θᵒ
+
+    # if false
+    # @set Q.target.a = aᵒ
+    # if isa(Q.target,MarslandShardlow)
+    #     @set Q.target.γ = γᵒ
+    # elseif isa(Q.target,Landmarks)
+    #     @set Q.target.nfs = construct_nfs(Q.target.db, Q.target.nfstd, γᵒ)
+    # end
+    # @set Q.aux = [auxiliary(Q.target,State(Q.xobsT[k],Q.mT[k])) for k ∈ 1:Q.nshapes]
+    # out = update_guidrec!(Q, obsinfo)
+    # end
+
+
     if isa(Q.target,MarslandShardlow)
         target = MarslandShardlow(aᵒ,Q.target.c,γᵒ,Q.target.λ, Q.target.n)
     elseif isa(Q.target,Landmarks)
@@ -252,8 +265,10 @@ function adjust_to_newpars(Q::GuidedProposal,θᵒ, obsinfo)
     end
     aux = [auxiliary(target,State(Q.xobsT[k],Q.mT[k])) for k ∈ 1:Q.nshapes]
     Qnew = GuidedProposal(target, aux, Q.tt, Q.xobs0, Q.xobsT, Q.guidrec,Q.nshapes, Q.mT)
-    Qᵒ = update_guidrec!(Qnew, obsinfo)
-    Qᵒ
+    out = update_guidrec!(Qnew, obsinfo)
+    
+
+    out
 end
 
 """
