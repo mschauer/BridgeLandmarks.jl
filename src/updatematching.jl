@@ -38,7 +38,7 @@ function update_cyclicmatching(X, ll,obsinfo, Xᵒ, W, Q)
                 #         X[k].yy[i] .= Xᵒ[k].yy[i]
                 #     end
                 # end
-        X = copyto!(X,Xᵒ)
+        X = copypaths!(X,Xᵒ)
         accept = 1
         println("Cyclic shift for shape $k in direction $direction.")
     else

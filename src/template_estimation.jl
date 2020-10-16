@@ -28,6 +28,7 @@ are represented as an array of PointF)
 - `anit`: Hamiltonian kernel parameter. If not provided, defaults to setting
     `ainit = mean(norm.([xobs0[i]-xobs0[i-1] for i in 2:n]))`
 - `xinitq::Array{PointF}`: Initialisation for the shape. If not provided xobsT[1] will be taken for initialisation.
+- `printskip`: skip every printskip observations in writing output to console
 ## Example:
 ```
     # Make test example data set
@@ -52,10 +53,9 @@ function template_estimation(
     updatescheme = [:innov, :rmmala_pos, :parameter],
     ITER = 100,
     outdir=@__DIR__,
-    Σobs = nothing, ainit = nothing, xinitq = nothing)
+    Σobs = nothing, ainit = nothing, xinitq = nothing, printskip=20)
 
-
-    model = pars.model
+#    model = pars.model
     xobs0 = [] # as it is not known
 
     n = length(xobsT[1])
@@ -72,7 +72,7 @@ function template_estimation(
 
     ################################# initialise P #################################
     if isnothing(ainit)
-        ainit = mean(norm.([xobsT[1][i]-xobsT[1][i-1] for i in 2:n]))
+        ainit = 0.5*mean(norm.([xobsT[1][i]-xobsT[1][i-1] for i in 2:n]))
     end
     cinit = pars.cinit
     γinit = pars.γinit
@@ -83,8 +83,8 @@ function template_estimation(
         P = Landmarks(ainit, cinit, n, pars.db , pars.stdev, nfsinit)
     end
 
-    ################## prior specification with θ = (a, c, γ) ########################
-    priorθ = product_distribution([Exponential(ainit), Exponential(cinit), Exponential(γinit)])
+    ################## prior specification with θ = (a, γ) ########################
+    priorθ = product_distribution([pars.aprior, pars.γprior])
     priormom = FlatPrior()
 
     mT = zeros(PointF, n)
@@ -95,9 +95,14 @@ function template_estimation(
     xinit = State(xinitq, mT)
 
     start = time()
-          Xsave, parsave, accinfo, δ, ρ, covθprop =
-                lm_mcmc(tt, obsinfo, mT, P, ITER, subsamples, xinit, pars, priorθ, priormom, updatescheme, outdir)
-    elapsed = time() - start
+          Xsave, parsave, accinfo, δ, ρ, δa =
+                lm_mcmc(tt, obsinfo, mT, P, ITER, subsamples, xinit, pars, priorθ, priormom, updatescheme, outdir,printskip)
+
+
+    # start = time()
+    #       Xsave, parsave, accinfo, δ, ρ, covθprop =
+    #             lm_mcmc(tt, obsinfo, mT, P, ITER, subsamples, xinit, pars, priorθ, priormom, updatescheme, outdir)
+    # elapsed = time() - start
 
     write_output(obsinfo.xobs0, obsinfo.xobsT, parsave, Xsave, elapsed, accinfo, tt, n,nshapes,subsamples,ITER, updatescheme, Σobs, pars, ρ, δ, P, outdir)
     nothing

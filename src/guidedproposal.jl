@@ -90,7 +90,7 @@ end
 Update xobsTᵒ into auxiliary process of Q, following by recomputing the backwards ODEs
 """
 function construct_gp_xobsT(Q, xobsTᵒ)
-    aux = [auxiliary(Q.target,State(xobsTᵒ[k],Q.mT[k])) for k in 1:Q.nshapes]
+    aux = [auxiliary(Q.target,State(xobsTᵒ[k],Q.mT[k])) for k ∈ 1:Q.nshapes]
     GuidedProposal(Q.target, aux, Q.tt, Q.xobs0, xobsTᵒ, Q.guidrec, Q.nshapes, Q.mT)
 end
 
@@ -204,7 +204,7 @@ Simulate guided proposal and compute loglikelihood (vector version, multiple sha
 """
 function gp!(::LeftRule,  X::Vector, x0, W, Q::GuidedProposal; skip = 0, ll0 = true)
      logliks  = zeros(deepeltype(x0), Q.nshapes)
-     for k in 1:Q.nshapes
+     for k ∈ 1:Q.nshapes
          logliks[k], X[k] = gp!(LeftRule(), X[k],x0,W[k],Q, k ;skip=skip,ll0=ll0)
      end
      logliks, X
@@ -220,7 +220,7 @@ function gp!(::LeftRule,  X::Vector, q, p , W, Q::GuidedProposal; skip = 0, ll0 
     T = typeof(q[1] + p[1])
     x0 = NState(reinterpret(Point{T}, T.(q)),reinterpret(Point{T}, T.(p)))
     logliks  = zeros(deepeltype(x0), Q.nshapes)
-    for k in 1:Q.nshapes
+    for k ∈ 1:Q.nshapes
         logliks[k], X[k] = gp!(LeftRule(), X[k],x0,W[k],Q, k ;skip=skip,ll0=ll0)
     end
     logliks, X

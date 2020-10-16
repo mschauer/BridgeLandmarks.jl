@@ -25,6 +25,7 @@
     the value of pars.σobs
 - `anit`: Hamiltonian kernel parameter. If not provided, defaults to setting
     `ainit = mean(norm.([xobs0[i]-xobs0[i-1] for i in 2:n]))`
+- `printskip`: skip every printskip observations in writing output to console
 
 ## Example:
 ```
@@ -48,7 +49,8 @@ function landmarksmatching(
     ITER = 100,
     outdir=@__DIR__,
     Σobs = nothing,
-    ainit = nothing
+    ainit = nothing,
+    printskip=20
     )
 
     model = pars.model
@@ -67,7 +69,7 @@ function landmarksmatching(
 
     ################################# initialise P #################################
     if isnothing(ainit)
-        ainit 0.5*mean(norm.(diff(xobs0)))
+        ainit = 0.5*mean(norm.(diff(xobs0)))
     end
     cinit = pars.cinit
     γinit = pars.γinit
@@ -84,9 +86,11 @@ function landmarksmatching(
 
     xinit = State(xobs0, zeros(PointF,P.n))
     mT = zeros(PointF, n)
+
+    
     start = time()
           Xsave, parsave, accinfo, δ, ρ, δa =
-                lm_mcmc(tt, obsinfo, mT, P, ITER, subsamples, xinit, pars, priorθ, priormom, updatescheme, outdir)
+                lm_mcmc(tt, obsinfo, mT, P, ITER, subsamples, xinit, pars, priorθ, priormom, updatescheme, outdir,printskip)
     elapsed = time() - start
 
     write_output(obsinfo.xobs0, obsinfo.xobsT, parsave, Xsave, elapsed, accinfo, tt, n,nshapes,subsamples,ITER, updatescheme, Σobs, pars, ρ, δ, P, outdir)
@@ -114,7 +118,8 @@ function landmarksmatching(
     ITER = 100,
     outdir=@__DIR__,
     Σobs = nothing,
-    ainit = nothing
+    ainit = nothing,
+    printskip=20
     )
 
     @assert size(landmarks0)==size(landmarksT)  "landmarks0 and landmarksT should have the same dimensions."

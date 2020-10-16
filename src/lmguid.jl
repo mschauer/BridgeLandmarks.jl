@@ -28,7 +28,7 @@ Backward ODEs used are in terms of the LMμ-parametrisation
 - `ρ`: value of `ρinit`  af the final iteration of the algorithm
 - `covθprop`: value of `covθprop` at the final iteration of the algorithm
 """
-function lm_mcmc(t, obsinfo, mT, P, ITER, subsamples, xinit, pars, priorθ, priormom, updatescheme, outdir)
+function lm_mcmc(t, obsinfo, mT, P, ITER, subsamples, xinit, pars, priorθ, priormom, updatescheme, outdir, printskip)
     lt = length(t);   StateW = PointF;    dwiener = dimwiener(P);   nshapes = obsinfo.nshapes
 
     guidrec = [GuidRecursions(t,obsinfo)  for _ ∈ 1:nshapes]  # initialise guiding terms
@@ -118,7 +118,7 @@ function lm_mcmc(t, obsinfo, mT, P, ITER, subsamples, xinit, pars, priorθ, prio
         end
         push!(parsave, getpars(Q))
 
-        if mod(i,5) == 0
+        if mod(i,printskip) == 0
             println();  println("iteration $i")
             println("ρ ", ρ , ",   δ ", δ, ",   δa ", δa)
             println(round.([mean(x) for x in eachcol(accinfo[!,1:end-1])];digits=2))
@@ -354,7 +354,7 @@ function update_pars!(X, ll, Xᵒ, W, Q , priorθ,  obsinfo, δa, δγ)
         log(γᵒ) - log(γ) + log(aᵒ) - log(a)
     if log(rand()) <= A
         ll .= llᵒ
-        X = copyto!(X,Xᵒ)
+        X = copypaths!(X,Xᵒ)
             # for k ∈ 1:Q.nshapes
             #     for i ∈ eachindex(X[1].yy)
             #         X[k].yy[i] .= Xᵒ[k].yy[i]
@@ -370,16 +370,14 @@ function update_pars!(X, ll, Xᵒ, W, Q , priorθ,  obsinfo, δa, δγ)
 end
 
 
-```
-    function copyto!(X,Xᵒ)
+"""
+    function copypaths!(X,Xᵒ)
 
 Write Xᵒ into X
-```
-function copyto!(X,Xᵒ)
-    for k ∈ eachindex(X)
-        for i ∈ eachindex(X[1].yy)
+"""
+function copypaths!(X,Xᵒ)
+    for k ∈ eachindex(X), i ∈ eachindex(X[1].yy)
             X[k].yy[i] .= Xᵒ[k].yy[i]
-        end
     end
     X
 end

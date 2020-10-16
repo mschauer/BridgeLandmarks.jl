@@ -30,14 +30,13 @@ p_ms = Pars_ms(δmom=0.01, σobs = 0.01)
 # for ahs adjust domain bounds
 p_ahs = Pars_ahs(δmom=0.01,db=[3.0,2.0],stdev=.5)
 
-ainit = 0.5*mean(norm.(diff(xobs0)))
+
 ups = [:innov, :mala_mom, :parameter]
 ups = [:innov, :rmrw_mom, :parameter]#, :matching]
 
 # run algorithm
-@time landmarksmatching(xobs0,xobsT; ITER=200,pars=p_ms, outdir=outdir, ainit=ainit, updatescheme=ups)
-@time landmarksmatching(xobs0,xobsT; ITER=130,pars=p_ahs, outdir=outdir, ainit=ainit, updatescheme=ups)
+@time landmarksmatching(xobs0,xobsT; ITER=200,pars=p_ms, outdir=outdir, updatescheme=ups)
+#@time landmarksmatching(xobs0,xobsT; ITER=130,pars=p_ahs, outdir=outdir,  updatescheme=ups)
 
 
 plotlandmarksmatching(outdir)
-    
