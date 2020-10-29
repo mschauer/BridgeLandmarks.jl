@@ -1,0 +1,30 @@
+Number of iterations: 50
+Number of landmarks: 14
+Length time grid: 101
+Endpoint: 1.0
+updatescheme: [:innov, :rmmala_pos, :parameter]
+Average acceptance rates update steps: [0.7357142857142857, 0.48, 0.82]
+
+Noise Sigma: Array{SArray{Tuple{2,2},Float64,2,4},1}[[[0.0001 0.0; 0.0 0.0001], [0.0001 0.0; 0.0 0.0001], [0.0001 0.0; 0.0 0.0001], [0.0001 0.0; 0.0 0.0001], [0.0001 0.0; 0.0 0.0001], [0.0001 0.0; 0.0 0.0001], [0.0001 0.0; 0.0 0.0001], [0.0001 0.0; 0.0 0.0001], [0.0001 0.0; 0.0 0.0001], [0.0001 0.0; 0.0 0.0001], [0.0001 0.0; 0.0 0.0001], [0.0001 0.0; 0.0 0.0001], [0.0001 0.0; 0.0 0.0001], [0.0001 0.0; 0.0 0.0001]], [[0.0001 0.0; 0.0 0.0001], [0.0001 0.0; 0.0 0.0001], [0.0001 0.0; 0.0 0.0001], [0.0001 0.0; 0.0 0.0001], [0.0001 0.0; 0.0 0.0001], [0.0001 0.0; 0.0 0.0001], [0.0001 0.0; 0.0 0.0001], [0.0001 0.0; 0.0 0.0001], [0.0001 0.0; 0.0 0.0001], [0.0001 0.0; 0.0 0.0001], [0.0001 0.0; 0.0 0.0001], [0.0001 0.0; 0.0 0.0001], [0.0001 0.0; 0.0 0.0001], [0.0001 0.0; 0.0 0.0001]]]
+tuningpars_mcmc: Pars_ms
+  model: Symbol ms
+  ρinit: Float64 0.95
+  η: #39 (function of type BridgeLandmarks.var"#39#43")
+  adaptskip: Int64 20
+  σobs: Float64 0.01
+  dt: Float64 0.01
+  aprior: Exponential{Float64}
+  γprior: Exponential{Float64}
+  cinit: Float64 1.0
+  γinit: Float64 0.1
+  κ: Float64 100.0
+  δpos: Float64 1.0e-6
+  δmom: Float64 0.01
+  δa: Float64 0.01
+  δγ: Float64 0.0
+  skip_saveITER: Int64 10
+
+Final value  of rho (Crank-Nicholsen parameter: 0.939598514862314
+Final value of MALA parameter (delta): [8.187307530779818e-7, 0.01]
+skip in evaluation of loglikelihood: 1
+Elapsed time: 144.26434206962585

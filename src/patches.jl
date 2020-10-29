@@ -376,3 +376,7 @@ function deepcopyto!(dest::AbstractArray{T1,N}, src::AbstractArray{T2,N}) where 
     end
     dest
 end
+
+struct FlatPrior end
+import Distributions.logpdf
+logpdf(::FlatPrior, _x) = 0.0

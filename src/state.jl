@@ -1,12 +1,4 @@
-
 using StaticArrays
-
-# const Point{T} = SArray{Tuple{d},T,1,d}       # point in R2
-# const Unc{T} = SArray{Tuple{d,d},T,2,d*d}     # Matrix presenting uncertainty
-#
-# const PointF = Point{Float64}
-# const UncF = Unc{Float64}
-
 
 function deepmat(H::AbstractMatrix{S}) where {S}
     d1, d2 = size(S)
@@ -21,9 +13,9 @@ function deepmat2unc(A::Matrix)  # d is the dimension of the square subblocks
   [Unc(A[(i-1)*d+1:i*d,(j-1)*d+1:j*d]) for i in 1:m, j in 1:n]
 end
 
-
-
 """
+    Base.show(io::IO, state::State)
+    
 Good display of variable of type State
 """
 function Base.show(io::IO, state::State)
@@ -31,6 +23,8 @@ function Base.show(io::IO, state::State)
 end
 
 """
+    cholinverse!(L, x)
+
 Solve L L'y =x using two backsolves,
 L should be lower triangular
 """
@@ -48,6 +42,8 @@ struct InverseCholesky{T}
 end
 
 """
+    Base.:*(H::InverseCholesky, x::State)
+
 Compute y = H*x where Hinv = L*L' (Cholesky decomposition
 
 Input are L and x, output is y
@@ -72,13 +68,15 @@ function Base.:*(H::InverseCholesky, x::Vector{<:Point})
 end
 
 """
+    Base.:*(H::InverseCholesky, X)
+
 Compute y = H*X where Hinv = L*L' (Cholesky decomposition
 
 Input are L and X, output is Y
 
-y=HX is equivalent to LL'y=X, which can be solved
+y = H X is equivalent to LL'y = X, which can be solved
 by first backsolving LZ=X for z and next
-backsolving L'Y=Z
+backsolving L'Y = Z
 
 L is a lower triangular matrix with element of type UncMat
 X is a matrix with elements of type UncMat
@@ -86,4 +84,24 @@ Returns a matrix with elements of type UncMat
 """
 function Base.:*(H::InverseCholesky, X)
     cholinverse!(H.L,  copy(X)) # triangular backsolves
+end
+
+# convert dual to float, while retaining float if type is float
+deepvalue(x::Float64) = x
+deepvalue(x::ForwardDiff.Dual) = ForwardDiff.value(x)
+
+"""
+    deepvalue(x)
+
+If `x` is a vector of Float64, `x` is returned. If `x` is a vector of Dual-numbers, its Float64 part is returned.
+"""
+deepvalue(x) = deepvalue.(x)
+
+"""
+    deepvalue(x::State)
+
+Extract Float64 part of elements in State (so in case of Dual numbers, derivative part is dropped)
+"""
+function deepvalue(x::State)
+    State(deepvalue.(x.x))
 end

@@ -1,37 +1,48 @@
 # routines to determine correct matching of landmarks (cyclic shift detection)
 
-### update_matching
+"""
+    update_cyclicmatching(X, ll,obs_info, Xᵒ, W, Q)
 
-function update_matching(obs_info,X, Xᵒ,W, Q, Qᵒ, x, ll)
-    direction = rand(Bool)
-    Qᵒ.xobsT = circshift.(Q.xobsT,direction)
-    update_guidrec!(Qᵒ, obs_info)   # compute backwards recursion
-    llᵒ = simguidedlm_llikelihood!(LeftRule(), Xᵒ, deepvec2state(x), W, Qᵒ; skip=sk)
+## writes into / modifies
+- `X`
+- `ll`
 
-    A = sum(llᵒ) - sum(ll)
+## Returns
+`Q`, `obsinfo`, `accept`
+"""
+function update_cyclicmatching(X, ll,obsinfo, Xᵒ, W, Q)
+    # shift each element in xobsT, this means
+        # - creating xobsTᵒ (shift each element of xobsT)
+        # - creating obsinfoᵒ
+        # - creating  Qᵒ from Q by using xobsTᵒ and obsinfoᵒ
+        # - recomputing backward recursion
 
-    if log(rand()) <= A
+    direction = 2 * rand(Bool) -1
+    #    xobsTᵒ = Base.circshift.(Q.xobsT,direction) # this would be for shifting all shapes
+    xobsTᵒ = copy(Q.xobsT)
+    k = sample(1:Q.nshapes) # randomly pick a shape to which we cyclically shift indices
+    xobsTᵒ[k] = Base.circshift(Q.xobsT[k],direction)
+    oi = obsinfo
+    obsinfoᵒ = ObsInfo(oi.L0, oi.LT, oi.Σ0, oi.ΣT, oi.xobs0, xobsTᵒ, oi.obs_atzero, oi.fixinitmomentato0, oi.n, oi.nshapes)
+    Qᵒ = construct_gp_xobsT(Q, xobsTᵒ)
+    Qᵒ = update_guidrec!(Qᵒ, obsinfoᵒ)
+
+    x0 = X[1].yy[1]
+    llᵒ, Xᵒ = gp!(LeftRule(), Xᵒ, x0, W, Qᵒ; skip=sk)
+    if log(rand()) <= (sum(llᵒ) - sum(ll))
         ll .= llᵒ
-        deepcopyto!(Q.guidrec,Qᵒ.guidrec)
-        #Q.xobsT = Qᵒ.xobsT
-        deepcopyto!(Q.xobsT,Qᵒ.xobsT)
-        deepcopyto!(X,Xᵒ)
+        Q = Qᵒ
+        obsinfo = obsinfoᵒ
+                # for k ∈ 1:Q.nshapes
+                #     for i ∈ eachindex(X[1].yy)
+                #         X[k].yy[i] .= Xᵒ[k].yy[i]
+                #     end
+                # end
+        X = copypaths!(X,Xᵒ)
         accept = 1
+        println("Cyclic shift for shape $k in direction $direction.")
     else
         accept = 0
     end
-    direction, (kernel = "matchingupdate", acc = accept)
-end
-
-
-
-#import Base: circshift
-#circshift(x::NState) = NState(circshift(x.x,(0,1)))
-"""
-    Circular shift.
-    Move right if direction==true, else move left.
-"""
-function circshift(x::Vector,direction::Bool)
-    intdir = 2 * Int(direction) - 1
-     x[circshift(1:length(x),intdir)]
+    obsinfo, accept, Q, X, ll
 end
