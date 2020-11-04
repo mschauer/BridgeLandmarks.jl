@@ -72,7 +72,7 @@ function lm_mcmc(t, obsinfo, mT, P, ITER, subsamples, xinit, pars, priorθ, prio
         k = 1
         for update ∈ updatescheme
             if update == :innov
-                accinfo_, X, W, ll = update_path!(X, W, ll, Xᵒ,Wᵒ, Wnew, Q, ρ)
+                accinfo_, X, W, ll = update_path!(X, W, ll, Xᵒ, Wᵒ, Wnew, Q, ρ)
                 if adapt(i)
                     ρ = adaptpcnstep(ρ, i, accinfo[!,update], pars.η, pars.adaptskip)
                 end
@@ -91,7 +91,7 @@ function lm_mcmc(t, obsinfo, mT, P, ITER, subsamples, xinit, pars, priorθ, prio
                 if adapt(i)
                     δa = adapt_pospar_step(δa, i, accinfo[!,update], pars.η, pars.adaptskip)
                 end
-            elseif update==:matching
+            elseif update == :matching
                 obsinfo, accinfo_, Q, X, ll = update_cyclicmatching(X, ll, obsinfo, Xᵒ, W, Q)
             elseif update == :sgd_mom
                 accinfo_, X, x, ∇, ll = update_initialstate!(X,Xᵒ,W,ll, x, qᵒ, pᵒ,∇, ∇ᵒ, Q, δ, update, priormom, (dK, inv_dK))
@@ -114,9 +114,13 @@ function lm_mcmc(t, obsinfo, mT, P, ITER, subsamples, xinit, pars, priorθ, prio
         push!(parsave, getpars(Q))
 
         if mod(i,printskip) == 0
-            println();  println("iteration $i")
-            println("ρ ", ρ , ",   δ ", δ, ",   δa ", δa)
-            println(round.([mean(x) for x in eachcol(accinfo[!,1:end-1])];digits=2))
+            println();  println("iteration $i, ρ = $ρ,  δ = $δ,  δa = $δa")
+            print("Average acceptance rates over last ",  pars.adaptskip, " iterations: ")
+            if i >= pars.adaptskip
+                ac = accinfo[end-pars.adaptskip+1:end, 1:end-1]
+                println(round.([mean(x) for x in eachcol(ac)];digits=2))
+            end
+            println("parameter a and γ equal: ", getpars(Q))
         end
     end
     Xsave, parsave, accinfo, δ, ρ, δa
@@ -137,11 +141,13 @@ All Wiener increments are always updated.
 function update_path!(X, W, ll, Xᵒ,Wᵒ, Wnew, Q, ρ)
     acc = Int64[]
     x0 = X[1].yy[1]
+    ρ = rand(Uniform(0.99, 1.0))
+    ρ_ = sqrt(1.0-ρ^2)
     # From current state (x,W) with loglikelihood ll, update to (x, Wᵒ)
     for k ∈ 1:Q.nshapes
         sample!(Wnew, Wiener{Vector{PointF}}())
         for i ∈ eachindex(W[1].yy)
-            Wᵒ.yy[i] = ρ * W[k].yy[i] + sqrt(1-ρ^2) * Wnew.yy[i]
+            Wᵒ.yy[i] = ρ * W[k].yy[i] + ρ_ * Wnew.yy[i]
         end
         llᵒ, Xᵒ[k] = gp!(LeftRule(), Xᵒ[k], x0, Wᵒ, Q, k; skip=sk)
         diff_ll = llᵒ - ll[k]
@@ -158,6 +164,8 @@ function update_path!(X, W, ll, Xᵒ,Wᵒ, Wnew, Q, ρ)
     end
     mean(acc), X, W, ll
 end
+
+
 
 """
     slogρ!(q, p, Q, W, X, priormom,llout)
@@ -179,7 +187,7 @@ Main use of this function is to get gradient information of the loglikelihood wi
 ## Returns
 - loglikelihood (summed over all shapes) + the logpriordensity of the initial momenta
 """
-function slogρ!(q,p, Q, W, X, priormom,llout)
+function slogρ!(q,p, Q, W, X, priormom, llout)
     lltemp, X = gp!(LeftRule(), X, q, p, W, Q; skip=sk)   # writes into X
     llout .= ForwardDiff.value.(lltemp)
     sum(lltemp) + logpdf(priormom, p)
@@ -228,6 +236,7 @@ function update_initialstate!(X,Xᵒ,W,ll, x, qᵒ, pᵒ,∇, ∇ᵒ,
     P = Q.target;   n = P.n
     x0 = deepvec2state(x)
     q, p = split_state(x0)
+    dn = d * n
 
     if update ==:sgd_mom
         @warn "Option :sgd_mom has not been checked/tested so far; don't use as yet."
@@ -248,69 +257,73 @@ function update_initialstate!(X,Xᵒ,W,ll, x, qᵒ, pᵒ,∇, ∇ᵒ,
             ForwardDiff.gradient!(∇, u, q, cfg) # X and ll get overwritten but do not change
             stepsize = δ[1]
         end
-        if update in [:mala_mom, :rmmala_mom, :rmrw_mom]
+        if update in [:mala_mom, :rmmala_mom]
             u = slogρ_mom!(q, Q, W, X, priormom,ll)
             uᵒ = slogρ_mom!(q, Q, W, Xᵒ, priormom,llᵒ)
-            cfg = ForwardDiff.GradientConfig(u, p, ForwardDiff.Chunk{d*n}()) # d*P.n is maximal
+            cfg = ForwardDiff.GradientConfig(u, p, ForwardDiff.Chunk{dn}()) # d*P.n is maximal
             ForwardDiff.gradient!(∇, u, p, cfg) # X and ll get overwritten but do not change
-            stepsize = δ[2]
+            #stepsize = δ[2]
+            stepsize = sample(δ[2])
+        end
+        if update == :rmrw_mom
+            u = slogρ_mom!(q, Q, W, X, priormom,ll)
+            uᵒ = slogρ_mom!(q, Q, W, Xᵒ, priormom,llᵒ)
+            #stepsize = δ[2]
+            stepsize = sample(δ[2])
         end
         if update == :mala_pos
-            qᵒ .= q .+ .5 * stepsize *  ∇ .+ sqrt(stepsize) * randn(length(q))
-            cfgᵒ = ForwardDiff.GradientConfig(uᵒ, qᵒ, ForwardDiff.Chunk{d*n}())
+            ndistr = MvNormal(dn,sqrt(stepsize))
+            qᵒ .= q .+ .5 * stepsize *  ∇ .+ rand(ndistr)
+            cfgᵒ = ForwardDiff.GradientConfig(uᵒ, qᵒ, ForwardDiff.Chunk{dn}())
             ForwardDiff.gradient!(∇ᵒ, uᵒ, qᵒ, cfgᵒ)
-            ndistr = MvNormal(d * n,sqrt(stepsize))
             accinit = sum(llᵒ) - sum(ll) -
                       logpdf(ndistr, qᵒ - q - .5*stepsize * ∇) +
                       logpdf(ndistr, q - qᵒ - .5*stepsize * ∇ᵒ)
         elseif update == :mala_mom
-            pᵒ .= p .+ .5 * stepsize *  ∇ .+ sqrt(stepsize) * randn(length(p))
-            cfgᵒ = ForwardDiff.GradientConfig(uᵒ, pᵒ, ForwardDiff.Chunk{d*n}())
+            F(x,h) = x/max(1.0,0.5*h*norm(x))
+            #F(x) =  x./(1.0 .+ 0.1x)
+            ndistr = MvNormal(dn, sqrt(stepsize))
+            pᵒ .= p .+ .5 * stepsize * F(∇,stepsize) .+ rand(ndistr)
+            cfgᵒ = ForwardDiff.GradientConfig(uᵒ, pᵒ, ForwardDiff.Chunk{dn}())
             ForwardDiff.gradient!(∇ᵒ, uᵒ, pᵒ, cfgᵒ)
-            ndistr = MvNormal(d * n,sqrt(stepsize))
             accinit = sum(llᵒ) - sum(ll) -
-                      logpdf(ndistr, pᵒ - p - .5*stepsize * ∇) +
-                      logpdf(ndistr, p - pᵒ - .5*stepsize * ∇ᵒ) +
-                      logpdf(priormom, pᵒ) - logpdf(priormom, p)
+                      logpdf(ndistr, pᵒ - p - .5*stepsize * F(∇,stepsize)) +
+                      logpdf(ndistr, p - pᵒ - .5*stepsize * F(∇ᵒ,stepsize))
+                      #logpdf(priormom, pᵒ) - logpdf(priormom, p)
         elseif update == :rmmala_pos
             #dK = gramkernel(x0.q, P)
-            ndistr = MvNormal(zeros(d*n),stepsize*dK)
+            ndistr = MvNormal(stepsize*dK)
             qᵒ .= q .+ .5 * stepsize * dK * ∇ .+ rand(ndistr)
-            cfgᵒ = ForwardDiff.GradientConfig(uᵒ, qᵒ, ForwardDiff.Chunk{d*n}())
+            cfgᵒ = ForwardDiff.GradientConfig(uᵒ, qᵒ, ForwardDiff.Chunk{dn}())
             ForwardDiff.gradient!(∇ᵒ, uᵒ, qᵒ, cfgᵒ)
             dKᵒ = gramkernel(reinterpret(PointF,qᵒ), P)
-            ndistrᵒ = MvNormal(zeros(d*n),stepsize*dKᵒ)  #     ndistrᵒ = MvNormal(stepsize*deepmat(Kᵒ))
+            ndistrᵒ = MvNormal(stepsize*dKᵒ)
             accinit = sum(llᵒ) - sum(ll) -
                      logpdf(ndistr, qᵒ - q - .5*stepsize * dK * ∇) +
                      logpdf(ndistrᵒ, q - qᵒ - .5*stepsize * dKᵒ * ∇ᵒ)
         elseif update == :rmmala_mom
-             ndistr = MvNormal(zeros(d*n),stepsize*inv_dK)
+             ndistr = MvNormal(stepsize*inv_dK)
              pᵒ .= p .+ .5 * stepsize * inv_dK * ∇ .+  rand(ndistr)
-             cfgᵒ = ForwardDiff.GradientConfig(uᵒ, pᵒ, ForwardDiff.Chunk{d*n}())
+             cfgᵒ = ForwardDiff.GradientConfig(uᵒ, pᵒ, ForwardDiff.Chunk{dn}())
              ForwardDiff.gradient!(∇ᵒ, uᵒ, pᵒ, cfgᵒ) # Xᵒ gets overwritten but does not change
              accinit = sum(llᵒ) - sum(ll) -
                        logpdf(ndistr, pᵒ - p - .5*stepsize * inv_dK * ∇) +
-                       logpdf(ndistr, p - pᵒ - .5*stepsize * inv_dK * ∇ᵒ) +
-                       logpdf(priormom, pᵒ) - logpdf(priormom, p)
+                       logpdf(ndistr, p - pᵒ - .5*stepsize * inv_dK * ∇ᵒ)
        elseif update == :rmrw_mom
             ndistr = MvNormal(zeros(d*n),stepsize*inv_dK)
-            pᵒ .= p  .+  rand(ndistr)
+            pᵒ .= p  .+ rand(ndistr)
             uᵒ(pᵒ)  # writes into llᵒ, don't need gradient info here
-            accinit = sum(llᵒ) - sum(ll) + logpdf(priormom, pᵒ) - logpdf(priormom, p)  # proposal is symmetric
+            accinit = sum(llᵒ) - sum(ll)   # proposal is symmetric
         end
 
         # MH acceptance decision
         if log(rand()) <= accinit
-            # for k ∈ 1:Q.nshapes
-            #     for i ∈ eachindex(X[1].yy)
-            #         X[k].yy[i] .= Xᵒ[k].yy[i]
-            #     end
-            # end
             X = copypaths!(X,Xᵒ)
             ll .= llᵒ
             if update in [:mala_pos, :rmmala_pos]
                 x .= deepvec(merge_state(qᵒ, p))
-            elseif update in [:mala_mom, :rmmala_mom, :rmrw_mom]
+            end
+            if update in [:mala_mom, :rmmala_mom, :rmrw_mom]
                 x .= deepvec(merge_state(q, pᵒ))
             end
             accepted = 1.0
@@ -351,11 +364,12 @@ function update_pars!(X, ll, Xᵒ, W, Q , priorθ,  obsinfo, δa, δγ)
     if log(rand()) <= A
         ll .= llᵒ
         X = copypaths!(X,Xᵒ)
-            # for k ∈ 1:Q.nshapes
-            #     for i ∈ eachindex(X[1].yy)
-            #         X[k].yy[i] .= Xᵒ[k].yy[i]
-            #     end
-            # end
+        # @infiltrate
+        for k ∈ 1:Q.nshapes
+            for i ∈ eachindex(X[1].yy)
+                X[k].yy[i] .= Xᵒ[k].yy[i]
+            end
+        end
         Q = Qᵒ
         #Q = deepcopy(Qᵒ)
         accept = 1.0
@@ -373,6 +387,7 @@ Write Xᵒ into X
 """
 function copypaths!(X,Xᵒ)
     for k ∈ eachindex(X), i ∈ eachindex(X[1].yy)
+    #for k ∈ 1:m, i ∈ eachindex(X[1].yy)
             X[k].yy[i] .= Xᵒ[k].yy[i]
     end
     X
@@ -388,39 +403,15 @@ end
 Adapt the step size for updates, where tuning par has to be positive.
 The adaptation is multiplication/divsion by exp(η(n)).
 """
-function adapt_pospar_step(δ, n, accinfo, η, adaptskip = 15; targetaccept=0.5)
+function adapt_pospar_step(δ, n, accinfo, η, adaptskip; targetaccept=0.5)
     recent_mean = mean(accinfo[end-adaptskip+1:end])
     if recent_mean > targetaccept
-        return δ *= exp(η(n))
+        return δ * exp(η(n))
     else
-        return δ *= exp(-η(n))
+        return δ * exp(-η(n))
     end
 end
 
-# """
-#     adaptparstep(n,accinfo,covθprop, η;  adaptskip = 15, targetaccept=0.5)
-#
-# Adjust `covθprop-parameter` adaptively, every `adaptskip` steps.
-# For that the assumed multiplicative parameter is first tranformed to (-∞, ∞), then updated, then mapped back to (0,∞)
-# """
-# function adaptparstep(covθprop, n, accinfo, η;  adaptskip = 15, targetaccept=0.5)
-#     recent_mean = mean(accinfo[end-adaptskip+1:end])
-#     if recent_mean > targetaccept
-#         return    covθprop *= exp(2*η(n))
-#     else
-#         return    covθprop *= exp(-2*η(n))
-#     end
-# end
-
-"""
-    sigmoid(z::Real) = 1.0 / (1.0 + exp(-z))
-"""
-sigmoid(z::Real) = 1.0 / (1.0 + exp(-z))
-
-"""
-    invsigmoid(z::Real) = log(z/(1-z))
-"""
-invsigmoid(z::Real) = log(z/(1-z))
 
 """
     adaptpcnstep(n, accpcn, ρ, nshapes, η; adaptskip = 15, targetaccept=0.5)
@@ -428,13 +419,14 @@ invsigmoid(z::Real) = log(z/(1-z))
 Adjust pcN-parameter `ρ` adaptive every `adaptskip` steps.
 For that `ρ` is first tranformed to (-∞, ∞), then updated, then mapped back to (0,1)
 """
-function adaptpcnstep(ρ, n, accinfo, η, adaptskip = 15; targetaccept=0.5)
+function adaptpcnstep(ρ, n, accinfo, η, adaptskip; targetaccept=0.5)
     recentmean = mean(accinfo[end-adaptskip+1:end])
     if recentmean > targetaccept
-        return sigmoid(invsigmoid(ρ) - η(n))
+        out =  logistic(logit(ρ) - η(n))
     else
-        return sigmoid(invsigmoid(ρ) + η(n))
+        out =  logistic(logit(ρ) + η(n))
     end
+    out
 end
 
 """

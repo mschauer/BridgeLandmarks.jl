@@ -1,6 +1,6 @@
 name = "BridgeLandmarks"
 uuid = "83b8d07e-fbc4-11e9-24cb-23d125ee72bd"
-authors = ["fmeulen, mschauer <moritzschauer@web.de>"]
+authors = ["fmeulen <f.h.vandermeulen@tudelft.nl>, mschauer <moritzschauer@web.de>"]
 version = "0.3.1"
 
 [deps]
@@ -19,6 +19,7 @@ SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 TimerOutputs = "a759f4b9-e2f1-59dc-863e-4aeb61b1ea8f"
+Parameters = "d96e819e-fc66-5662-9728-84c9c7592b0a"
 
 [compat]
 Bridge = "0.10, 0.11"

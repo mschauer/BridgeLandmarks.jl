@@ -43,17 +43,18 @@ parameters is performed.
 @with_kw struct Pars_ms <: Pars
     model:: Symbol = :ms
     ρinit::Float64 = 0.95
-    η::Any = n -> min(0.2, 10/n)
+    η::Any = n -> min(0.1, 1.0/√n)
+    #η::Any = n -> min(0.2, 10/n)
     adaptskip::Int64 = 20
     σobs:: Float64 = 0.01
     dt:: Float64 = 0.01
-    aprior:: Exponential{Float64} = Exponential(1.0)
-    γprior:: Exponential{Float64} = Exponential(1.0)
+    aprior:: UnivariateDistribution = Exponential(1.0)
+    γprior:: UnivariateDistribution = Exponential(1.0)
     cinit::  Float64 = 1.0
     γinit::  Float64 = 0.1
     κ:: Float64 = 100.0
     δpos:: Float64 = 0.01
-    δmom:: Float64 = 0.01
+    δmom:: Vector{Float64} = [0.001, 0.005, 0.01, 0.005, 0.1, 0.5]
     δa:: Float64 = 0.1
     δγ:: Float64 = 0.0
     skip_saveITER:: Int64 = 10
@@ -107,19 +108,20 @@ parameters is performed.
 @with_kw struct Pars_ahs <: Pars
     model:: Symbol = :ahs
     ρinit::Float64  = 0.95
-    η::Any = n -> min(0.2, 10/n)
+    η::Any = n -> min(0.1, 1.0/√n)
     adaptskip::Int64 = 20
     σobs:: Float64 = 0.01
     dt:: Float64 = 0.01
-    aprior:: Exponential{Float64} = Exponential(1.0)
-    γprior:: Exponential{Float64} = Exponential(1.0)
+    aprior:: UnivariateDistribution = Exponential(1.0)
+    γprior:: UnivariateDistribution = Exponential(1.0)
     cinit::  Float64 = 1.0
     γinit::  Float64 = 0.1
     stdev:: Float64 = 0.75
     db::Array{Float64,1} = [2.0, 2.0]
     κ:: Float64 = 100.0
     δpos:: Float64 = 0.01
-    δmom:: Float64 = 0.01
+    δmom:: Vector{Float64} = [0.001, 0.005, 0.01, 0.005, 0.1, 0.5]
+#    δmom:: Float64 = 0.01
     δa:: Float64 = 0.1
     δγ:: Float64 = 0.0
     skip_saveITER:: Int64 = 10

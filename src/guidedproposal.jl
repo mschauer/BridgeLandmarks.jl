@@ -137,7 +137,7 @@ function lρtilde(x0, Q,k)
 end
 
 """
-    gp!(::LeftRule,  Xᵒ, x0, W, Q::GuidedProposal,k; skip = 0, ll0 = true)
+    gp!(::LeftRule,  Xᵒ, x0, W, Q::GuidedProposal,k; skip = sk, ll0 = true)
 
 Simulate guided proposal as specified in `Q` and compute loglikelihood for one shape,
 starting from `x0`, using Wiener increments `W`
@@ -148,7 +148,7 @@ Xᵒ
 ## Returns
 logliklihood.
 """
-function gp!(::LeftRule,  Xᵒ, x0, W, Q::GuidedProposal,k; skip = 0, ll0 = true)
+function gp!(::LeftRule,  Xᵒ, x0, W, Q::GuidedProposal,k; skip = sk, ll0 = true)
     Pnt = eltype(x0)
     tt =  Xᵒ.tt
     Xᵒ.yy[1] .= deepvalue(x0)
@@ -197,12 +197,12 @@ function gp!(::LeftRule,  Xᵒ, x0, W, Q::GuidedProposal,k; skip = 0, ll0 = true
 end
 
 """
-    gp!(::LeftRule,  X, x0, W, Q::GuidedProposal; skip = 0, ll0 = true)
+    gp!(::LeftRule,  X, x0, W, Q::GuidedProposal; skip = sk, ll0 = true)
 
 Simulate guided proposal and compute loglikelihood (vector version, multiple shapes)
 `x0` is assumed to be of type `State`
 """
-function gp!(::LeftRule,  X::Vector, x0, W, Q::GuidedProposal; skip = 0, ll0 = true)
+function gp!(::LeftRule,  X::Vector, x0, W, Q::GuidedProposal; skip = sk, ll0 = true)
      logliks  = zeros(deepeltype(x0), Q.nshapes)
      for k ∈ 1:Q.nshapes
          logliks[k], X[k] = gp!(LeftRule(), X[k],x0,W[k],Q, k ;skip=skip,ll0=ll0)
@@ -211,12 +211,12 @@ function gp!(::LeftRule,  X::Vector, x0, W, Q::GuidedProposal; skip = 0, ll0 = t
 end
 
 """
-    gp!(::LeftRule,  X::Vector, q, p , W, Q::GuidedProposal; skip = 0, ll0 = true)
+    gp!(::LeftRule,  X::Vector, q, p , W, Q::GuidedProposal; skip = sk, ll0 = true)
 
 Simulate guided proposal and compute loglikelihood (vector version, multiple shapes)
 `q` and `p` make up a state (could in fact be turned into the intial state by `merge_state(q,p)`)
 """
-function gp!(::LeftRule,  X::Vector, q, p , W, Q::GuidedProposal; skip = 0, ll0 = true)
+function gp!(::LeftRule,  X::Vector, q, p , W, Q::GuidedProposal; skip = sk, ll0 = true)
     T = typeof(q[1] + p[1])
     x0 = NState(reinterpret(Point{T}, T.(q)),reinterpret(Point{T}, T.(p)))
     logliks  = zeros(deepeltype(x0), Q.nshapes)
@@ -266,7 +266,7 @@ function adjust_to_newpars(Q::GuidedProposal,θᵒ, obsinfo)
     aux = [auxiliary(target,State(Q.xobsT[k],Q.mT[k])) for k ∈ 1:Q.nshapes]
     Qnew = GuidedProposal(target, aux, Q.tt, Q.xobs0, Q.xobsT, Q.guidrec,Q.nshapes, Q.mT)
     out = update_guidrec!(Qnew, obsinfo)
-    
+
 
     out
 end

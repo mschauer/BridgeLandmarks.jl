@@ -8,7 +8,8 @@
         ITER = 100,
         outdir=@__DIR__,
         Σobs = nothing,
-        ainit = nothing
+        ainit = nothing,
+        printskip=20
     )
 
 ## Arguments
@@ -16,7 +17,7 @@
 - `xobsT`: Array of PointF (coordinats of shape at time T)
 
 ## Optional arguments
-- `pars`: either `pars_ms()`` or `pars_ahs()`` (this selects the model and default parameter values)
+- `pars`: either `pars_ms() or `pars_ahs()` (this selects the model and default parameter values)
 - `updatescheme`: array of mcmc updates
 - `ITER`: number of iterations
 - `outdir`: path of directory to which output is written
@@ -82,12 +83,12 @@ function landmarksmatching(
 
     ################## prior specification with θ = (a, c, γ) ########################
     priorθ = product_distribution([pars.aprior, pars.γprior])
-    priormom = MvNormalCanon(zeros(d*n), gramkernel(xobs0,P)/pars.κ)
+    priormom = MvNormalCanon(gramkernel(xobs0,P)/pars.κ)
 
     xinit = State(xobs0, zeros(PointF,P.n))
     mT = zeros(PointF, n)
 
-    
+
     start = time()
           Xsave, parsave, accinfo, δ, ρ, δa =
                 lm_mcmc(tt, obsinfo, mT, P, ITER, subsamples, xinit, pars, priorθ, priormom, updatescheme, outdir,printskip)

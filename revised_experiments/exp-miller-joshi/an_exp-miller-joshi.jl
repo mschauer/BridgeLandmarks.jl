@@ -11,11 +11,12 @@ using DelimitedFiles
 
 
 Random.seed!(9)
-workdir = @__DIR__
-cd(workdir)
-outdir = workdir
+
+outdir = "/Users/Frank/Sync/DOCUMENTS/onderzoek/BL_output/millerjoshi"
 
 # read data
+workdir = @__DIR__
+cd(workdir)
 d1 = readdlm("dataset1.csv",',')
 d2 = readdlm("dataset2.csv",',')
 n = 12
