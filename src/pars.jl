@@ -54,7 +54,7 @@ parameters is performed.
     γinit::  Float64 = 0.1
     κ:: Float64 = 100.0
     δpos:: Float64 = 0.01
-    δmom:: Vector{Float64} = [0.001, 0.005, 0.01, 0.005, 0.1, 0.5]
+    δmom:: Vector{Float64} = [0.001, 0.01, 0.1, 0.5]
     δa:: Float64 = 0.1
     δγ:: Float64 = 0.0
     skip_saveITER:: Int64 = 10
@@ -120,7 +120,7 @@ parameters is performed.
     db::Array{Float64,1} = [2.0, 2.0]
     κ:: Float64 = 100.0
     δpos:: Float64 = 0.01
-    δmom:: Vector{Float64} = [0.001, 0.005, 0.01, 0.005, 0.1, 0.5]
+    δmom:: Vector{Float64} = [0.001, 0.01, 0.1, 0.5]
 #    δmom:: Float64 = 0.01
     δa:: Float64 = 0.1
     δγ:: Float64 = 0.0

@@ -9,7 +9,7 @@ using Distributions
 using GaussianDistributions
 using SparseArrays
 using Parameters
-using StatsFuns
+
 
 
 using LinearAlgebra, Base.Iterators
@@ -19,6 +19,7 @@ using DelimitedFiles
 using CSV
 using RCall
 using Setfield
+using StatsFuns
 
 # using TimerOutputs
 # const to = TimerOutput()
