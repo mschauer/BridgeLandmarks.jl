@@ -61,7 +61,7 @@ function lm_mcmc(t, obsinfo, mT, P, ITER, subsamples, xinit, pars, priorθ, prio
 
     δ = [pars.δpos, pars.δmom, pars.δsgd_mom]
     δa, δγ = pars.δa, pars.δγ
-    ρ = pars.ρinit
+    ρ = pars.ρlowerbound
     adapt(i) = (i > 1.5*pars.adaptskip) & (mod(i,pars.adaptskip)==0)
 
     x0 = X[1].yy[1]
