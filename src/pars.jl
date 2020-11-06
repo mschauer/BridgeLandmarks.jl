@@ -5,15 +5,12 @@ abstract type Pars end
 
 Besides initial values for (c,γ), the values that are most likely to require adjustments are `covθprop`, `δpos`, `δmom`
 
-- `ρinit`: initial value for ρ, this is a a number in [0,1). Wiener innovations are updated according to
+- `ρlowerbound`: lower bound for ρ, this is a a number in [0,1). Wiener innovations are updated according to
     W_new = ρinit * W_old + sqrt(1-ρinit^2) * W_ind
-where W_ind is an independnet Wiener process. Note that the value of ρinit is adapted during mcmc-iterations.
-
-- `covθprop`. For the parameter θ = (a,c,γ) we use Random-Walk updates on log(θ), according to
-log(θᵒ) = log(θ) + N(0, covθprop)
+where W_ind is an independnet Wiener process. At each iteration, ρ is sampled uniformly on [ρlowerbound, 1]
 
 - `η`: Stepsize cooling function for the adaptation to ensure diminishing adaptation.
-Set at n -> min(0.2, 10/n)
+Set at n -> min(0.1, 1.0/√n)
 
 - `adaptskip`: to define guided proposals, we need to plug-in a momentum vector at time T. This is unobserved, and by default initialised as the zero vector. Now every `adaptskip` iterations, `mT` is updated to the value obtained in that iteration. In addition, every `adaptskip` iterations, adaptive tuning of mcmc
 parameters is performed.
@@ -42,9 +39,8 @@ parameters is performed.
 """
 @with_kw struct Pars_ms <: Pars
     model:: Symbol = :ms
-    ρinit::Float64 = 0.95
-    η::Any = n -> min(0.1, 1.0/√n)
-    #η::Any = n -> min(0.2, 10/n)
+    ρlowerbound::Float64 = 0.99
+    η::Any = n -> min(0.1, 1.0/√n)      #min(0.2, 10/n)
     adaptskip::Int64 = 20
     σobs:: Float64 = 0.01
     dt:: Float64 = 0.01
@@ -55,6 +51,7 @@ parameters is performed.
     κ:: Float64 = 100.0
     δpos:: Float64 = 0.01
     δmom:: Vector{Float64} = [0.001, 0.01, 0.1, 0.5]
+    δsgd_mom:: Float64 = 0.01
     δa:: Float64 = 0.1
     δγ:: Float64 = 0.0
     skip_saveITER:: Int64 = 10
@@ -66,15 +63,12 @@ end
 
 Besides initial values for (c,γ), the values that are most likely to require adjustments are `covθprop`, `δpos`, `δmom`, `stdev`, `db`
 
-- `ρinit`: initial value for ρ, this is a a number in [0,1). Wiener innovations are updated according to
-    W_new = ρinit * W_old + sqrt(1-ρinit^2) * W_ind
-where W_ind is an independnet Wiener process. Note that the value of ρinit is adapted during mcmc-iterations.
-
-- `covθprop`. For the parameter θ = (a,c,γ) we use Random-Walk updates on log(θ), according to
-log(θᵒ) = log(θ) + N(0, covθprop)
+- `ρlowerbound`: lower bound for ρ, this is a a number in [0,1). Wiener innovations are updated according to
+        W_new = ρinit * W_old + sqrt(1-ρinit^2) * W_ind
+    where W_ind is an independnet Wiener process. At each iteration, ρ is sampled uniformly on [ρlowerbound, 1]
 
 - `η`: Stepsize cooling function for the adaptation to ensure diminishing adaptation.
-Set at n -> min(0.2, 10/n)
+Set at n -> min(0.1, 1.0/√n)
 
 - `adaptskip`: to define guided proposals, we need to plug-in a momentum vector at time T. This is unobserved, and by default initialised as the zero vector. Now every `adaptskip` iterations, `mT` is updated to the value obtained in that iteration. In addition, every `adaptskip` iterations, adaptive tuning of mcmc
 parameters is performed.
@@ -107,7 +101,7 @@ parameters is performed.
 """
 @with_kw struct Pars_ahs <: Pars
     model:: Symbol = :ahs
-    ρinit::Float64  = 0.95
+    ρlowerbound::Float64 = 0.99
     η::Any = n -> min(0.1, 1.0/√n)
     adaptskip::Int64 = 20
     σobs:: Float64 = 0.01
@@ -121,7 +115,7 @@ parameters is performed.
     κ:: Float64 = 100.0
     δpos:: Float64 = 0.01
     δmom:: Vector{Float64} = [0.001, 0.01, 0.1, 0.5]
-#    δmom:: Float64 = 0.01
+    δsgd_mom:: Float64 = 0.1
     δa:: Float64 = 0.1
     δγ:: Float64 = 0.0
     skip_saveITER:: Int64 = 10

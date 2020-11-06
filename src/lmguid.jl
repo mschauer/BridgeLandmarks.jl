@@ -59,7 +59,7 @@ function lm_mcmc(t, obsinfo, mT, P, ITER, subsamples, xinit, pars, priorθ, prio
     accinfo = DataFrame(fill([], length(updatescheme)+1), [updatescheme...,:iteration]) # columns are all update types + 1 column for iteration number
     acc = zeros(ncol(accinfo))
 
-    δ = [pars.δpos, pars.δmom]
+    δ = [pars.δpos, pars.δmom, pars.δsgd_mom]
     δa, δγ = pars.δa, pars.δγ
     ρ = pars.ρinit
     adapt(i) = (i > 1.5*pars.adaptskip) & (mod(i,pars.adaptskip)==0)
@@ -138,10 +138,10 @@ All Wiener increments are always updated.
 - `W`: innovations
 - `ll`: vector of loglikehoods (k-th element is for the k-th shape)
 """
-function update_path!(X, W, ll, Xᵒ,Wᵒ, Wnew, Q, ρ)
+function update_path!(X, W, ll, Xᵒ,Wᵒ, Wnew, Q, ρlowerbound)
     acc = Int64[]
     x0 = X[1].yy[1]
-    ρ = rand(Uniform(0.99, 1.0))
+    ρ = rand(Uniform(ρlowerbound, 1.0))
     ρ_ = sqrt(1.0-ρ^2)
     # From current state (x,W) with loglikelihood ll, update to (x, Wᵒ)
     for k ∈ 1:Q.nshapes
@@ -239,13 +239,17 @@ function update_initialstate!(X,Xᵒ,W,ll, x, qᵒ, pᵒ,∇, ∇ᵒ,
     dn = d * n
 
     if update ==:sgd_mom
-        @warn "Option :sgd_mom has not been checked/tested so far; don't use as yet."
+        # @warn "Option :sgd_mom has not been checked/tested so far; don't use as yet."
+        for k ∈ 1:Q.nshapes
+            sample!(W[k], Wiener{Vector{PointF}}())
+        end
         u = slogρ_mom!(q, Q, W, X, priormom,ll)
-        cfg = ForwardDiff.GradientConfig(u, p, ForwardDiff.Chunk{d*n}()) # d*P.n is maximal
+        cfg = ForwardDiff.GradientConfig(u, p, ForwardDiff.Chunk{dn}()) # d*P.n is maximal
         ForwardDiff.gradient!(∇, u, p, cfg) # X gets overwritten but does not change
-        pᵒ = p .- δ[2] * ∇
+        pᵒ = p .- δ[3] * ∇ # trun(∇, δ[3])
         x0ᵒ = merge_state(q, pᵒ)
         ll, X = gp!(LeftRule(), X, x0ᵒ, W, Q)
+        x .= deepvec(x0ᵒ)
         accepted = 1.0
     else
         accinit = 0.0
@@ -280,15 +284,13 @@ function update_initialstate!(X,Xᵒ,W,ll, x, qᵒ, pᵒ,∇, ∇ᵒ,
                       logpdf(ndistr, qᵒ - q - .5*stepsize * ∇) +
                       logpdf(ndistr, q - qᵒ - .5*stepsize * ∇ᵒ)
         elseif update == :mala_mom
-            F(x,h) = x/max(1.0,0.5*h*norm(x))
-            #F(x) =  x./(1.0 .+ 0.1x)
             ndistr = MvNormal(dn, sqrt(stepsize))
-            pᵒ .= p .+ .5 * stepsize * F(∇,stepsize) .+ rand(ndistr)
+            pᵒ .= p .+ .5 * stepsize * trun(∇,stepsize) .+ rand(ndistr)
             cfgᵒ = ForwardDiff.GradientConfig(uᵒ, pᵒ, ForwardDiff.Chunk{dn}())
             ForwardDiff.gradient!(∇ᵒ, uᵒ, pᵒ, cfgᵒ)
             accinit = sum(llᵒ) - sum(ll) -
-                      logpdf(ndistr, pᵒ - p - .5*stepsize * F(∇,stepsize)) +
-                      logpdf(ndistr, p - pᵒ - .5*stepsize * F(∇ᵒ,stepsize))
+                      logpdf(ndistr, pᵒ - p - .5*stepsize * trun(∇,stepsize)) +
+                      logpdf(ndistr, p - pᵒ - .5*stepsize * trun(∇ᵒ,stepsize))
                       #logpdf(priormom, pᵒ) - logpdf(priormom, p)
         elseif update == :rmmala_pos
             #dK = gramkernel(x0.q, P)
@@ -334,6 +336,12 @@ function update_initialstate!(X,Xᵒ,W,ll, x, qᵒ, pᵒ,∇, ∇ᵒ,
     accepted, X, x, ∇, ll
 end
 
+"""
+    trun(x,h) = x/max(1.0,0.5*h*norm(x))
+
+useful function for truncated version of mala
+"""
+trun(x,h) = x/max(1.0,0.5*h*norm(x))
 
 
 """
@@ -437,6 +445,7 @@ Convenience function to show the available implemted updates.
 function show_updates()
     println("Available implemented update steps are:")
     println(":innov")
+    println(":sgd_mom")
     println(":mala_mom, :rmmala_mom, :rmrw_mom")
     println(":mala_pos, :rmmala_pos")
     println(":parameter, :matching")
