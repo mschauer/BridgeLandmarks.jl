@@ -9,16 +9,13 @@ using Distributions
 using GaussianDistributions
 using SparseArrays
 using Parameters
-
-
-
 using LinearAlgebra, Base.Iterators
 using PDMats
 using JLD2
 using DelimitedFiles
 using CSV
 using RCall
-using Setfield
+#using Setfield
 using StatsFuns
 
 # using TimerOutputs
@@ -26,8 +23,8 @@ using StatsFuns
 
 dir() = joinpath(@__DIR__, "..")
 
-const d = 1
-const sk = 2  # entries to skip for likelihood evaluation
+const d = 2
+const sk = 1  # entries to skip for likelihood evaluation
 const itostrat =  true
 
 import Bridge: kernelr3!, R3!, target, auxiliary, constdiff, llikelihood, _b!, B!, σ!, b!
