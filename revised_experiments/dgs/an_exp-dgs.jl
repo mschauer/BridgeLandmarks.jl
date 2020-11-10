@@ -26,6 +26,7 @@ outdir_ahs = mkpath(dir2)
 dat = load("data_exp-dgs.jld2")
 xobs0 = dat["xobs0"]
 xobsT = dat["xobsT"]
+n = length(xobs0)
 
 
 ################ settings and mcmc #################################

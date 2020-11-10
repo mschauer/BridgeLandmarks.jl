@@ -75,13 +75,15 @@ function drawobjective(objvals)
 end
 
 """
-    Useful for storage of a samplepath of states
-    Ordering is as follows:
-    1) time
-    2) landmark nr
-    3) for each landmark: q1, q2 p1, p2
+    convert_samplepath(X)
 
-    With m time-steps, n landmarks, this entails a vector of length m * n * 2 * d
+Useful for storage of a samplepath of states
+Ordering is as follows:
+1) time
+2) landmark nr
+3) for each landmark: q1, q2 p1, p2
+
+With m time-steps, n landmarks, this entails a vector of length m * n * 2 * d
 """
 function convert_samplepath(X)
     VA = VectorOfArray(map(x->deepvec(x),X.yy))
@@ -89,14 +91,16 @@ function convert_samplepath(X)
 end
 
 """
-    Useful for storage of a samplepath of states
-    Ordering is as follows:
-    0) shape
-    1) time
-    2) landmark nr
-    3) for each landmark: q1, q2 p1, p2
+    convert_samplepath(Xvec::Vector)
 
-    With m time-steps, n landmarks, this entails a vector of length m * n * 2 * d
+Useful for storage of a samplepath of states
+Ordering is as follows:
+0) shape
+1) time
+2) landmark nr
+3) for each landmark: q1, q2 p1, p2
+
+With m time-steps, n landmarks, this entails a vector of length m * n * 2 * d
 """
 function convert_samplepath(Xvec::Vector)
     nshapes = length(Xvec)
