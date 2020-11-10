@@ -44,3 +44,40 @@ W = [BL.initSamplePath(t,  zeros(PointF, BL.dimwiener(P))) for _ ∈ 1:nshapes]
 for k ∈ 1:nshapes   sample!(W[k], BL.Wiener{Vector{PointF}}())  end
 
 ll, X = BL.gp!(BL.LeftRule(), X, xinit, W, Q; skip=sk)
+#only one shape
+Xpath = X[1]
+
+
+"""
+    extract_initial_and_endstate(iteratenr::Int64, Xpath)
+
+Extract from a sample path its state at time zero and time T (endtime)
+
+iteratnr:: integer that indicates iteration.nr in mcmc-algorithm
+Xpath:: Bridge.Samplepath
+
+Returns a matrix with first column iteratenr repeated, second column state at time zero, third column state a time T
+
+The second and third column as ordered as follows (in case of two dimensional landmarks):
+landmark 1 pos1
+landmark 1 pos2
+landmark 1 mom1
+landmark 1 mom2
+
+landmark 2 pos1
+landmark 2 pos2
+landmark 2 mom1
+landmark 2 mom2
+
+...
+"""
+function extract_initial_and_endstate(iteratenr::Int64, Xpath)
+    iteratenr = 5
+    X0 = deepvec(Xpath.yy[1])  # state at time zero
+    XT = deepvec(Xpath.yy[end]) # state at time T
+    ℓ = length(XT)
+    out = [fill(iteratenr, ℓ) X0 XT]
+    out
+end
+
+extract_initial_and_endstate(5, Xpath)
