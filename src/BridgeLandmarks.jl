@@ -33,8 +33,9 @@ export Lmplotbounds, extractcomp, tc
 export d, sk, to
 
 #plotlandmarkpositions = Ref{Any}((args...) -> nothing )
-#include("state.jl")
+
 include("nstate.jl")
+include("state.jl")
 
 include("backwardsfiltering.jl")
 include("guidedproposal.jl")

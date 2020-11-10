@@ -90,11 +90,11 @@ function landmarksmatching(
 
 
     start = time()
-          Xsave, parsave, accinfo, δ, ρ, δa =
+          Xsave, parsave, initendstates_save, accinfo, δ, ρ, δa =
                 lm_mcmc(tt, obsinfo, mT, P, ITER, subsamples, xinit, pars, priorθ, priormom, updatescheme, outdir,printskip)
     elapsed = time() - start
 
-    write_output(obsinfo.xobs0, obsinfo.xobsT, parsave, Xsave, elapsed, accinfo, tt, n,nshapes,subsamples,ITER, updatescheme, Σobs, pars, ρ, δ, P, outdir)
+    write_output(obsinfo.xobs0, obsinfo.xobsT, parsave, Xsave, initendstates_save, elapsed, accinfo, tt, n,nshapes,subsamples,ITER, updatescheme, Σobs, pars, ρ, δ, P, outdir)
     nothing
 end
 

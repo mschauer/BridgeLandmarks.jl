@@ -36,8 +36,39 @@ function convert_samplepath(Xvec::Vector)
 end
 
 
+"""
+    extract_initial_and_endstate(iteratenr::Int64, Xpath)
 
-function write_output(xobs0, xobsT, parsave, Xsave, elapsed,accinfo,tt,n,nshapes,subsamples,ITER, updatescheme, Σobs, pars, ρ, δ,P, outdir)
+Extract from a sample path its state at time zero and time T (endtime)
+
+iteratnr:: integer that indicates iteration.nr in mcmc-algorithm
+Xpath:: Bridge.Samplepath
+
+Returns a matrix with first column iteratenr repeated, second column state at time zero, third column state a time T
+
+The second and third column as ordered as follows (in case of two dimensional landmarks):
+landmark 1 pos1
+landmark 1 pos2
+landmark 1 mom1
+landmark 1 mom2
+
+landmark 2 pos1
+landmark 2 pos2
+landmark 2 mom1
+landmark 2 mom2
+
+...
+"""
+function extract_initial_and_endstate(iteratenr::Int64, Xpath)
+    X0 = deepvec(Xpath.yy[1])  # state at time zero
+    XT = deepvec(Xpath.yy[end]) # state at time T
+    ℓ = length(XT)
+    out = [fill(iteratenr, ℓ) X0 XT]
+    out
+end
+
+
+function write_output(xobs0, xobsT, parsave, Xsave, initendstates_save, elapsed, accinfo,tt, n,nshapes, subsamples,ITER, updatescheme, Σobs, pars, ρ, δ,P, outdir)
     println("Elapsed time: ",round(elapsed/60;digits=2), " minutes")
     ave_acc = [mean(x) for x in eachcol(accinfo[!,1:end-1])]
     println("Average acceptance of updatesteps: ", round.(ave_acc;digits=2))
@@ -47,6 +78,7 @@ function write_output(xobs0, xobsT, parsave, Xsave, elapsed,accinfo,tt,n,nshapes
     write_acc(accinfo,outdir)
     write_params(parsave, 0:ITER, outdir)
     write_noisefields(P, outdir)
+    write_initendstates(initendstates_save, n, outdir)
 end
 
 
@@ -196,4 +228,31 @@ function write_noisefields(P,outdir)
         nfsdf =DataFrame(locx=Int64[], locy=Int64[], nfstd=Int64[])
     end
     CSV.write(joinpath(outdir, "noisefields.csv"), nfsdf; delim=";")
+end
+
+
+"""
+    write_initendstates(initendstates_save)
+
+initendstates_save is an Array of matrices, each matrix corresponding to one iteration, with ordering as
+specified in `extract_initial_and_endstate`
+"""
+function write_initendstates(initendstates_save, n, outdir)
+    a = initendstates_save
+
+    A = DataFrame(vcat(a...))
+    rename!(A, ["iterate", "time0", "time1"])
+    N = div(nrow(A),2d)
+    if d==1
+        lab = repeat(["pos1", "mom1"], N)
+    elseif d==2
+        lab = repeat(["pos1","pos2", "mom1", "mom2"], N)
+    elseif d==3
+        lab = repeat(["pos1","pos2","pos3", "mom1", "mom2", "mom3"], N)
+    end
+    A[!,:type] = lab
+    A[!,:iterate] = Int.(A[!,:iterate])
+    landmarkid = repeat(1:n, inner=2d, outer=length(a))
+    A[!,:landmarkid] = landmarkid
+    CSV.write(joinpath(outdir, "initendstates.csv"), A; delim=";")
 end

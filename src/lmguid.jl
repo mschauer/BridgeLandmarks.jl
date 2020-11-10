@@ -59,6 +59,7 @@ function lm_mcmc(t, obsinfo, mT, P, ITER, subsamples, xinit, pars, priorθ, prio
     push!(Xsave, convert_samplepath(X))
     parsave = Vector{Float64}[]
     push!(parsave, getpars(Q))
+    initendstates_save = [extract_initial_and_endstate(0,X[1]) ]
     accinfo = DataFrame(fill([], length(updatescheme)+1), [updatescheme...,:iteration]) # columns are all update types + 1 column for iteration number
     acc = zeros(ncol(accinfo))
 
@@ -111,10 +112,11 @@ function lm_mcmc(t, obsinfo, mT, P, ITER, subsamples, xinit, pars, priorθ, prio
         end
 
         # save some of the results
-        if i in subsamples
+        if i ∈ subsamples
             push!(Xsave, convert_samplepath(X))
         end
         push!(parsave, getpars(Q))
+        push!(initendstates_save, extract_initial_and_endstate(i,X[1]))
 
         if mod(i,printskip) == 0
             println();  println("iteration $i, ρ = $ρ,  δ = $δ,  δa = $δa")
@@ -126,7 +128,7 @@ function lm_mcmc(t, obsinfo, mT, P, ITER, subsamples, xinit, pars, priorθ, prio
             println("parameter a and γ equal: ", getpars(Q))
         end
     end
-    Xsave, parsave, accinfo, δ, ρ, δa
+    Xsave, parsave, initendstates_save, accinfo, δ, ρ, δa
 end
 
 """

@@ -1,3 +1,4 @@
+using StaticArrays
 # A small example useful for testing purposes
 
 n = 7
@@ -13,7 +14,7 @@ pars = Pars_ms(γinit=1.0/√n, aprior=Pareto(1.0, 0.1), η =  n -> 0.0, dt = 0.
 pars = Pars_ahs(db=[3.0, 2.0],stdev=.5,γinit=.1, aprior=Pareto(1.0, 0.1), η =  n -> 0.0, dt = 0.01, ρlowerbound=0.9)
 
 Σobs = fill([pars.σobs^2 * one(UncF) for i in 1:n],2) # noise on observations
-end
+
 T = 1.0; t = 0.0:pars.dt:T; tt = tc(t,T)
 obs_atzero = true
 fixinitmomentato0 = false
@@ -48,36 +49,10 @@ ll, X = BL.gp!(BL.LeftRule(), X, xinit, W, Q; skip=sk)
 Xpath = X[1]
 
 
-"""
-    extract_initial_and_endstate(iteratenr::Int64, Xpath)
-
-Extract from a sample path its state at time zero and time T (endtime)
-
-iteratnr:: integer that indicates iteration.nr in mcmc-algorithm
-Xpath:: Bridge.Samplepath
-
-Returns a matrix with first column iteratenr repeated, second column state at time zero, third column state a time T
-
-The second and third column as ordered as follows (in case of two dimensional landmarks):
-landmark 1 pos1
-landmark 1 pos2
-landmark 1 mom1
-landmark 1 mom2
-
-landmark 2 pos1
-landmark 2 pos2
-landmark 2 mom1
-landmark 2 mom2
-
-...
-"""
-function extract_initial_and_endstate(iteratenr::Int64, Xpath)
-    iteratenr = 5
-    X0 = deepvec(Xpath.yy[1])  # state at time zero
-    XT = deepvec(Xpath.yy[end]) # state at time T
-    ℓ = length(XT)
-    out = [fill(iteratenr, ℓ) X0 XT]
-    out
-end
-
-extract_initial_and_endstate(5, Xpath)
+a = [extract_initial_and_endstate(5, Xpath)]
+push!(a, extract_initial_and_endstate(555, Xpath))
+A =vcat(a...)
+B = DataFrame(A)
+rename!(B, ["iterate", "time0", "time1"])
+N = div(nrow(B),2d)
+B[!,:type] = repeat(["pos1", "pos2", "mom1", "mom2"], N)
