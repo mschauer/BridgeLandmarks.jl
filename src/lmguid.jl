@@ -29,7 +29,10 @@ Backward ODEs used are in terms of the LMμ-parametrisation
 - `covθprop`: value of `covθprop` at the final iteration of the algorithm
 """
 function lm_mcmc(t, obsinfo, mT, P, ITER, subsamples, xinit, pars, priorθ, priormom, updatescheme, outdir, printskip)
-    lt = length(t);   StateW = PointF;    dwiener = dimwiener(P);   nshapes = obsinfo.nshapes
+    lt = length(t)
+    StateW = PointF
+    dwiener = dimwiener(P)
+    nshapes = obsinfo.nshapes
 
     guidrec = [GuidRecursions(t,obsinfo)  for _ ∈ 1:nshapes]  # initialise guiding terms
     Paux = [auxiliary(P, State(obsinfo.xobsT[k],mT)) for k ∈ 1:nshapes] # auxiliary process for each shape

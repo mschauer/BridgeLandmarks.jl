@@ -12,8 +12,6 @@ using LinearAlgebra
 using Base.Iterators
  using PDMats
  using Parameters
- using Plots 
-using RCall 
 using RecursiveArrayTools 
 using SparseArrays
 using StaticArrays
@@ -30,30 +28,41 @@ import Bridge: kernelr3!, R3!, target, auxiliary, constdiff, llikelihood, _b!, B
 export Point, PointF, Unc, UncF, State, deepvec
 
 export Landmarks, LandmarksAux, MarslandShardlow, MarslandShardlowAux, Pars_ms, Pars_ahs, FlatPrior, show_updates
-export landmarksforward, itostrat, construct_nfs, lm_mcmc, gramkernel, landmarksmatching, template_estimation, plotlandmarksmatching, plottemplate_estimation
+export landmarksforward, itostrat, construct_nfs, lm_mcmc, gramkernel, landmarksmatching, template_estimation#, plotlandmarksmatching, plottemplate_estimation
 export Lmplotbounds, extractcomp, tc
 export d, sk, to
 
-plotlandmarkpositions = Ref{Any}((args...) -> nothing )
-
+#plotlandmarkpositions = Ref{Any}((args...) -> nothing )
+#include("state.jl")
 include("nstate.jl")
-include("state.jl")
-include("models.jl")
-include("patches.jl")
-#include("plotlandmarks.jl")  # keep, but presently unused as all is transferred to plotting in R
-include("plotting.jl")
 
-include("pars.jl")  # set tuning pars
-include("obsinfo.jl") # set observation info
-include("guidedproposal.jl")
 include("backwardsfiltering.jl")
+include("guidedproposal.jl")
+include("landmarksmatching.jl")
 include("lmguid.jl")  # contains main routines for mcmc
+include("models.jl")
+
+include("obsinfo.jl") # set observation info
+include("pars.jl")  # set tuning pars
+include("patches.jl")
 include("postprocessing.jl")
+
+include("template_estimation.jl")
 include("updatematching.jl")
 
-include("landmarksmatching.jl")
-include("template_estimation.jl")
-include("basic_outplots.jl")
+
+
+
+
+
+
+
+
+
+
+
+# include("basic_outplots.jl")
+# include("plotting.jl")
 
 
 end # module

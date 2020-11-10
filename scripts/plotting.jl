@@ -74,43 +74,6 @@ function drawobjective(objvals)
     png(sc2,"stochlogp.png")
 end
 
-"""
-    convert_samplepath(X)
-
-Useful for storage of a samplepath of states
-Ordering is as follows:
-1) time
-2) landmark nr
-3) for each landmark: q1, q2 p1, p2
-
-With m time-steps, n landmarks, this entails a vector of length m * n * 2 * d
-"""
-function convert_samplepath(X)
-    VA = VectorOfArray(map(x->deepvec(x),X.yy))
-    vec(convert(Array,VA))
-end
-
-"""
-    convert_samplepath(Xvec::Vector)
-
-Useful for storage of a samplepath of states
-Ordering is as follows:
-0) shape
-1) time
-2) landmark nr
-3) for each landmark: q1, q2 p1, p2
-
-With m time-steps, n landmarks, this entails a vector of length m * n * 2 * d
-"""
-function convert_samplepath(Xvec::Vector)
-    nshapes = length(Xvec)
-    out = [convert_samplepath(Xvec[1])]
-    for k in 2:nshapes
-        push!(out,convert_samplepath(Xvec[k]))
-    end
-    vcat(out...)
-end
-
 
 
 """

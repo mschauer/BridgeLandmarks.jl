@@ -84,10 +84,6 @@ function Bridge.solve!(solver::EulerMaruyama!, Y::SamplePath, u, W::SamplePath, 
 
     y = u + tmp1*dt + tmp2
 
-    #dump(y)
-    #error("here")
-
-
     for i in 2:N-1
         t¯ = tt[i]
         dt = tt[i+1] - t¯
@@ -305,7 +301,7 @@ function landmarksforward(t, x0::State{Pnt}, P) where Pnt
     # forward simulate landmarks
     X = initSamplePath(t,x0)
     #println("Solve for forward process:")
-    solve!(EulerMaruyama!(), X, x0, W, P)  #@time solve!(StratonovichHeun!(), X, x0, W, P)
+    solve!(EulerMaruyama!(), X, x0, W, P)  
     W, X
 end
 
