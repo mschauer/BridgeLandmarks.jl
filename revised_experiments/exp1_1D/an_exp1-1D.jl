@@ -35,9 +35,9 @@ nshapes = dat["nshapes"]
 ################ settings and mcmc #################################
 ups = [:innov, :mala_mom, :parameter]
 adaptskip = 100
-skip_saveITER = 10
+skip_saveITER = 100
 printskip = 1000
-ITER = 25_000
+ITER = 300#25_000
 
 ups = [:innov, :mala_mom]
 p_ms = Pars_ms(γinit=1.0/√n, aprior=Pareto(1.0, 0.1), η =  n -> 0.0, dt = 0.001,

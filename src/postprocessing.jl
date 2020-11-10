@@ -39,7 +39,7 @@ end
 """
     extract_initial_and_endstate(iteratenr::Int64, Xpath)
 
-Extract from a sample path its state at time zero and time T (endtime)
+Extract from a sample path its states at time zero and time T (endtime)
 
 iteratnr:: integer that indicates iteration.nr in mcmc-algorithm
 Xpath:: Bridge.Samplepath
@@ -234,8 +234,8 @@ end
 """
     write_initendstates(initendstates_save)
 
-initendstates_save is an Array of matrices, each matrix corresponding to one iteration, with ordering as
-specified in `extract_initial_and_endstate`
+initendstates_save is an Array of matrices, each matrix corresponding to one iteration,
+with ordering as specified in `extract_initial_and_endstate`
 """
 function write_initendstates(initendstates_save, n, outdir)
     a = initendstates_save

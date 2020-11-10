@@ -38,7 +38,7 @@ ups = [:innov, :mala_mom, :parameter]
 adaptskip = 100
 skip_saveITER = 100
 printskip = 1000
-ITER = 1000#2_000
+ITER = 25_000
 
 p_ms = Pars_ms(γinit=1.0/√n, aprior=Pareto(1.0, 0.1), η =  n -> 0.0, dt = 0.01,
                 adaptskip=adaptskip, skip_saveITER=skip_saveITER, ρlowerbound=0.9)
