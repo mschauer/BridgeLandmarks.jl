@@ -36,19 +36,12 @@ skip_saveITER = 10
 printskip = 1000
 ITER = 300#2_000
 
-p_ms = Pars_ms(γinit=1.0/√n, aprior=Pareto(1.0, 0.1), η =  n -> 0.0, dt = 0.01,
+δmom = [0.01*(d*n)^(-1/6)]
+
+p_ms = Pars_ms(δmom=δmom,  γinit=1.0/√n, aprior=Pareto(1.0, 0.1), η =  n -> 0.0, dt = 0.01,
                 adaptskip=adaptskip, skip_saveITER=skip_saveITER, ρlowerbound=0.9)
 landmarksmatching(xobs0,xobsT; ITER=ITER, pars=p_ms, updatescheme=ups, printskip=printskip, outdir=outdir_ms)
 
-p_ahs = Pars_ahs(db=[2.0, 2.0],stdev=.5,γinit=.1, aprior=Pareto(1.0, 0.1), η =  n -> 0.0, dt = 0.01,
+p_ahs = Pars_ahs(δmom=δmom,  db=[2.0, 1.0],stdev=.3,γinit=.1, aprior=Pareto(1.0, 0.1), η =  n -> 0.0, dt = 0.001,
                                 adaptskip=adaptskip, skip_saveITER=skip_saveITER, ρlowerbound=0.9)
 landmarksmatching(xobs0,xobsT; ITER=ITER, pars=p_ahs, updatescheme=ups, printskip=printskip, outdir=outdir_ahs)
-
-
-
-
-## old (this worked ok)
-# set pars
-#p_ms = Pars_ms(δmom=0.001, σobs = 0.01)
-# for ahs adjust domain bounds
-#p_ahs = Pars_ahs(δmom=0.01,db=[2.0,2.0],stdev=.25)
