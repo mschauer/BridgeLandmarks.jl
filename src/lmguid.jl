@@ -299,12 +299,12 @@ function update_initialstate!(X,Xᵒ,W,ll, x, qᵒ, pᵒ,∇, ∇ᵒ,
                       #logpdf(priormom, pᵒ) - logpdf(priormom, p)
         elseif update == :rmmala_pos
             #dK = gramkernel(x0.q, P)
-            ndistr = MvNormal(stepsize*dK)
+            ndistr = MvNormal(zeros(d*n),stepsize*dK)
             qᵒ .= q .+ .5 * stepsize * dK * ∇ .+ rand(ndistr)
             cfgᵒ = ForwardDiff.GradientConfig(uᵒ, qᵒ, ForwardDiff.Chunk{dn}())
             ForwardDiff.gradient!(∇ᵒ, uᵒ, qᵒ, cfgᵒ)
             dKᵒ = gramkernel(reinterpret(PointF,qᵒ), P)
-            ndistrᵒ = MvNormal(stepsize*dKᵒ)
+            ndistrᵒ = MvNormal(zeros(d*n),stepsize*dKᵒ)
             accinit = sum(llᵒ) - sum(ll) -
                      logpdf(ndistr, qᵒ - q - .5*stepsize * dK * ∇) +
                      logpdf(ndistrᵒ, q - qᵒ - .5*stepsize * dKᵒ * ∇ᵒ)
