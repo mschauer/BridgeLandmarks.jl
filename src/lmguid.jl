@@ -262,7 +262,7 @@ function update_initialstate!(X,Xᵒ,W,ll, x, qᵒ, pᵒ,∇, ∇ᵒ,
         if update in [:mala_pos, :rmmala_pos]
             u = slogρ_pos!(p, Q, W, X, priormom,ll)
             uᵒ = slogρ_pos!(p, Q, W, Xᵒ, priormom,llᵒ)
-            cfg = ForwardDiff.GradientConfig(u, q, ForwardDiff.Chunk{d*n}()) # d*P.n is maximal
+            cfg = ForwardDiff.GradientConfig(u, q, ForwardDiff.Chunk{dn}()) # d*P.n is maximal
             ForwardDiff.gradient!(∇, u, q, cfg) # X and ll get overwritten but do not change
             stepsize = δ[1]
         end
@@ -299,15 +299,16 @@ function update_initialstate!(X,Xᵒ,W,ll, x, qᵒ, pᵒ,∇, ∇ᵒ,
                       #logpdf(priormom, pᵒ) - logpdf(priormom, p)
         elseif update == :rmmala_pos
             #dK = gramkernel(x0.q, P)
+            dK = gramkernel(reinterpret(PointF,q), P)
             ndistr = MvNormal(zeros(d*n),stepsize*dK)
-            qᵒ .= q .+ .5 * stepsize * dK * ∇ .+ rand(ndistr)
+            qᵒ .= q .+ .5 * stepsize * dK * trun(∇,stepsize) .+ rand(ndistr)
             cfgᵒ = ForwardDiff.GradientConfig(uᵒ, qᵒ, ForwardDiff.Chunk{dn}())
             ForwardDiff.gradient!(∇ᵒ, uᵒ, qᵒ, cfgᵒ)
             dKᵒ = gramkernel(reinterpret(PointF,qᵒ), P)
             ndistrᵒ = MvNormal(zeros(d*n),stepsize*dKᵒ)
             accinit = sum(llᵒ) - sum(ll) -
-                     logpdf(ndistr, qᵒ - q - .5*stepsize * dK * ∇) +
-                     logpdf(ndistrᵒ, q - qᵒ - .5*stepsize * dKᵒ * ∇ᵒ)
+                     logpdf(ndistr, qᵒ - q - .5*stepsize * dK * trun(∇,stepsize)) +
+                     logpdf(ndistrᵒ, q - qᵒ - .5*stepsize * dKᵒ * trun(∇ᵒ,stepsize))
         elseif update == :rmmala_mom
              ndistr = MvNormal(stepsize*inv_dK)
              pᵒ .= p .+ .5 * stepsize * inv_dK * ∇ .+  rand(ndistr)
@@ -400,8 +401,7 @@ Write Xᵒ into X
 """
 function copypaths!(X,Xᵒ)
     for k ∈ eachindex(X), i ∈ eachindex(X[1].yy)
-    #for k ∈ 1:m, i ∈ eachindex(X[1].yy)
-            X[k].yy[i] .= Xᵒ[k].yy[i]
+        X[k].yy[i] .= Xᵒ[k].yy[i]
     end
     X
 end

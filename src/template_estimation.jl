@@ -76,9 +76,9 @@ function template_estimation(
     end
     cinit = pars.cinit
     γinit = pars.γinit
-    if model == :ms
+    if pars.model == :ms
         P = MarslandShardlow(ainit, cinit, γinit, 0.0, n)
-    elseif model == :ahs
+    elseif pars.model == :ahs
         nfsinit = construct_nfs(pars.db, pars.stdev, γinit)
         P = Landmarks(ainit, cinit, n, pars.db , pars.stdev, nfsinit)
     end
@@ -95,16 +95,11 @@ function template_estimation(
     xinit = State(xinitq, mT)
 
     start = time()
-          Xsave, parsave, accinfo, δ, ρ, δa =
-                lm_mcmc(tt, obsinfo, mT, P, ITER, subsamples, xinit, pars, priorθ, priormom, updatescheme, outdir,printskip)
+          Xsave, parsave, initendstates_save, accinfo, δ, ρ, δa =
+                lm_mcmc(tt, obsinfo, mT, P, ITER, subsamples, xinit, pars, priorθ, priormom, updatescheme, outdir, printskip)
     elapsed = time() - start
 
-    
-    #       Xsave, parsave, accinfo, δ, ρ, covθprop =
-    #             lm_mcmc(tt, obsinfo, mT, P, ITER, subsamples, xinit, pars, priorθ, priormom, updatescheme, outdir)
-
-
-    write_output(obsinfo.xobs0, obsinfo.xobsT, parsave, Xsave, elapsed, accinfo, tt, n,nshapes,subsamples,ITER, updatescheme, Σobs, pars, ρ, δ, P, outdir)
+    write_output(obsinfo.xobs0, obsinfo.xobsT, parsave, Xsave, initendstates_save, elapsed, accinfo, tt, n,nshapes,subsamples,ITER, updatescheme, Σobs, pars, ρ, δ, P, outdir)
     nothing
 end
 
