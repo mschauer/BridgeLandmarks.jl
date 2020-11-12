@@ -49,7 +49,7 @@ parameters is performed.
     cinit::  Float64 = 1.0
     γinit::  Float64 = 0.1
     κ:: Float64 = 100.0
-    δpos:: Float64 = 0.01
+    δpos:: Vector{Float64} = [0.001, 0.01]
     δmom:: Vector{Float64} = [0.001, 0.01, 0.1, 0.5]
     δsgd_mom:: Float64 = 0.01
     δa:: Float64 = 0.1
@@ -113,7 +113,7 @@ parameters is performed.
     stdev:: Float64 = 0.75
     db::Array{Float64,1} = [2.0, 2.0]
     κ:: Float64 = 100.0
-    δpos:: Float64 = 0.01
+    δpos:: Vector{Float64} = [0.001, 0.01]
     δmom:: Vector{Float64} = [0.001, 0.01, 0.1, 0.5]
     δsgd_mom:: Float64 = 0.1
     δa:: Float64 = 0.1

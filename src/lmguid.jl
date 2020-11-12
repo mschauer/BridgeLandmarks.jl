@@ -119,13 +119,13 @@ function lm_mcmc(t, obsinfo, mT, P, ITER, subsamples, xinit, pars, priorθ, prio
         push!(initendstates_save, extract_initial_and_endstate(i,X[1]))
 
         if mod(i,printskip) == 0
-            println();  println("iteration $i, ρ = $ρ,  δ = $δ,  δa = $δa")
-            print("Average acceptance rates over last ",  pars.adaptskip, " iterations: ")
+            #println();  println("iteration $i, ρ = $ρ,  δ = $δ,  δa = $δa")
+            #print("Average acceptance rates over last ",  printskip, " iterations: ")
             if i >= pars.adaptskip
                 ac = accinfo[end-pars.adaptskip+1:end, 1:end-1]
                 println(round.([mean(x) for x in eachcol(ac)];digits=2))
             end
-            println("parameter a and γ equal: ", getpars(Q))
+            #println("parameter a and γ equal: ", getpars(Q))
         end
     end
     Xsave, parsave, initendstates_save, accinfo, δ, ρ, δa
@@ -264,7 +264,7 @@ function update_initialstate!(X,Xᵒ,W,ll, x, qᵒ, pᵒ,∇, ∇ᵒ,
             uᵒ = slogρ_pos!(p, Q, W, Xᵒ, priormom,llᵒ)
             cfg = ForwardDiff.GradientConfig(u, q, ForwardDiff.Chunk{dn}()) # d*P.n is maximal
             ForwardDiff.gradient!(∇, u, q, cfg) # X and ll get overwritten but do not change
-            stepsize = δ[1]
+            stepsize = sample(δ[1])
         end
         if update in [:mala_mom, :rmmala_mom]
             u = slogρ_mom!(q, Q, W, X, priormom,ll)
