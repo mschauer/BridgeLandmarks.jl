@@ -32,9 +32,10 @@ n = length(xobs0)
 ################ settings and mcmc #################################
 ups = [:innov, :mala_mom, :parameter]
 adaptskip = 100
-skip_saveITER = 10
+skip_saveITER = 100
 printskip = 1000
-ITER = 300
+ITER = 25_000
+
 δmom = [0.01*(d*n)^(-1/6)]
 
 p_ms = Pars_ms(δmom=δmom,  γinit=1.0/√n, aprior=Pareto(1.0, 0.1), η =  n -> 0.0, dt = 0.01,

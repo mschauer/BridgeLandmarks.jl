@@ -47,5 +47,3 @@ landmarksmatching(xobs0,xobsT; ITER=ITER, pars=p_ms, updatescheme=ups, printskip
 p_ahs = Pars_ahs(db=[2.5],stdev=.5,γinit=.1, aprior=Pareto(1.0, 0.1), η =  n -> 0.0, dt = 0.001,
                                 adaptskip=adaptskip, skip_saveITER=skip_saveITER)
 landmarksmatching(xobs0,xobsT; ITER=ITER, pars=p_ahs, updatescheme=ups, printskip=printskip, outdir=outdir_ahs, ainit=1.0)
-
-#plotlandmarksmatching(outdir)
