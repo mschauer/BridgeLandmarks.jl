@@ -168,7 +168,7 @@ x is a state and out as well
 """
 function Bridge.b!(t, x, out, P::MarslandShardlow)
     zero!(out)
-    for i in 1:P.n
+    @inbounds  for i in 1:P.n
         for j in 1:P.n
             out.q[i] += p(x,j)*kernel(q(x,i) - q(x,j), P)
             out.p[i] += -P.λ*p(x,j)*kernel(q(x,i) - q(x,j), P) -
@@ -196,15 +196,13 @@ x is a state and out as well
 # end
 function Bridge.b!(t, x, out, Paux::MarslandShardlowAux)
     zero!(out)
-    for i in 1:Paux.n
+    @inbounds  for i in 1:Paux.n
         for j in 1:Paux.n
             out.q[i] += p(x,j)*kernel(q(Paux.xT,i) - q(Paux.xT,j), Paux)
         end
     end
     NState(out.q, - Paux.λ* out.q)
 end
-
-
 
 """
     Bridge.B(t, Paux::MarslandShardlowAux)
@@ -213,15 +211,14 @@ Compute tildeB(t) for landmarks auxiliary process
 """
 function Bridge.B(t, Paux::MarslandShardlowAux) # not AD safe
     X = zeros(UncF, 2Paux.n, 2Paux.n)
-    for i in 1:Paux.n
+    @inbounds for i in 1:Paux.n
         for j in 1:Paux.n
             X[2i-1,2j] =  kernel(q(Paux.xT,i) - q(Paux.xT,j), Paux) * one(UncF)
-            X[2i,2j] = -Paux.λ*kernel(q(Paux.xT,i) - q(Paux.xT,j), Paux)*one(UncF)
+            X[2i,2j] = -Paux.λ*kernel(q(Paux.xT,i) - q(Paux.xT,j), Paux) * one(UncF)
         end
     end
     X
 end
-
 
 """
     Bridge.B!(t,X,out, Paux::MarslandShardlowAux)
@@ -231,7 +228,7 @@ Both B̃(t) and X are of type UncMat
 """
 function Bridge.B!(t,X,out, Paux::MarslandShardlowAux)
     out .= 0.0 * out
-    for i in 1:Paux.n  # separately loop over even and odd indices
+    @inbounds  for i in 1:Paux.n  # separately loop over even and odd indices
         for k in 1:2Paux.n # loop over all columns
             for j in 1:Paux.n
                  out[2i-1,k] += kernel(q(Paux.xT,i) - q(Paux.xT,j), Paux) * X[p(j), k]
@@ -269,14 +266,12 @@ function Bridge.a(t,  P::Union{MarslandShardlow, MarslandShardlowAux})
     X = UncF[]
     γ2 = P.γ^2
     for i in 1:P.n
-            push!(I, 2i)
-            push!(X, γ2*one(UncF))
+        push!(I, 2i)
+        push!(X, γ2*one(UncF))
     end
     sparse(I, I, X, 2P.n, 2P.n)
 end
 Bridge.a(t, x, P::Union{MarslandShardlow, MarslandShardlowAux}) = Bridge.a(t, P)
-
-
 
 """
     σ̃(t,  P::Union{MarslandShardlow, MarslandShardlowAux})
@@ -288,15 +283,13 @@ function σ̃(t,  P::Union{MarslandShardlow, MarslandShardlowAux})
     Jind = Int[]
     X = UncF[]
     γ = P.γ
-    for i in 1:P.n
+    @inbounds for i in 1:P.n
         push!(Iind, 2i)
         push!(Jind,i)
         push!(X, γ*one(UncF))
     end
     sparse(Iind, Jind, X, 2P.n, P.n)
 end
-
-
 
 """
     amul(t, x::State, xin::State, P::Union{MarslandShardlow, MarslandShardlowAux})
@@ -431,7 +424,7 @@ x is a state and out as well
 """
 function Bridge.b!(t, x, out, P::Landmarks)
     zero!(out)
-    for i in 1:P.n
+    @inbounds for i in 1:P.n
         for j in 1:P.n
             out.q[i] += p(x,j)*kernel(q(x,i) - q(x,j), P)
             out.p[i] +=  -dot(p(x,i), p(x,j)) * ∇kernel(q(x,i) - q(x,j), P)
@@ -455,12 +448,12 @@ x is a state and out as well
 """
 function Bridge.b!(t, x, out, Paux::LandmarksAux)
     zero!(out)
-    for i in 1:Paux.n
+    @inbounds for i in 1:Paux.n
         for j in 1:Paux.n
             out.q[i] += p(x,j)*kernel(q(Paux.xT,i) - q(Paux.xT,j), Paux)
         end
         if itostrat
-            for k in 1:length(Paux.nfs)
+        @inbounds     for k in 1:length(Paux.nfs)
                 # approximate q by qT
                 nf = Paux.nfs[k]
                 qT = q(Paux.xT,i)
@@ -472,7 +465,6 @@ function Bridge.b!(t, x, out, Paux::LandmarksAux)
     out
 end
 
-
 """
     Bridge.B(t, Paux::LandmarksAux)
 
@@ -480,12 +472,12 @@ Compute tildeB(t) for landmarks auxiliary process
 """
 function Bridge.B(t, Paux::LandmarksAux)
     X = zeros(UncF, 2Paux.n, 2Paux.n)
-    for i in 1:Paux.n
+    @inbounds  for i in 1:Paux.n
         for j in 1:Paux.n
             X[2i-1,2j] =  kernel(q(Paux.xT,i) - q(Paux.xT,j), Paux) * one(UncF)
         end
         if itostrat
-            for k in 1:length(Paux.nfs)
+            @inbounds for k in 1:length(Paux.nfs)
                 nf = Paux.nfs[k]
                 qT = q(Paux.xT,i)
                 X[2i,2i] += 0.5 * ( z(qT,nf.τ,nf.δ,nf.γ) * ∇K̄(qT - nf.δ,nf.τ) -K̄(qT - nf.δ,nf.τ) * ∇z(qT,nf.τ,nf.δ,nf.γ) )  * nf.γ'
@@ -504,7 +496,7 @@ Both B̃(t) and X are of type UncMat
 function Bridge.B!(t,X,out, Paux::LandmarksAux)
     out .= 0.0 * out
     u = zero(UncF)
-    for i in 1:Paux.n  # separately loop over even and odd indices
+    @inbounds  for i in 1:Paux.n  # separately loop over even and odd indices
         for k in 1:2Paux.n # loop over all columns
             for j in 1:Paux.n
                  out[2i-1,k] += kernel(q(Paux.xT,i) - q(Paux.xT,j), Paux)*X[p(j), k]
@@ -526,7 +518,7 @@ end
 function Bridge.β(t, Paux::LandmarksAux)
     out = zeros(PointF,Paux.n)
     if itostrat
-        for i in 1:Paux.n
+        @inbounds  for i in 1:Paux.n
             for k in 1:length(Paux.nfs)
                 nf = Paux.nfs[k]
                 qT = q(Paux.xT,i)
@@ -538,9 +530,6 @@ function Bridge.β(t, Paux::LandmarksAux)
         return (State(zeros(PointF,Paux.n), zeros(PointF,Paux.n)) )
     end
 end
-
-
-
 
 """
     Bridge.σ!(t, x_, dm, out, P::Union{Landmarks,LandmarksAux})
@@ -556,7 +545,7 @@ function Bridge.σ!(t, x_, dm, out, P::Union{Landmarks,LandmarksAux})
     end
     zero!(out)
     @inbounds for i in 1:P.n
-        @inbounds for j in 1:length(P.nfs)
+        for j in 1:length(P.nfs)
             out.q[i] += σq(q(x, i), P.nfs[j]) * dm[j]
             out.p[i] += σp(q(x, i), p(x, i), P.nfs[j]) * dm[j]
         end
@@ -576,7 +565,7 @@ function σtmul(t, x_, y::State{Pnt}, P::Union{Landmarks,LandmarksAux}) where Pn
     end
     out = zeros(Pnt, length(P.nfs))
     @inbounds for j in 1:length(P.nfs)
-        @inbounds for i in 1:P.n
+        for i in 1:P.n
             out[j] += σq(q(x, i), P.nfs[j])' * y.q[i] +
                         σp(q(x, i), p(x, i), P.nfs[j])' * y.p[i]
         end
@@ -592,7 +581,7 @@ Return matrix σ̃(t) for LandmarksAux
 function σ̃(t,  Paux::LandmarksAux)
     x = Paux.xT
     out = zeros(UncF, 2Paux.n, length(Paux.nfs))
-    for i in 1:Paux.n
+    @inbounds  for i in 1:Paux.n
         for j in 1:length(Paux.nfs)
             out[2i-1,j] = σq(q(x, i), Paux.nfs[j])
             out[2i,j] = σp(q(x, i), p(x, i), Paux.nfs[j])
@@ -662,7 +651,6 @@ function Bridge.a(t, x_, P::Union{Landmarks,LandmarksAux})
 end
 
 Bridge.a(t, P::LandmarksAux) =  Bridge.a(t, 0, P)
-
 
 """
     amul(t, x::State, xin::Vector{<:Point}, P::Union{Landmarks,LandmarksAux})
@@ -745,7 +733,6 @@ function gramkernel(q, P; ϵ = 10^(-12))
     K =  [(kernel(q[i]- q[j],P) + (i==j)*ϵ) * one(UncF)   for i  in eachindex(q), j in eachindex(q)]
     PDMat(deepmat(K))
 end
-
 
 function hamiltonian(x::NState, P::MarslandShardlow)
     s = 0.0

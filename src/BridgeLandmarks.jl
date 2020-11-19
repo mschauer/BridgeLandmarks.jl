@@ -19,9 +19,10 @@ using StaticArrays
 
 dir() = joinpath(@__DIR__, "..")
 
-const d = 2
+const d = 2   # dimension of landmarks 
 const sk = 1  # entries to skip for likelihood evaluation
-const itostrat =  true
+const itostrat =  true # include Ito-Stratonovich correction in AHS-model
+const γconstant = true # if true, no parameter updating for γ
 
 import Bridge: kernelr3!, R3!, target, auxiliary, constdiff, llikelihood, _b!, B!, σ!, b!
 

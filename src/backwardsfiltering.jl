@@ -115,6 +115,16 @@ function guidingbackwards!(::Lm, t, (Lt, Mt⁺, μt), Paux, obsinfo; implicit=tr
     (Lt[1], Mt⁺[1], μt[1])
 end
 
+"""
+    update_guidrec!(Q, obsinfo)
+
+Q::GuidedProposal
+obsinfo::ObsInfo
+
+Computes backwards recursion for (L,M⁺,μ), including gp-update step at time 0.
+Next, the `guidrec` field or `Q` is updated.
+Returns `Q`. 
+"""
 function update_guidrec!(Q, obsinfo)
     for k in 1:obsinfo.nshapes  # for all shapes
         # solve backward recursions;

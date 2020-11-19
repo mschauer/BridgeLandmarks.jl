@@ -38,6 +38,7 @@ printskip = 25
 ITER = 10_000
 
 
+
 δpos = (d*n)^(-1/6) * [0.01, 0.001, 0.0001]
 p_ms = Pars_ms(δpos=δpos,  γinit=.1/√n,  ## LET OP
                   aprior=Pareto(1.0, 0.1), η =  n -> 0.0, dt = 0.01,

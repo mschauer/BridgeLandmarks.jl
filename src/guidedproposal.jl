@@ -60,7 +60,7 @@ end
 
 Update `guidrec` field of Q to `gr`
 """
-set_guidrec(Q::GuidedProposal, gr) = GuidedProposal(Q.target, Q.aux, Q.tt, Q.xobs0, Q.xobsT, gr,Q.nshapes,Q.mT, Q.endpoint)
+set_guidrec(Q::GuidedProposal, gr) = GuidedProposal(Q.target, Q.aux, Q.tt, Q.xobs0, Q.xobsT, gr, Q.nshapes,Q.mT, Q.endpoint)
 
 """
     update_mT(Q, mTv, obsinfo)
@@ -93,8 +93,6 @@ function construct_gp_xobsT(Q, xobsTᵒ)
     aux = [auxiliary(Q.target,State(xobsTᵒ[k],Q.mT[k])) for k ∈ 1:Q.nshapes]
     GuidedProposal(Q.target, aux, Q.tt, Q.xobs0, xobsTᵒ, Q.guidrec, Q.nshapes, Q.mT)
 end
-
-
 
 """
     _b!((i,t), x::State, out::State, Q::GuidedProposal,k)
@@ -244,31 +242,20 @@ Returns a new instance of `GuidedProposal`, adjusted to the new set of parameter
 """
 function adjust_to_newpars(Q::GuidedProposal,θᵒ, obsinfo)
     (aᵒ,γᵒ) = θᵒ
-
-    # if false
-    # @set Q.target.a = aᵒ
-    # if isa(Q.target,MarslandShardlow)
-    #     @set Q.target.γ = γᵒ
-    # elseif isa(Q.target,Landmarks)
-    #     @set Q.target.nfs = construct_nfs(Q.target.db, Q.target.nfstd, γᵒ)
-    # end
-    # @set Q.aux = [auxiliary(Q.target,State(Q.xobsT[k],Q.mT[k])) for k ∈ 1:Q.nshapes]
-    # out = update_guidrec!(Q, obsinfo)
-    # end
-
-
     if isa(Q.target,MarslandShardlow)
-        target = MarslandShardlow(aᵒ,Q.target.c,γᵒ,Q.target.λ, Q.target.n)
+        target = MarslandShardlow(aᵒ, Q.target.c, γᵒ, Q.target.λ, Q.target.n)
     elseif isa(Q.target,Landmarks)
-        nfs = construct_nfs(Q.target.db, Q.target.nfstd, γᵒ)
-        target = Landmarks(aᵒ,Q.target.c,Q.target.n,Q.target.db,Q.target.nfstd,nfs)
+        if γconstant
+            nfs = Q.nfs
+        else
+            nfs = construct_nfs(Q.target.db, Q.target.nfstd, γᵒ)
+        end
+        target = Landmarks(aᵒ,Q.target.c, Q.target.n, Q.target.db, Q.target.nfstd, nfs)
     end
     aux = [auxiliary(target,State(Q.xobsT[k],Q.mT[k])) for k ∈ 1:Q.nshapes]
-    Qnew = GuidedProposal(target, aux, Q.tt, Q.xobs0, Q.xobsT, Q.guidrec,Q.nshapes, Q.mT)
-    out = update_guidrec!(Qnew, obsinfo)
-
-
-    out
+    Qnew = GuidedProposal(target, aux, Q.tt, Q.xobs0, Q.xobsT, Q.guidrec, Q.nshapes, Q.mT)
+    Qnew = update_guidrec!(Qnew, obsinfo)
+    Qnew
 end
 
 """
