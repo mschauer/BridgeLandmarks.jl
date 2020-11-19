@@ -16,10 +16,10 @@ workdir = @__DIR__
 cd(workdir)
 include("../../outdirpath.jl")
 
-dir1 = joinpath(outdirpath,"exp-dgs/ms")
+dir1 = joinpath(outdirpath,"dgs/ms")
 outdir_ms = mkpath(dir1)
 
-dir2 = joinpath(outdirpath,"exp-dgs/ahs")
+dir2 = joinpath(outdirpath,"dgs/ahs")
 outdir_ahs = mkpath(dir2)
 
 ################ read data ##########################################
