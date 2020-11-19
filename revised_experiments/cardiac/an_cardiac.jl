@@ -1,36 +1,57 @@
 using Revise
 using BridgeLandmarks
-const BL = BridgeLandmarks
-using Distributions
-using LinearAlgebra
+const BL=BridgeLandmarks
 using Random
+using Distributions
+using DataFrames
+using DelimitedFiles
+using CSV
+using StaticArrays
+using LinearAlgebra
+using JLD2
 using FileIO
 
 Random.seed!(9)
 
+################ set directories ##########################################
 workdir = @__DIR__
 cd(workdir)
-outdir = workdir
+include("../../outdirpath.jl")
 
+dir1 = joinpath(outdirpath,"exp2/ms")
+outdir_ms = mkpath(dir1)
 
-#-------- read data ----------------------------------------------------------
+dir2 = joinpath(outdirpath,"exp2/ahs")
+outdir_ahs = mkpath(dir2)
+
+################ read data ##########################################
 dat = load("data_cardiac.jld2")
 xobs0 = dat["xobs0"]
 xobsT = dat["xobsT"]
+n = dat["n"]
+
+################ settings and mcmc #################################
+ups =  [:innov, :rmmala_pos, :parameter]
+adaptskip = 100
+skip_saveITER = 200
+printskip = 25
+ITER = 10_000
 
 
-# set pars
-# p_ms = Pars_ms(δpos=0.00002, δmom=0.1, cinit=0.2, γinit=1.0, σobs = 0.01, ρinit=0.3)
-# p_ahs = Pars_ahs(δpos=0.01, δmom=0.1, cinit=0.05, γinit=0.5, db=[2.5,2.5],stdev=0.75, σobs = 0.01, ρinit=0.4)
 
-p_ms = Pars_ms(δmom=0.01, σobs = 0.01,δpos=1.0e-6, δa=0.01)
+δpos = (d*n)^(-1/6) * [0.01, 0.001, 0.0001]
+p_ms = Pars_ms(δpos=δpos,  γinit=.1/√n,  ## LET OP
+                  aprior=Pareto(1.0, 0.1), η =  n -> 0.0, dt = 0.01,
+                adaptskip=adaptskip, skip_saveITER=skip_saveITER, ρlowerbound=0.9)
+p_ahs = Pars_ahs(δpos=δpos,  db=[2.5, 2.5],stdev=.25,γinit=.1, aprior=Pareto(1.0, 0.1), η =  n -> 0.0, dt = 0.001,
+                                adaptskip=adaptskip, skip_saveITER=skip_saveITER, ρlowerbound=0.9)
+
+template_estimation(xobsT; xinitq=xinitq_adj,pars = p_ms, ITER=ITER, updatescheme = ups, printskip=printskip, outdir=outdir_ms)
+
+template_estimation(xobsT; xinitq=xinitq_adj,pars = p_ahs, ITER=ITER, updatescheme = ups, printskip=printskip, outdir=outdir_ahs)
+
+
+# from 'old experiments'
+#p_ms = Pars_ms(δmom=0.01, σobs = 0.01,δpos=1.0e-6, δa=0.01)
 # for ahs adjust domain bounds
 #p_ahs = Pars_ahs(δmom=0.01,db=[2.5,1.5],stdev=.25)
-
-ups =  [:innov, :rmmala_pos, :parameter]
-
-template_estimation(xobsT; ainit=0.1, xinitq=xobsT[1],
-    pars = p_ms, outdir=outdir, ITER=50, updatescheme = ups, printskip=10)  # deliberately initialise badly to show it works
-
-
-plottemplate_estimation(outdir)
