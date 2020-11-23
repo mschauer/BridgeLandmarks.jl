@@ -12,12 +12,16 @@ NState(x::Vector) = NState(reshape(x, (2, length(x)>>1)))
 
 import Base: axes, #=iterate,=# eltype, copy, copyto!, zero, eachindex, getindex, setindex!, size, vec
 
-q(x::NState, i) = x.x[1, i]
-p(x::NState, i) = x.x[2, i]
+@views q(x::NState, i) = x.x[1, i]
+@views p(x::NState, i) = x.x[2, i]
 eltype(x::NState) = eltype(x.x)
 deepeltype(x::Union{NState,Vector}) = eltype(eltype(x))
-q(x::NState) = @view x.x[1:2:end]
-p(x::NState) = @view x.x[2:2:end]
+# q(x::NState) = @view x.x[1:2:end]
+# p(x::NState) = @view x.x[2:2:end]
+@views q(x::NState) =  x.x[1:2:end]
+@views p(x::NState) =  x.x[2:2:end]
+
+
 
 import LinearAlgebra: norm
 norm(x::NState) = norm(vec(x))

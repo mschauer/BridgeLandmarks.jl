@@ -119,7 +119,7 @@ Evaluate σ(t,x) dw and write into out
 Evaluate tilde_r (appearing in guiding term of guided proposal) at (t,x), write into out
 """
 function _r!((i,t), x::State, out::State, Q::GuidedProposal,k)
-    out .= vecofpoints2state(Q.guidrec[k].Lt[i]' * (Q.guidrec[k].Mt[i] *(Q.xobsT[k]-Q.guidrec[k].μt[i]-Q.guidrec[k].Lt[i]*vec(x))))
+    out .= vecofpoints2state(Q.guidrec[k].Lt[i]' * (Q.guidrec[k].Mt[i] * (Q.xobsT[k]-Q.guidrec[k].μt[i]-Q.guidrec[k].Lt[i]*vec(x))))
     out
 end
 
@@ -146,7 +146,7 @@ Xᵒ
 ## Returns
 logliklihood.
 """
-function gp!(::LeftRule,  Xᵒ, x0, W, Q::GuidedProposal,k; skip = sk, ll0 = true)
+function gp!(::LeftRule,  Xᵒ, x0, W, Q::GuidedProposal, k; skip = sk, ll0 = true)
     Pnt = eltype(x0)
     tt =  Xᵒ.tt
     Xᵒ.yy[1] .= deepvalue(x0)
@@ -160,19 +160,20 @@ function gp!(::LeftRule,  Xᵒ, x0, W, Q::GuidedProposal,k; skip = sk, ll0 = tru
     bout = copy(x0)
     btout = copy(x0)
     wout = copy(x0)
-    if !constdiff(Q)
+    if !constdiff(Q)  # FIXME, keep allocating here, should be inplace
         At = Bridge.a((1,0), x0, auxiliary(Q,k))  # auxtimehomogeneous switch
         A = zeros(Unc{deepeltype(x0)}, 2Q.target.n,2Q.target.n)
     end
     for i ∈ 1:length(tt)-1
         dt = tt[i+1]-tt[i]
-        b!(tt[i], x, bout, target(Q)) # b(t,x)
-        _r!((i,tt[i]), x, rout, Q,k) # tilder(t,x)
+        b!(tt[i], x, bout, target(Q)) # b(t,x)  #   FIXME ALLOCATES A LOT
+        _r!((i,tt[i]), x, rout, Q, k) # tilder(t,x)
         σt!(tt[i], x, rout, srout, target(Q))      #  σ(t,x)' * tilder(t,x) for target(Q)
         Bridge.σ!(tt[i], x, srout*dt + W.yy[i+1] - W.yy[i], wout, target(Q)) # σ(t,x) (σ(t,x)' * tilder(t,x) + dW(t))
         # likelihood terms
         if i<=length(tt)-1-skip
-            _b!((i,tt[i]), x, btout, auxiliary(Q,k))
+    #        _b!((i,tt[i]), x, btout, auxiliary(Q,k))    #FIXME ALLOCATES A LOT, original
+            b!(tt[i], x, btout, auxiliary(Q,k))
             som += dot(bout-btout, rout) * dt
             if !constdiff(Q)
                 σt!(tt[i], x, rout, strout, auxiliary(Q,k))  #  tildeσ(t,x)' * tilder(t,x) for auxiliary(Q)
@@ -240,19 +241,23 @@ end
 Provide new parameter values for GuidedProposal `Q`, these are written into fields `target` and `aux`.
 Returns a new instance of `GuidedProposal`, adjusted to the new set of parameters.
 """
-function adjust_to_newpars(Q::GuidedProposal,θᵒ, obsinfo)
+function adjust_to_newpars(Q::GuidedProposal,θᵒ, obsinfo, gramT_container)
     (aᵒ,γᵒ) = θᵒ
     if isa(Q.target,MarslandShardlow)
         target = MarslandShardlow(aᵒ, Q.target.c, γᵒ, Q.target.λ, Q.target.n)
-    elseif isa(Q.target,Landmarks)
+    end
+    if isa(Q.target,Landmarks)
         if γconstant
-            nfs = Q.nfs
+            nfs = Q.target.nfs
         else
             nfs = construct_nfs(Q.target.db, Q.target.nfstd, γᵒ)
         end
         target = Landmarks(aᵒ,Q.target.c, Q.target.n, Q.target.db, Q.target.nfstd, nfs)
     end
-    aux = [auxiliary(target,State(Q.xobsT[k],Q.mT[k])) for k ∈ 1:Q.nshapes]
+    for k ∈ eachindex(gramT_container)
+         gram_matrix!(gramT_container[k], Q.xobsT[k], Q.aux[k])
+    end
+    aux = [auxiliary(target,State(Q.xobsT[k],Q.mT[k]), gramT_container[k]) for k ∈ 1:Q.nshapes]
     Qnew = GuidedProposal(target, aux, Q.tt, Q.xobs0, Q.xobsT, Q.guidrec, Q.nshapes, Q.mT)
     Qnew = update_guidrec!(Qnew, obsinfo)
     Qnew

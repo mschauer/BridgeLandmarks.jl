@@ -35,7 +35,9 @@ function lm_mcmc(t, obsinfo, mT, P, ITER, subsamples, xinit, pars, priorθ, prio
     nshapes = obsinfo.nshapes
 
     guidrec = [GuidRecursions(t,obsinfo)  for _ ∈ 1:nshapes]  # initialise guiding terms
-    Paux = [auxiliary(P, State(obsinfo.xobsT[k],mT)) for k ∈ 1:nshapes] # auxiliary process for each shape
+    gramT_container = [gram_matrix(obsinfo.xobsT[k], P) for k ∈ 1:nshapes]  # gram matrices at observations at time T
+
+    Paux = [auxiliary(P, State(obsinfo.xobsT[k],mT), gramT_container[k]) for k ∈ 1:nshapes] # auxiliary process for each shape
     Q = GuidedProposal(P,Paux,t,obsinfo.xobs0,obsinfo.xobsT,guidrec,nshapes,[mT for _ ∈ 1:nshapes])
     Q = update_guidrec!(Q, obsinfo)   # compute backwards recursion
 
@@ -91,7 +93,7 @@ function lm_mcmc(t, obsinfo, mT, P, ITER, subsamples, xinit, pars, priorθ, prio
                     δ[1] = adapt_pospar_step(δ[1], i, accinfo[!,update], pars.η, pars.adaptskip)
                 end
             elseif update == :parameter
-                Q, accinfo_, X, ll = update_pars!(X, ll, Xᵒ,W, Q, priorθ, obsinfo, δa, δγ)
+                Q, accinfo_, X, ll = update_pars!(X, ll, Xᵒ,W, Q, priorθ, obsinfo, δa, δγ, gramT_container)
                 if adapt(i)
                     δa = adapt_pospar_step(δa, i, accinfo[!,update], pars.η, pars.adaptskip)
                 end
@@ -152,9 +154,12 @@ function update_path!(X, W, ll, Xᵒ,Wᵒ, Wnew, Q, ρlowerbound)
     for k ∈ 1:Q.nshapes
         sample!(Wnew, Wiener{Vector{PointF}}())
         for i ∈ eachindex(W[1].yy)
-            Wᵒ.yy[i] = ρ * W[k].yy[i] + ρ_ * Wnew.yy[i]
+            for j ∈ eachindex(W[1].yy[1])
+                Wᵒ.yy[i][j] = ρ * W[k].yy[i][j] + ρ_ * Wnew.yy[i][j]
+            end
         end
-        llᵒ, Xᵒ[k] = gp!(LeftRule(), Xᵒ[k], x0, Wᵒ, Q, k; skip=sk)
+         llᵒ, Xᵒ[k] = gp!(LeftRule(), Xᵒ[k], x0, Wᵒ, Q, k; skip=sk)
+        #llᵒ, Xᵒ[k] = 0.0, X[k]
         diff_ll = llᵒ - ll[k]
         if log(rand()) <= diff_ll
             for i ∈ eachindex(W[1].yy)
@@ -362,28 +367,20 @@ For fixed Wiener increments and initial state, update parameters by random-walk-
 ## Returns
 `Q, accept`: where `accept` is 1/0 according to accept/reject in the MH-step.
 """
-function update_pars!(X, ll, Xᵒ, W, Q , priorθ,  obsinfo, δa, δγ)
+function update_pars!(X, ll, Xᵒ, W, Q , priorθ,  obsinfo, δa, δγ, gramT_container)
     θ = getpars(Q)
     a = θ[1];  γ = θ[2]
     aᵒ = a * exp(δa*randn())
     γᵒ = γ * exp(δγ*randn())
     θᵒ = [aᵒ, γᵒ]
-    Qᵒ = adjust_to_newpars(Q, θᵒ, obsinfo)
-    x0 = X[1].yy[1]
-    llᵒ, Xᵒ = gp!(LeftRule(), Xᵒ,x0, W, Qᵒ; skip=sk)
-
+    Qᵒ = adjust_to_newpars(Q, θᵒ, obsinfo, gramT_container)
+    llᵒ, Xᵒ = gp!(LeftRule(), Xᵒ, X[1].yy[1], W, Qᵒ; skip=sk)
     A = sum(llᵒ) - sum(ll) +
         logpdf(priorθ, θᵒ) - logpdf(priorθ, θ) +
         log(γᵒ) - log(γ) + log(aᵒ) - log(a)
     if log(rand()) <= A
         ll .= llᵒ
         X = copypaths!(X,Xᵒ)
-        # @infiltrate
-        for k ∈ 1:Q.nshapes
-            for i ∈ eachindex(X[1].yy)
-                X[k].yy[i] .= Xᵒ[k].yy[i]
-            end
-        end
         Q = Qᵒ
         #Q = deepcopy(Qᵒ)
         accept = 1.0

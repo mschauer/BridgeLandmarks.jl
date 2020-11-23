@@ -29,6 +29,7 @@ end
 - `λ`:  mean reversion parameter (heath-bath parameter in Marsland-Shardlow (2017))
 - `xT`: State at time T used for constructing the auxiliary process
 -  `n`: number of landmarks
+-  `gramT`: Gram-matrix at xT
 """
 struct MarslandShardlowAux{S,T} <: ContinuousTimeProcess{State{PointF}}
     a::T # kernel std parameter
@@ -37,6 +38,7 @@ struct MarslandShardlowAux{S,T} <: ContinuousTimeProcess{State{PointF}}
     λ::T # mean reversion
     xT::State{Point{S}}  # use x = State(P.v, zero(P.v)) where v is conditioning vector
     n::Int
+    gramT::Matrix{T} # Gram-matrix at xT
 end
 
 struct Noisefield{T}
@@ -81,28 +83,29 @@ struct LandmarksAux{S,T} <: ContinuousTimeProcess{State{PointF}}
     xT::State{Point{S}}  # use x = State(P.v, zero(P.v)) where v is conditioning vector
     n::Int64   # numer of landmarks
     nfs::Vector{Noisefield{S}}  # vector containing pars of noisefields
+    gramT::Matrix{T} # Gram-matrix at xT
 end
 
 """
-    MarslandShardlowAux(P::MarslandShardlow, xT) = MarslandShardlowAux(P.a,P.c, P.γ, P.λ, xT, P.n)
+    MarslandShardlowAux(P::MarslandShardlow, xT, gramT) = MarslandShardlowAux(P.a,P.c, P.γ, P.λ, xT, P.n, gramT)
 """
-MarslandShardlowAux(P::MarslandShardlow, xT) = MarslandShardlowAux(P.a,P.c, P.γ, P.λ, xT, P.n)
+MarslandShardlowAux(P::MarslandShardlow, xT, gramT) = MarslandShardlowAux(P.a,P.c, P.γ, P.λ, xT, P.n, gramT)
 
 """
-    LandmarksAux(P::Landmarks, xT) = LandmarksAux(P.a,P.c, xT, P.n, P.nfs)
+    LandmarksAux(P::Landmarks, xT, gramT) = LandmarksAux(P.a,P.c, xT, P.n, P.nfs, gramT)
 """
-LandmarksAux(P::Landmarks, xT) = LandmarksAux(P.a,P.c, xT, P.n, P.nfs)
+LandmarksAux(P::Landmarks, xT, gramT) = LandmarksAux(P.a,P.c, xT, P.n, P.nfs, gramT)
 
 """
-    auxiliary(P::Union{MarslandShardlow, Landmarks}, xT)
+    auxiliary(P::Union{MarslandShardlow, Landmarks}, xT, gramT)
 
 Construct auxiliary process corresponding to `P` and `xT`
 """
-function auxiliary(P::Union{MarslandShardlow, Landmarks}, xT)
+function auxiliary(P::Union{MarslandShardlow, Landmarks}, xT, gramT)
     if isa(P,MarslandShardlow)
-        return MarslandShardlowAux(P,xT)
+        return MarslandShardlowAux(P, xT, gramT)
     elseif isa(P,Landmarks)
-        return LandmarksAux(P,xT)
+        return LandmarksAux(P, xT, gramT)
     end
 end
 
@@ -146,7 +149,6 @@ Hamiltonian for deterministic part of landmarks model
 function hamiltonian(x, P)
     s = 0.0
     for i in axes(x, 2), j in axes(x, 2)
-#        s += 1/2*dot(p[i], p[j])*kernel(q[i] - q[j], P)
         s += 1/2*dot(x.p[i], x.p[j])*kernel(x.q[i] - x.q[j], P)
     end
     s
@@ -168,11 +170,12 @@ x is a state and out as well
 """
 function Bridge.b!(t, x, out, P::MarslandShardlow)
     zero!(out)
+    pp = out.p
+    qq = out.q
     @inbounds  for i in 1:P.n
         for j in 1:P.n
-            out.q[i] += p(x,j)*kernel(q(x,i) - q(x,j), P)
-            out.p[i] += -P.λ*p(x,j)*kernel(q(x,i) - q(x,j), P) -
-                 dot(p(x,i), p(x,j)) * ∇kernel(q(x,i) - q(x,j), P)
+            qq[i] += p(x,j) * kernel(q(x,i) - q(x,j), P)
+            pp[i] += -P.λ * qq[i] - dot(p(x,i), p(x,j)) * ∇kernel(q(x,i) - q(x,j), P)
         end
     end
     out
@@ -184,24 +187,17 @@ end
 Evaluate drift of landmarks auxiliary process in (t,x) and save to out
 x is a state and out as well
 """
-# function Bridge.b!(t, x, out, Paux::MarslandShardlowAux)
-#     zero!(out)
-#     for i in 1:Paux.n
-#         for j in 1:Paux.n
-#             out.q[i] += p(x,j)*kernel(q(Paux.xT,i) - q(Paux.xT,j), Paux)
-#             out.p[i] += -Paux.λ*p(x,j)*kernel(q(Paux.xT,i) - q(Paux.xT,j), Paux)
-#         end
-#     end
-#     out
-# end
 function Bridge.b!(t, x, out, Paux::MarslandShardlowAux)
     zero!(out)
+    pp = out.p
+    qq = out.q
     @inbounds  for i in 1:Paux.n
         for j in 1:Paux.n
-            out.q[i] += p(x,j)*kernel(q(Paux.xT,i) - q(Paux.xT,j), Paux)
+            qq[i] += p(x,j) * Paux.gramT[i,j]
         end
     end
-    NState(out.q, - Paux.λ* out.q)
+    pp .= - Paux.λ * qq
+    out
 end
 
 """
@@ -213,8 +209,8 @@ function Bridge.B(t, Paux::MarslandShardlowAux) # not AD safe
     X = zeros(UncF, 2Paux.n, 2Paux.n)
     @inbounds for i in 1:Paux.n
         for j in 1:Paux.n
-            X[2i-1,2j] =  kernel(q(Paux.xT,i) - q(Paux.xT,j), Paux) * one(UncF)
-            X[2i,2j] = -Paux.λ*kernel(q(Paux.xT,i) - q(Paux.xT,j), Paux) * one(UncF)
+            X[2i-1,2j] =  Paux.gramT[i,j] * one(UncF)
+            X[2i,2j] = -Paux.λ * Paux.gramT[i,j] * one(UncF)
         end
     end
     X
@@ -231,8 +227,8 @@ function Bridge.B!(t,X,out, Paux::MarslandShardlowAux)
     @inbounds  for i in 1:Paux.n  # separately loop over even and odd indices
         for k in 1:2Paux.n # loop over all columns
             for j in 1:Paux.n
-                 out[2i-1,k] += kernel(q(Paux.xT,i) - q(Paux.xT,j), Paux) * X[p(j), k]
-                 out[2i,k] += -Paux.λ*kernel(q(Paux.xT,i) - q(Paux.xT,j), Paux) * X[p(j), k]
+                 out[2i-1,k] += Paux.gramT[i,j] * X[p(j), k]
+                 out[2i,k] += -Paux.λ * Paux.gramT[i,j] * X[p(j), k]
             end
         end
     end
@@ -249,12 +245,10 @@ end
 Compute σ(t,x) * dm and write to out
 """
 function Bridge.σ!(t, x, dm, out, P::Union{MarslandShardlow, MarslandShardlowAux})
-    #zero!(out.q)
     zero!(out)
     out.p .= dm*P.γ
     out
 end
-
 
 """
     Bridge.a(t,  P::Union{MarslandShardlow, MarslandShardlowAux})
@@ -320,7 +314,7 @@ K̄(q,τ) = exp(-Bridge.inner(q)/(2*τ^2))
 Kernel for noisefields of AHS-model
 """
 function K̄(q,τ)
-     exp(-Bridge.inner(q)/(2*τ^2))
+     exp(-Bridge.inner(q)/(2.0*τ*τ))
 end
 
 """
@@ -329,7 +323,7 @@ end
 Gradient of kernel for noisefields
 """
 function ∇K̄(q,τ)
-     -τ^(-2) * K̄(q,τ) * q
+     -1.0/(τ*τ) * K̄(q,τ) * q
 end
 
 """
@@ -338,7 +332,7 @@ end
 Needed for b! in case P is auxiliary process
 """
 function ∇K̄(q, qT, τ)
-    -τ^(-2) * K̄(qT,τ) * q
+    -1.0/(τ*τ) * K̄(qT,τ) * q
 end
 
 """
@@ -347,11 +341,12 @@ end
 """
 z(q,τ,δ,λ) =  Bridge.inner(∇K̄(q - δ,τ),λ)
 
+
 """
     Define ∇z(q) = ∇ < ∇K̄(q - δ,τ), λ >
     Required for Stratonovich -> Ito correction in AHS-model
 """
-∇z(q,τ,δ,λ) =  ForwardDiff.gradient(x -> z(x,τ,δ,λ),q)
+∇z(q::T,τ,δ,λ) where T =  ForwardDiff.gradient(x -> z(x,τ,δ,λ),q)::T
 
 # function for specification of diffusivity of landmarks
 """
@@ -381,7 +376,7 @@ Returns diagonal matrix with noisefield for momentum at point location q (can be
 """
 function σq(x, nfs::Array{<:Noisefield,1})
     out = σq(x, nfs[1])
-        @inbounds for j in 2:length(nfs)
+    @inbounds for j in 2:length(nfs)
             out += σq(x, nfs[j])
     end
     out
@@ -414,6 +409,7 @@ function construct_nfs(db::Array{Float64,1}, nfstd, γ)
         nfloc = Point.(collect(product(r1, r2,r3)))[:]
         nfscales = [2/pi*γ*Point(1.0, 1.0, 1.0) for x in nfloc]  # intensity
     end
+    #return Noisefield{Float64}[Noisefield(δ, λ, nfstd) for (δ, λ) in zip(nfloc, nfscales)]
     [Noisefield(δ, λ, nfstd) for (δ, λ) in zip(nfloc, nfscales)]
 end
 
@@ -424,16 +420,20 @@ x is a state and out as well
 """
 function Bridge.b!(t, x, out, P::Landmarks)
     zero!(out)
+    pp = out.p
+    qq = out.q
     @inbounds for i in 1:P.n
         for j in 1:P.n
-            out.q[i] += p(x,j)*kernel(q(x,i) - q(x,j), P)
-            out.p[i] +=  -dot(p(x,i), p(x,j)) * ∇kernel(q(x,i) - q(x,j), P)
+            qq[i] += p(x,j)*kernel(q(x,i) - q(x,j), P)
+            pp[i] +=  -dot(p(x,i), p(x,j)) * ∇kernel(q(x,i) - q(x,j), P)
         end
          if itostrat
              for k in 1:length(P.nfs)
                  nf = P.nfs[k]
-                 out.q[i] += 0.5 * z(q(x,i),nf.τ,nf.δ,nf.γ) * K̄(q(x,i)-nf.δ,nf.τ) * nf.γ
-                 out.p[i] += 0.5 * dot(p(x,i),nf.γ) * ( z(q(x,i),nf.τ,nf.δ,nf.γ) * ∇K̄(q(x,i)-nf.δ,nf.τ) -K̄(q(x,i)-nf.δ,nf.τ) * ∇z(q(x,i),nf.τ,nf.δ,nf.γ) )
+                 K̄qi = K̄(q(x,i)-nf.δ,nf.τ)
+                 zqi = z(q(x,i),nf.τ,nf.δ,nf.γ)
+                 qq[i] += (0.5 * zqi * K̄qi) * nf.γ
+                 pp[i] += 0.5 * dot(p(x,i),nf.γ) * ( zqi * ∇K̄(q(x,i)-nf.δ,nf.τ) -K̄qi * ∇z(q(x,i),nf.τ,nf.δ,nf.γ) )
              end
          end
     end
@@ -448,17 +448,20 @@ x is a state and out as well
 """
 function Bridge.b!(t, x, out, Paux::LandmarksAux)
     zero!(out)
+    pp = out.p
+    qq = out.q
     @inbounds for i in 1:Paux.n
         for j in 1:Paux.n
-            out.q[i] += p(x,j)*kernel(q(Paux.xT,i) - q(Paux.xT,j), Paux)
+            qq[i] += p(x,j) * Paux.gramT[i,j]
         end
         if itostrat
-        @inbounds     for k in 1:length(Paux.nfs)
+            qT = q(Paux.xT,i)
+            p_i = p(x,i)
+            for k in 1:length(Paux.nfs)
                 # approximate q by qT
                 nf = Paux.nfs[k]
-                qT = q(Paux.xT,i)
-                out.q[i] += 0.5 * z(qT,nf.τ,nf.δ,nf.γ) * K̄(qT-nf.δ,nf.τ) * nf.γ
-                out.p[i] += 0.5 * dot(p(x,i),nf.γ) * ( z(qT,nf.τ,nf.δ,nf.γ) * ∇K̄(qT - nf.δ,nf.τ) -K̄(qT - nf.δ,nf.τ) * ∇z(qT,nf.τ,nf.δ,nf.γ) )
+                qq[i] += 0.5 * z(qT,nf.τ,nf.δ,nf.γ) * K̄(qT-nf.δ,nf.τ) * nf.γ
+                pp[i] += 0.5 * dot(p_i,nf.γ) * ( z(qT,nf.τ,nf.δ,nf.γ) * ∇K̄(qT - nf.δ,nf.τ) -K̄(qT - nf.δ,nf.τ) * ∇z(qT,nf.τ,nf.δ,nf.γ) )
             end
         end
     end
@@ -474,7 +477,7 @@ function Bridge.B(t, Paux::LandmarksAux)
     X = zeros(UncF, 2Paux.n, 2Paux.n)
     @inbounds  for i in 1:Paux.n
         for j in 1:Paux.n
-            X[2i-1,2j] =  kernel(q(Paux.xT,i) - q(Paux.xT,j), Paux) * one(UncF)
+            X[2i-1,2j] =  Paux.gramT[i,j] * one(UncF)
         end
         if itostrat
             @inbounds for k in 1:length(Paux.nfs)
@@ -499,7 +502,7 @@ function Bridge.B!(t,X,out, Paux::LandmarksAux)
     @inbounds  for i in 1:Paux.n  # separately loop over even and odd indices
         for k in 1:2Paux.n # loop over all columns
             for j in 1:Paux.n
-                 out[2i-1,k] += kernel(q(Paux.xT,i) - q(Paux.xT,j), Paux)*X[p(j), k]
+                 out[2i-1,k] += Paux.gramT[i,j]*X[p(j), k]
             end
             if itostrat
                 u = 0.0*u
@@ -544,10 +547,12 @@ function Bridge.σ!(t, x_, dm, out, P::Union{Landmarks,LandmarksAux})
         x = P.xT
     end
     zero!(out)
+    qq = out.q
+    pp = out.p
     @inbounds for i in 1:P.n
         for j in 1:length(P.nfs)
-            out.q[i] += σq(q(x, i), P.nfs[j]) * dm[j]
-            out.p[i] += σp(q(x, i), p(x, i), P.nfs[j]) * dm[j]
+            qq[i] += σq(q(x, i), P.nfs[j]) * dm[j]
+            pp[i] += σp(q(x, i), p(x, i), P.nfs[j]) * dm[j]
         end
     end
     out
@@ -590,9 +595,6 @@ function σ̃(t,  Paux::LandmarksAux)
     out
 end
 
-
-
-
 """
     σt!(t, x_, y::State{Pnt}, out, P::MarslandShardlow) where Pnt
 
@@ -619,9 +621,11 @@ function σt!(t, x_, y::State{Pnt}, out, P::Union{Landmarks,LandmarksAux}) where
         x = P.xT
     end
     @inbounds for j in 1:length(P.nfs)
-        @inbounds for i in 1:P.n
+         for i in 1:P.n
             out[j] += σq(q(x, i), P.nfs[j])' * q(y, i) +
                     σp(q(x, i), p(x, i), P.nfs[j])' * p(y, i)
+
+
         end
     end
     out
@@ -734,6 +738,37 @@ function gramkernel(q, P; ϵ = 10^(-12))
     PDMat(deepmat(K))
 end
 
+"""
+    gram_matrix!(out, q, P)
+
+Write into out the Gram matrix for kernel with vector of landmarks given by q::Vector(PointF)
+"""
+function gram_matrix!(out, q, P)
+    for j ∈ 1:P.n, i ∈ j:P.n
+        out[i,j] = out[j,i] = kernel(q[i]- q[j],P)
+    end
+    out
+end
+
+
+"""
+    gram_matrix(q, P)
+
+Gram matrix for kernel with vector of landmarks given by q::Vector(PointF)
+"""
+function gram_matrix(q, P)
+    out = zeros(P.n, P.n)
+    for j ∈ 1:P.n, i ∈ j:P.n
+        out[i,j] = out[j,i] = kernel(q[i]- q[j],P)
+    end
+    out
+end
+
+"""
+    hamiltonian(x::NState, P::MarslandShardlow)
+
+Returns Hamiltonian at `x` for deterministic system (no Wiener noise)
+"""
 function hamiltonian(x::NState, P::MarslandShardlow)
     s = 0.0
     for i in 1:P.n, j in 1:P.n
