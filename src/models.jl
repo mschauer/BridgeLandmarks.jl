@@ -101,13 +101,8 @@ LandmarksAux(P::Landmarks, xT, gramT) = LandmarksAux(P.a,P.c, xT, P.n, P.nfs, gr
 
 Construct auxiliary process corresponding to `P` and `xT`
 """
-function auxiliary(P::Union{MarslandShardlow, Landmarks}, xT, gramT)
-    if isa(P,MarslandShardlow)
-        return MarslandShardlowAux(P, xT, gramT)
-    elseif isa(P,Landmarks)
-        return LandmarksAux(P, xT, gramT)
-    end
-end
+auxiliary(P::MarslandShardlow, xT, gramT) = MarslandShardlowAux(P, xT, gramT)
+auxiliary(P::Landmarks, xT, gramT) = LandmarksAux(P, xT, gramT)
 
 
 const LandmarkModel = Union{Landmarks, LandmarksAux, MarslandShardlow, MarslandShardlowAux}
@@ -115,6 +110,8 @@ const LandmarkModel = Union{Landmarks, LandmarksAux, MarslandShardlow, MarslandS
 Bridge.constdiff(::Union{MarslandShardlow, MarslandShardlowAux,LandmarksAux}) = true
 Bridge.constdiff(::Landmarks) = false
 
+endpt(x, ::Landmarks) = x
+endpt(_, P::LandmarksAux) = P.xT
 
 """
     kernel(q, P::LandmarkModel)
@@ -339,14 +336,19 @@ end
     Define z(q) = < ∇K̄(q - δ,τ), λ >
     Required for Stratonovich -> Ito correction in AHS-model
 """
-z(q,τ,δ,λ) =  Bridge.inner(∇K̄(q - δ,τ),λ)
+z(q,τ,δ,λ) = Bridge.inner(∇K̄(q - δ,τ),λ)
 
+struct Z{T}
+    a::T
+end
+(z_::Z)(x) = z(x, z_.a...)
 
 """
     Define ∇z(q) = ∇ < ∇K̄(q - δ,τ), λ >
     Required for Stratonovich -> Ito correction in AHS-model
 """
-∇z(q::T,τ,δ,λ) where T =  ForwardDiff.gradient(x -> z(x,τ,δ,λ),q)::T
+∇z(q::T,τ,δ,λ) where T = ForwardDiff.gradient(Z((τ,δ,λ)), q)::T
+
 
 # function for specification of diffusivity of landmarks
 """
@@ -541,11 +543,7 @@ Compute sigma(t,x) * dm where dm is a vector and sigma is the diffusion coeffici
 write to out which is of type State
 """
 function Bridge.σ!(t, x_, dm, out, P::Union{Landmarks,LandmarksAux})
-    if P isa Landmarks
-        x = x_
-    else
-        x = P.xT
-    end
+    x = endpt(x_, P)
     zero!(out)
     qq = out.q
     pp = out.p
@@ -563,11 +561,7 @@ Compute sigma(t,x)' * y where y is a state and sigma is the diffusion coefficien
 returns a vector of points of length P.nfs
 """
 function σtmul(t, x_, y::State{Pnt}, P::Union{Landmarks,LandmarksAux}) where Pnt
-    if P isa Landmarks
-        x = x_
-    else
-        x = P.xT
-    end
+    x = endpt(x_, P)
     out = zeros(Pnt, length(P.nfs))
     @inbounds for j in 1:length(P.nfs)
         for i in 1:P.n
@@ -615,11 +609,7 @@ end
 """
 function σt!(t, x_, y::State{Pnt}, out, P::Union{Landmarks,LandmarksAux}) where Pnt
     zero!(out)
-    if P isa Landmarks
-        x = x_
-    else
-        x = P.xT
-    end
+    x = endpt(x_, P)
     @inbounds for j in 1:length(P.nfs)
          for i in 1:P.n
             out[j] += σq(q(x, i), P.nfs[j])' * q(y, i) +
@@ -631,12 +621,10 @@ function σt!(t, x_, y::State{Pnt}, out, P::Union{Landmarks,LandmarksAux}) where
     out
 end
 
+
+
 function Bridge.a(t, x_, P::Union{Landmarks,LandmarksAux})
-    if P isa Landmarks
-        x = x_
-    else
-        x = P.xT
-    end
+    x = endpt(x_, P)
     out = zeros(Unc{deepeltype(x)}, 2P.n,2P.n)
     @inbounds for i in 1:P.n, k in i:P.n,  j in 1:length(P.nfs)
                 a11 = σq(q(x,i),P.nfs[j])
@@ -687,11 +675,7 @@ end
 """
 function Bridge.a!(t, x_, out, P::Union{Landmarks,LandmarksAux})
     zero!(out)
-    if P isa Landmarks
-        x = x_
-    else
-        x = P.xT
-    end
+    x = endpt(x_, P)
     @inbounds for i in 1:P.n,  k in i:P.n, j in 1:length(P.nfs)
         a11 = σq(q(x,i),P.nfs[j])
         a21 = σp(q(x,i),p(x,i),P.nfs[j])
@@ -709,23 +693,11 @@ function Bridge.a!(t, x_, out, P::Union{Landmarks,LandmarksAux})
 end
 
 
-function getγ(P)
-    if isa(P,MarslandShardlow)
-        out = P.γ
-    elseif isa(P,Landmarks)
-        out = P.nfs[1].γ[1]*pi/2
-    end
-    out
-end
+getγ(P::MarslandShardlow) = P.γ
+getγ(P::Landmarks) = P.nfs[1].γ[1]*pi/2
 
-function dimwiener(P)
-    if P isa MarslandShardlow
-        out = P.n
-    elseif P isa Landmarks
-        out = length(P.nfs)
-    end
-    out
-end
+dimwiener(P::MarslandShardlow) = P.n
+dimwiener(P::Landmarks) = length(P.nfs)
 
 """
     gramkernel(q, P; ϵ = 10^(-12))
