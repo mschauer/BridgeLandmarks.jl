@@ -187,7 +187,7 @@ end
 Evaluate drift of landmarks auxiliary process in (t,x) and save to out
 x is a state and out as well
 """
-function Bridge.b!(t, x, out, Paux::MarslandShardlowAux)
+function Bridge.b!(t, x, out, Paux::MarslandShardlowAux, xT)
     zero!(out)
     pp = out.p
     qq = out.q
@@ -205,7 +205,7 @@ end
 
 Compute tildeB(t) for landmarks auxiliary process
 """
-function Bridge.B(t, Paux::MarslandShardlowAux) # not AD safe
+function Bridge.B(t, Paux::MarslandShardlowAux, xT) # not AD safe
     X = zeros(UncF, 2Paux.n, 2Paux.n)
     @inbounds for i in 1:Paux.n
         for j in 1:Paux.n
@@ -222,7 +222,7 @@ end
 Compute B̃(t) * X (B̃ from auxiliary process) and write to out
 Both B̃(t) and X are of type UncMat
 """
-function Bridge.B!(t,X,out, Paux::MarslandShardlowAux)
+function Bridge.B!(t,X,out, Paux::MarslandShardlowAux, xT)
     out .= 0.0 * out
     @inbounds  for i in 1:Paux.n  # separately loop over even and odd indices
         for k in 1:2Paux.n # loop over all columns
@@ -235,27 +235,52 @@ function Bridge.B!(t,X,out, Paux::MarslandShardlowAux)
     out
 end
 
-function Bridge.β(t, Paux::MarslandShardlowAux) # Not AD save
+function Bridge.β(t, Paux::MarslandShardlowAux, xT) # Not AD save
     State(zeros(PointF,Paux.n), zeros(PointF,Paux.n))
 end
 
 """
-    Bridge.σ!(t, x, dm, out, P::Union{MarslandShardlow, MarslandShardlowAux})
+    Bridge.σ!(t, x, dm, out, P::MarslandShardlow)
 
 Compute σ(t,x) * dm and write to out
 """
-function Bridge.σ!(t, x, dm, out, P::Union{MarslandShardlow, MarslandShardlowAux})
+function Bridge.σ!(t, x, dm, out, P::MarslandShardlow)
     zero!(out)
     out.p .= dm*P.γ
     out
 end
 
 """
+    Bridge.σ!(t, x, dm, out, P::MarslandShardlowAux, xT)
+
+Compute σ(t,x) * dm and write to out
+"""
+function Bridge.σ!(t, x, dm, out, P::MarslandShardlowAux, xT)
+    zero!(out)
+    out.p .= dm*P.γ
+    out
+end
+
+"""
+    σt!(t, x_, y::State{Pnt}, out, P::MarslandShardlow) where Pnt
+compute σ(t,x)' y, where y::State
+the result is a vector of points that is written to out
+"""
+function σt!(t, x_, y::State{Pnt}, out, P::MarslandShardlow) where Pnt
+    zero!(out)
+    out .= P.γ * y.p
+    out
+end
+
+
+
+
+"""
     Bridge.a(t,  P::Union{MarslandShardlow, MarslandShardlowAux})
 
 Returns matrix a(t) for Marsland-Shardlow model
 """
-function Bridge.a(t,  P::Union{MarslandShardlow, MarslandShardlowAux})
+function Bridge.a(t,  P::MarslandShardlow)
     I = Int[]
     X = UncF[]
     γ2 = P.γ^2
@@ -265,14 +290,40 @@ function Bridge.a(t,  P::Union{MarslandShardlow, MarslandShardlowAux})
     end
     sparse(I, I, X, 2P.n, 2P.n)
 end
-Bridge.a(t, x, P::Union{MarslandShardlow, MarslandShardlowAux}) = Bridge.a(t, P)
+
+function Bridge.a(t,  P::MarslandShardlowAux, xT)
+    I = Int[]
+    X = UncF[]
+    γ2 = P.γ^2
+    for i in 1:P.n
+        push!(I, 2i)
+        push!(X, γ2*one(UncF))
+    end
+    sparse(I, I, X, 2P.n, 2P.n)
+end
+
+
+Bridge.a(t, x, P::MarslandShardlow) = Bridge.a(t, P)
+Bridge.a(t, x, P::MarslandShardlowAux, xT) = Bridge.a(t, P, xT)
+
+
+
+function Bridge.a!(t, x, A, P::MarslandShardlowAux, xT)
+    zero!(A)
+    G = γ2*one(UncF)
+    for i ∈ (P.n+1):2P.n
+        A[i,i] = G
+    end
+end
+
+
 
 """
     σ̃(t,  P::Union{MarslandShardlow, MarslandShardlowAux})
 
 Return sparse matrix  matrix σ̃(t)
 """
-function σ̃(t,  P::Union{MarslandShardlow, MarslandShardlowAux})
+function σ̃(t,  P::MarslandShardlow)
     Iind = Int[]
     Jind = Int[]
     X = UncF[]
@@ -285,24 +336,55 @@ function σ̃(t,  P::Union{MarslandShardlow, MarslandShardlowAux})
     sparse(Iind, Jind, X, 2P.n, P.n)
 end
 
+function σ̃(t,  P::MarslandShardlowAux, xT)
+    Iind = Int[]
+    Jind = Int[]
+    X = UncF[]
+    γ = P.γ
+    @inbounds for i in 1:P.n
+        push!(Iind, 2i)
+        push!(Jind,i)
+        push!(X, γ*one(UncF))
+    end
+    sparse(Iind, Jind, X, 2P.n, P.n)
+end
+
+
 """
     amul(t, x::State, xin::State, P::Union{MarslandShardlow, MarslandShardlowAux})
 
 Multiply a(t,x) times xin (which is of type state)
 Returns variable of type State
 """
-function amul(t, x::State, xin::State, P::Union{MarslandShardlow, MarslandShardlowAux})
+function amul(t, x::State, xin::State, P::MarslandShardlow)
     out = copy(xin)
     zero!(out.q)
     out.p .= P.γ^2 .* xin.p
     out
 end
-function amul(t, x::State, xin::Vector{<:Point}, P::Union{MarslandShardlow, MarslandShardlowAux})
+function amul(t, x::State, xin::State, P::MarslandShardlowAux, xT)
+    out = copy(xin)
+    zero!(out.q)
+    out.p .= P.γ^2 .* xin.p
+    out
+end
+
+
+
+function amul(t, x::State, xin::Vector{<:Point}, P::MarslandShardlow)
     out = copy(x)
     zero!(out.q)
     out.p .= P.γ^2 .* vecofpoints2state(xin).p
     out
 end
+
+function amul(t, x::State, xin::Vector{<:Point}, P::MarslandShardlowAux, xT)
+    out = copy(x)
+    zero!(out.q)
+    out.p .= P.γ^2 .* vecofpoints2state(xin).p
+    out
+end
+
 
 ########################################################################################################################################################################################
 ################ AHS model #########################################################################################
@@ -313,7 +395,7 @@ end
 K̄(q,τ) = exp(-Bridge.inner(q)/(2*τ^2))
 Kernel for noisefields of AHS-model
 """
-function K̄(q,τ)
+function K̄(q::T,τ) where T
      exp(-Bridge.inner(q)/(2.0*τ*τ))
 end
 
@@ -322,7 +404,7 @@ end
 
 Gradient of kernel for noisefields
 """
-function ∇K̄(q,τ)
+function ∇K̄(q::T,τ) where T
      -1.0/(τ*τ) * K̄(q,τ) * q
 end
 
@@ -446,7 +528,7 @@ end
 Evaluate drift of landmarks auxiliary process in (t,x) and save to out
 x is a state and out as well
 """
-function Bridge.b!(t, x, out, Paux::LandmarksAux)
+function Bridge.b!(t, x, out, Paux::LandmarksAux, xT)
     zero!(out)
     pp = out.p
     qq = out.q
@@ -455,7 +537,7 @@ function Bridge.b!(t, x, out, Paux::LandmarksAux)
             qq[i] += p(x,j) * Paux.gramT[i,j]
         end
         if itostrat
-            qT = q(Paux.xT,i)
+            qT = q(xT,i)
             p_i = p(x,i)
             for k in 1:length(Paux.nfs)
                 # approximate q by qT
@@ -469,11 +551,11 @@ function Bridge.b!(t, x, out, Paux::LandmarksAux)
 end
 
 """
-    Bridge.B(t, Paux::LandmarksAux)
+    Bridge.B(t, Paux::LandmarksAux, xT)
 
 Compute tildeB(t) for landmarks auxiliary process
 """
-function Bridge.B(t, Paux::LandmarksAux)
+function Bridge.B(t, Paux::LandmarksAux, xT)
     X = zeros(UncF, 2Paux.n, 2Paux.n)
     @inbounds  for i in 1:Paux.n
         for j in 1:Paux.n
@@ -482,7 +564,7 @@ function Bridge.B(t, Paux::LandmarksAux)
         if itostrat
             @inbounds for k in 1:length(Paux.nfs)
                 nf = Paux.nfs[k]
-                qT = q(Paux.xT,i)
+                qT = q(xT,i)
                 X[2i,2i] += 0.5 * ( z(qT,nf.τ,nf.δ,nf.γ) * ∇K̄(qT - nf.δ,nf.τ) -K̄(qT - nf.δ,nf.τ) * ∇z(qT,nf.τ,nf.δ,nf.γ) )  * nf.γ'
             end
         end
@@ -491,12 +573,12 @@ function Bridge.B(t, Paux::LandmarksAux)
 end
 
 """
-    Bridge.B!(t,X,out, Paux::LandmarksAux)
+    Bridge.B!(t,X,out, Paux::LandmarksAux, xT)
 
 Compute B̃(t) * X (B̃ from auxiliary process) and write to out
 Both B̃(t) and X are of type UncMat
 """
-function Bridge.B!(t,X,out, Paux::LandmarksAux)
+function Bridge.B!(t,X,out, Paux::LandmarksAux, xT)
     out .= 0.0 * out
     u = zero(UncF)
     @inbounds  for i in 1:Paux.n  # separately loop over even and odd indices
@@ -508,7 +590,7 @@ function Bridge.B!(t,X,out, Paux::LandmarksAux)
                 u = 0.0*u
                 for k in 1:length(Paux.nfs)
                     nf = P.nfs[k]
-                    qT = q(Paux.xT,i)
+                    qT = q(xT,i)
                     u += 0.5 * ( z(qT,nf.τ,nf.δ,nf.γ) * ∇K̄(qT - nf.δ,nf.τ) -K̄(qT - nf.δ,nf.τ) * ∇z(qT,nf.τ,nf.δ,nf.γ) )  * nf.γ'
                 end
                 out[2i,k] = u * X[2i,k]
@@ -518,13 +600,13 @@ function Bridge.B!(t,X,out, Paux::LandmarksAux)
     out
 end
 
-function Bridge.β(t, Paux::LandmarksAux)
+function Bridge.β(t, Paux::LandmarksAux, xT)
     out = zeros(PointF,Paux.n)
     if itostrat
         @inbounds  for i in 1:Paux.n
             for k in 1:length(Paux.nfs)
                 nf = Paux.nfs[k]
-                qT = q(Paux.xT,i)
+                qT = q(xT,i)
                 out[i] += 0.5 * z(qT,nf.τ,nf.δ,nf.γ) * K̄(qT-nf.δ,nf.τ) * nf.γ # simply take q at endpoint
             end
         end
@@ -540,12 +622,8 @@ end
 Compute sigma(t,x) * dm where dm is a vector and sigma is the diffusion coefficient of landmarks
 write to out which is of type State
 """
-function Bridge.σ!(t, x_, dm, out, P::Union{Landmarks,LandmarksAux})
-    if P isa Landmarks
-        x = x_
-    else
-        x = P.xT
-    end
+function Bridge.σ!(t, x_, dm, out, P::Landmarks)
+    x = x_
     zero!(out)
     qq = out.q
     pp = out.p
@@ -558,16 +636,28 @@ function Bridge.σ!(t, x_, dm, out, P::Union{Landmarks,LandmarksAux})
     out
 end
 
+function Bridge.σ!(t, x_, dm, out, P::LandmarksAux, xT)
+    x = xT
+    zero!(out)
+    qq = out.q
+    pp = out.p
+    @inbounds for i in 1:P.n
+        for j in 1:length(P.nfs)
+            qq[i] += σq(q(x, i), P.nfs[j]) * dm[j]
+            pp[i] += σp(q(x, i), p(x, i), P.nfs[j]) * dm[j]
+        end
+    end
+    out
+end
+
+
+
 """
 Compute sigma(t,x)' * y where y is a state and sigma is the diffusion coefficient of landmarks
 returns a vector of points of length P.nfs
 """
-function σtmul(t, x_, y::State{Pnt}, P::Union{Landmarks,LandmarksAux}) where Pnt
-    if P isa Landmarks
-        x = x_
-    else
-        x = P.xT
-    end
+function σtmul(t, x_, y::State{Pnt}, P::Landmarks) where Pnt
+    x = x_
     out = zeros(Pnt, length(P.nfs))
     @inbounds for j in 1:length(P.nfs)
         for i in 1:P.n
@@ -578,13 +668,27 @@ function σtmul(t, x_, y::State{Pnt}, P::Union{Landmarks,LandmarksAux}) where Pn
     out
 end
 
+function σtmul(t, x_, y::State{Pnt}, P::LandmarksAux, xT) where Pnt
+    x = xT
+    out = zeros(Pnt, length(P.nfs))
+    @inbounds for j in 1:length(P.nfs)
+        for i in 1:P.n
+            out[j] += σq(q(x, i), P.nfs[j])' * y.q[i] +
+                        σp(q(x, i), p(x, i), P.nfs[j])' * y.p[i]
+        end
+    end
+    out
+end
+
+
+
 """
-    σ̃(t,  Paux::LandmarksAux)
+    σ̃(t,  Paux::LandmarksAux, xT)
 
 Return matrix σ̃(t) for LandmarksAux
 """
-function σ̃(t,  Paux::LandmarksAux)
-    x = Paux.xT
+function σ̃(t,  Paux::LandmarksAux, xT)
+    x = xT
     out = zeros(UncF, 2Paux.n, length(Paux.nfs))
     @inbounds  for i in 1:Paux.n
         for j in 1:length(Paux.nfs)
@@ -595,17 +699,6 @@ function σ̃(t,  Paux::LandmarksAux)
     out
 end
 
-"""
-    σt!(t, x_, y::State{Pnt}, out, P::MarslandShardlow) where Pnt
-
-compute σ(t,x)' y, where y::State
-the result is a vector of points that is written to out
-"""
-function σt!(t, x_, y::State{Pnt}, out, P::MarslandShardlow) where Pnt
-    zero!(out)
-    out .= P.γ * y.p
-    out
-end
 
 
 
@@ -613,13 +706,9 @@ end
     compute σ(t,x)' y, where y::State
     the result is a vector of points that is written to out
 """
-function σt!(t, x_, y::State{Pnt}, out, P::Union{Landmarks,LandmarksAux}) where Pnt
+function σt!(t, x_, y::State{Pnt}, out, P::Landmarks) where Pnt
     zero!(out)
-    if P isa Landmarks
-        x = x_
-    else
-        x = P.xT
-    end
+    x = x_
     @inbounds for j in 1:length(P.nfs)
          for i in 1:P.n
             out[j] += σq(q(x, i), P.nfs[j])' * q(y, i) +
@@ -631,12 +720,24 @@ function σt!(t, x_, y::State{Pnt}, out, P::Union{Landmarks,LandmarksAux}) where
     out
 end
 
-function Bridge.a(t, x_, P::Union{Landmarks,LandmarksAux})
-    if P isa Landmarks
-        x = x_
-    else
-        x = P.xT
+function σt!(t, x_, y::State{Pnt}, out, P::LandmarksAux, xT) where Pnt
+    zero!(out)
+    x = xT
+    @inbounds for j in 1:length(P.nfs)
+         for i in 1:P.n
+            out[j] += σq(q(x, i), P.nfs[j])' * q(y, i) +
+                    σp(q(x, i), p(x, i), P.nfs[j])' * p(y, i)
+
+
+        end
     end
+    out
+end
+
+
+
+function Bridge.a(t, x_, P::Landmarks)
+    x = x_
     out = zeros(Unc{deepeltype(x)}, 2P.n,2P.n)
     @inbounds for i in 1:P.n, k in i:P.n,  j in 1:length(P.nfs)
                 a11 = σq(q(x,i),P.nfs[j])
@@ -654,7 +755,28 @@ function Bridge.a(t, x_, P::Union{Landmarks,LandmarksAux})
     out
 end
 
-Bridge.a(t, P::LandmarksAux) =  Bridge.a(t, 0, P)
+function Bridge.a(t, x_, P::LandmarksAux, xT)
+    x = xT
+    out = zeros(Unc{deepeltype(x)}, 2P.n,2P.n)
+    @inbounds for i in 1:P.n, k in i:P.n,  j in 1:length(P.nfs)
+                a11 = σq(q(x,i),P.nfs[j])
+                a21 = σp(q(x,i),p(x,i),P.nfs[j])
+                a12 = σq(q(x,k),P.nfs[j])
+                a22 = σp(q(x,k),p(x,k),P.nfs[j])
+                out[2i-1,2k-1] += a11 * a12'
+                out[2i-1,2k] += a11 * a22'
+                out[2i,2k-1] += a21 * a12'
+                out[2i,2k] += a21 * a22'
+    end
+    @inbounds for i in 2:2P.n,  k in 1:i-1
+            out[i,k] = out[k,i]
+    end
+    out
+end
+
+
+
+Bridge.a(t, P::LandmarksAux, xT) =  Bridge.a(t, 0, P, xT)
 
 """
     amul(t, x::State, xin::Vector{<:Point}, P::Union{Landmarks,LandmarksAux})
@@ -663,35 +785,64 @@ Multiply a(t,x) times a vector of points
 Returns a State
 (first multiply with sigma', via function σtmul, next left-multiply this vector with σ)
 """
-function amul(t, x::State, xin::Vector{<:Point}, P::Union{Landmarks,LandmarksAux})
+function amul(t, x::State, xin::Vector{<:Point}, P::Landmarks)
     #vecofpoints2state(Bridge.a(t, x, P)*xin)
     out = copy(x)
     zero!(out)
     Bridge.σ!(t, x, σtmul(t, x, vecofpoints2state(xin), P),out,P)
 end
 
+function amul(t, x::State, xin::Vector{<:Point}, P::LandmarksAux, xT)
+    #vecofpoints2state(Bridge.a(t, x, P)*xin)
+    out = copy(x)
+    zero!(out)
+    Bridge.σ!(t, x, σtmul(t, x, vecofpoints2state(xin), P),out,P, xT)
+end
+
+
 """
 Multiply a(t,x) times a state
 Returns a state
 (first multiply with sigma', via function σtmul, next left-multiply this vector with σ)
 """
-function amul(t, x::State, xin::State, P::Union{Landmarks,LandmarksAux})
-    #vecofpoints2state(Bridge.a(t, x, P)*vec(xin))
+function amul(t, x::State, xin::State, P::Landmarks)
     out = copy(x)
     zero!(out)
     Bridge.σ!(t, x, σtmul(t, x, xin, P),out,P)
 end
+function amul(t, x::State, xin::State, P::LandmarksAux, xT)
+    out = copy(x)
+    zero!(out)
+    Bridge.σ!(t, x, σtmul(t, x, xin, P),out,P, xT)
+end
+
+
 
 """
     Bridge.a!(t, x_, out, P::Union{Landmarks,LandmarksAux})
 """
-function Bridge.a!(t, x_, out, P::Union{Landmarks,LandmarksAux})
+function Bridge.a!(t, x_, out, P::Landmarks)
     zero!(out)
-    if P isa Landmarks
-        x = x_
-    else
-        x = P.xT
+    x = x_
+    @inbounds for i in 1:P.n,  k in i:P.n, j in 1:length(P.nfs)
+        a11 = σq(q(x,i),P.nfs[j])
+        a21 = σp(q(x,i),p(x,i),P.nfs[j])
+        a12 = σq(q(x,k),P.nfs[j])
+        a22 = σp(q(x,k),p(x,k),P.nfs[j])
+        out[2i-1,2k-1] += a11 * a12'
+        out[2i-1,2k] += a11 * a22'
+        out[2i,2k-1] += a21 * a12'
+        out[2i,2k] += a21 * a22'
     end
+    @inbounds for i in 2:2P.n, k in 1:i-1
+            out[i,k] = out[k,i]
+    end
+    out
+end
+
+function Bridge.a!(t, x_, out, P::LandmarksAux, xT)
+    zero!(out)
+    x = xT
     @inbounds for i in 1:P.n,  k in i:P.n, j in 1:length(P.nfs)
         a11 = σq(q(x,i),P.nfs[j])
         a21 = σp(q(x,i),p(x,i),P.nfs[j])

@@ -146,7 +146,7 @@ Xᵒ
 ## Returns
 logliklihood.
 """
-function gp!(::LeftRule,  Xᵒ, x0, W, Q::GuidedProposal, k; skip = sk, ll0 = true)
+function gp!(::LeftRule,  Xᵒ, x0, W, Q::GuidedProposal, k, At, xT=auxiliary(Q,k).xT; skip = sk, ll0 = true)
     Pnt = eltype(x0)
     tt =  Xᵒ.tt
     Xᵒ.yy[1] .= deepvalue(x0)
@@ -161,7 +161,8 @@ function gp!(::LeftRule,  Xᵒ, x0, W, Q::GuidedProposal, k; skip = sk, ll0 = tr
     btout = copy(x0)
     wout = copy(x0)
     if !constdiff(Q)  # FIXME, keep allocating here, should be inplace
-        At = Bridge.a((1,0), x0, auxiliary(Q,k))  # auxtimehomogeneous switch
+        #At = Bridge.a((1,0), x0, auxiliary(Q,k), xT)  # auxtimehomogeneous switch
+        Bridge.a!((1,0), x0, At, auxiliary(Q,k), xT)  # auxtimehomogeneous switch
         A = zeros(Unc{deepeltype(x0)}, 2Q.target.n,2Q.target.n)
     end
     for i ∈ 1:length(tt)-1
@@ -172,11 +173,10 @@ function gp!(::LeftRule,  Xᵒ, x0, W, Q::GuidedProposal, k; skip = sk, ll0 = tr
         Bridge.σ!(tt[i], x, srout*dt + W.yy[i+1] - W.yy[i], wout, target(Q)) # σ(t,x) (σ(t,x)' * tilder(t,x) + dW(t))
         # likelihood terms
         if i<=length(tt)-1-skip
-    #        _b!((i,tt[i]), x, btout, auxiliary(Q,k))    #FIXME ALLOCATES A LOT, original
-            b!(tt[i], x, btout, auxiliary(Q,k))
+            b!(tt[i], x, btout, auxiliary(Q,k),xT)
             som += dot(bout-btout, rout) * dt
             if !constdiff(Q)
-                σt!(tt[i], x, rout, strout, auxiliary(Q,k))  #  tildeσ(t,x)' * tilder(t,x) for auxiliary(Q)
+                σt!(tt[i], x, rout, strout, auxiliary(Q,k),xT)  #  tildeσ(t,x)' * tilder(t,x) for auxiliary(Q)
                 som += 0.5*Bridge.inner(srout) * dt    # |σ(t,x)' * tilder(t,x)|^2
                 som -= 0.5*Bridge.inner(strout) * dt   # |tildeσ(t,x)' * tilder(t,x)|^2
                 Bridge.a!((i,tt[i]), x, A, target(Q))
@@ -201,10 +201,10 @@ end
 Simulate guided proposal and compute loglikelihood (vector version, multiple shapes)
 `x0` is assumed to be of type `State`
 """
-function gp!(::LeftRule,  X::Vector, x0, W, Q::GuidedProposal; skip = sk, ll0 = true)
+function gp!(::LeftRule,  X::Vector, x0, W, Q::GuidedProposal, At; skip = sk, ll0 = true)
      logliks  = zeros(deepeltype(x0), Q.nshapes)
      for k ∈ 1:Q.nshapes
-         logliks[k], X[k] = gp!(LeftRule(), X[k],x0,W[k],Q, k ;skip=skip,ll0=ll0)
+         logliks[k], X[k] = gp!(LeftRule(), X[k],x0,W[k],Q, k, At ;skip=skip,ll0=ll0)
      end
      logliks, X
 end
@@ -215,12 +215,12 @@ end
 Simulate guided proposal and compute loglikelihood (vector version, multiple shapes)
 `q` and `p` make up a state (could in fact be turned into the intial state by `merge_state(q,p)`)
 """
-function gp!(::LeftRule,  X::Vector, q, p , W, Q::GuidedProposal; skip = sk, ll0 = true)
+function gp!(::LeftRule,  X::Vector, q, p , W, Q::GuidedProposal, At; skip = sk, ll0 = true)
     T = typeof(q[1] + p[1])
     x0 = NState(reinterpret(Point{T}, T.(q)),reinterpret(Point{T}, T.(p)))
     logliks  = zeros(deepeltype(x0), Q.nshapes)
     for k ∈ 1:Q.nshapes
-        logliks[k], X[k] = gp!(LeftRule(), X[k],x0,W[k],Q, k ;skip=skip,ll0=ll0)
+        logliks[k], X[k] = gp!(LeftRule(), X[k],x0,W[k],Q, k, At ;skip=skip,ll0=ll0)
     end
     logliks, X
 end

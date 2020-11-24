@@ -87,14 +87,14 @@ Solve backwards recursions in L, M, μ parametrisation on grid t
 
 Case `lowrank=true` still gives an error: fixme!
 """
-function guidingbackwards!(::Lm, t, (Lt, Mt⁺, μt), Paux, obsinfo; implicit=true, lowrank=false) #FIXME: add lowrank
+function guidingbackwards!(::Lm, t, (Lt, Mt⁺, μt), Paux, obsinfo, xT; implicit=true, lowrank=false) #FIXME: add lowrank
     Mt⁺[end] .= obsinfo.ΣT
     Lt[end] .= obsinfo.LT
     μt[end] .= μT = zeros(PointF,obsinfo.n)
 
-    B̃ = Bridge.B(0, Paux)          # does not depend on time
-    β̃ = vec(Bridge.β(0,Paux))       # does not depend on time
-    σ̃T = Matrix(σ̃(0, Paux))
+    B̃ = Bridge.B(0, Paux, xT)          # does not depend on time
+    β̃ = vec(Bridge.β(0,Paux, xT))       # does not depend on time
+    σ̃T = Matrix(σ̃(0, Paux, xT))
     dt = t[2] - t[1]
     oldtemp = (0.5*dt) * Bridge.outer(Lt[end] * σ̃T)
     if lowrank  # TBA lowrank on σ̃T, and write into σ̃T
@@ -107,7 +107,7 @@ function guidingbackwards!(::Lm, t, (Lt, Mt⁺, μt), Paux, obsinfo; implicit=tr
         else
             Lt[i] .=  Lt[i+1] * (I + B̃ * dt)
         end
-        temp = (0.5*dt) * Bridge.outer(Lt[i] * σ̃T)
+        temp = (0.5dt) * Bridge.outer( (Lt[i]) * σ̃T)
         Mt⁺[i] .= Mt⁺[i+1] + oldtemp + temp
         oldtemp = temp
         μt[i] .= μt[i+1] + 0.5 * (Lt[i] + Lt[i+1]) * β̃ * dt  # trapezoid rule
@@ -123,12 +123,12 @@ obsinfo::ObsInfo
 
 Computes backwards recursion for (L,M⁺,μ), including gp-update step at time 0.
 Next, the `guidrec` field or `Q` is updated.
-Returns `Q`. 
+Returns `Q`.
 """
 function update_guidrec!(Q, obsinfo)
     for k in 1:obsinfo.nshapes  # for all shapes
         # solve backward recursions;
-        Lt0₊, Mt⁺0₊, μt0₊ =  guidingbackwards!(Lm(), Q.tt, (Q.guidrec[k].Lt, Q.guidrec[k].Mt⁺,Q.guidrec[k].μt), Q.aux[k], obsinfo)
+        Lt0₊, Mt⁺0₊, μt0₊ =  guidingbackwards!(Lm(), Q.tt, (Q.guidrec[k].Lt, Q.guidrec[k].Mt⁺,Q.guidrec[k].μt), Q.aux[k], obsinfo, auxiliary(Q,k).xT)
         # perform gpupdate step at time zero
         gp_update!(Lt0₊, Mt⁺0₊, μt0₊, (obsinfo.L0, obsinfo.Σ0, obsinfo.xobs0),Q.guidrec[k].Lt0, Q.guidrec[k].Mt⁺0, Q.guidrec[k].μt0)
         # compute Cholesky decomposition of Mt at each time on the grid, need to symmetrize gr.Mt⁺; else AHS  gives numerical roundoff errors when mT \neq 0
