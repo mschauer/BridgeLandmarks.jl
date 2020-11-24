@@ -160,14 +160,14 @@ function gp!(::LeftRule,  Xᵒ, x0, W, Q::GuidedProposal, k, At, xT=auxiliary(Q,
     bout = copy(x0)
     btout = copy(x0)
     wout = copy(x0)
-    if !constdiff(Q)  # FIXME, keep allocating here, should be inplace
+    if !constdiff(Q)
         #At = Bridge.a((1,0), x0, auxiliary(Q,k), xT)  # auxtimehomogeneous switch
         Bridge.a!((1,0), x0, At, auxiliary(Q,k), xT)  # auxtimehomogeneous switch
         A = zeros(Unc{deepeltype(x0)}, 2Q.target.n,2Q.target.n)
     end
     for i ∈ 1:length(tt)-1
         dt = tt[i+1]-tt[i]
-        b!(tt[i], x, bout, target(Q)) # b(t,x)  #   FIXME ALLOCATES A LOT
+        b!(tt[i], x, bout, target(Q)) # b(t,x)
         _r!((i,tt[i]), x, rout, Q, k) # tilder(t,x)
         σt!(tt[i], x, rout, srout, target(Q))      #  σ(t,x)' * tilder(t,x) for target(Q)
         Bridge.σ!(tt[i], x, srout*dt + W.yy[i+1] - W.yy[i], wout, target(Q)) # σ(t,x) (σ(t,x)' * tilder(t,x) + dW(t))
