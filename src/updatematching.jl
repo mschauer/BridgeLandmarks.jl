@@ -10,7 +10,7 @@
 ## Returns
 `Q`, `obsinfo`, `accept`
 """
-function update_cyclicmatching(X, ll,obsinfo, Xᵒ, W, Q)
+function update_cyclicmatching(X, ll,obsinfo, Xᵒ, W, Q, At)
     # shift each element in xobsT, this means
         # - creating xobsTᵒ (shift each element of xobsT)
         # - creating obsinfoᵒ
