@@ -158,7 +158,7 @@ function update_path!(X, W, ll, Xᵒ,Wᵒ, Wnew, Q, ρlowerbound)
                 Wᵒ.yy[i][j] = ρ * W[k].yy[i][j] + ρ_ * Wnew.yy[i][j]
             end
         end
-         llᵒ, Xᵒ[k] = gp!(LeftRule(), Xᵒ[k], x0, Wᵒ, Q, k; skip=sk)
+         llᵒ, Xᵒ[k] = gp!(LeftRule(), Xᵒ[k], x0, Wᵒ, Q, auxiliary(Q, k), k; skip=sk)
         #llᵒ, Xᵒ[k] = 0.0, X[k]
         diff_ll = llᵒ - ll[k]
         if log(rand()) <= diff_ll

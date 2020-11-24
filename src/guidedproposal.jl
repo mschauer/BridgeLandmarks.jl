@@ -90,7 +90,12 @@ end
 Update xobsTᵒ into auxiliary process of Q, following by recomputing the backwards ODEs
 """
 function construct_gp_xobsT(Q, xobsTᵒ)
-    aux = [auxiliary(Q.target,State(xobsTᵒ[k],Q.mT[k])) for k ∈ 1:Q.nshapes]
+    k = 1
+    aux1 = auxiliary(Q.target,State(xobsTᵒ[k],Q.mT[k]))
+    aux = typeof(aux1)[aux1]
+    for k in 2:Q.nshapes
+        push!(aux, auxiliary(Q.target,State(xobsTᵒ[k],Q.mT[k])))
+    end
     GuidedProposal(Q.target, aux, Q.tt, Q.xobs0, xobsTᵒ, Q.guidrec, Q.nshapes, Q.mT)
 end
 
@@ -146,7 +151,7 @@ Xᵒ
 ## Returns
 logliklihood.
 """
-function gp!(::LeftRule,  Xᵒ, x0, W, Q::GuidedProposal, k; skip = sk, ll0 = true)
+function gp!(::LeftRule, Xᵒ, x0, W, Q::GuidedProposal, auxk, k; skip = sk, ll0 = true)
     Pnt = eltype(x0)
     tt =  Xᵒ.tt
     Xᵒ.yy[1] .= deepvalue(x0)
@@ -161,7 +166,7 @@ function gp!(::LeftRule,  Xᵒ, x0, W, Q::GuidedProposal, k; skip = sk, ll0 = tr
     btout = copy(x0)
     wout = copy(x0)
     if !constdiff(Q)  # FIXME, keep allocating here, should be inplace
-        At = Bridge.a((1,0), x0, auxiliary(Q,k))  # auxtimehomogeneous switch
+        At = Bridge.a((1,0), x0, auxk)  # auxtimehomogeneous switch
         A = zeros(Unc{deepeltype(x0)}, 2Q.target.n,2Q.target.n)
     end
     for i ∈ 1:length(tt)-1
@@ -173,10 +178,10 @@ function gp!(::LeftRule,  Xᵒ, x0, W, Q::GuidedProposal, k; skip = sk, ll0 = tr
         # likelihood terms
         if i<=length(tt)-1-skip
     #        _b!((i,tt[i]), x, btout, auxiliary(Q,k))    #FIXME ALLOCATES A LOT, original
-            b!(tt[i], x, btout, auxiliary(Q,k))
+            b!(tt[i], x, btout, auxk)
             som += dot(bout-btout, rout) * dt
             if !constdiff(Q)
-                σt!(tt[i], x, rout, strout, auxiliary(Q,k))  #  tildeσ(t,x)' * tilder(t,x) for auxiliary(Q)
+                σt!(tt[i], x, rout, strout, auxk)  #  tildeσ(t,x)' * tilder(t,x) for auxiliary(Q)
                 som += 0.5*Bridge.inner(srout) * dt    # |σ(t,x)' * tilder(t,x)|^2
                 som -= 0.5*Bridge.inner(strout) * dt   # |tildeσ(t,x)' * tilder(t,x)|^2
                 Bridge.a!((i,tt[i]), x, A, target(Q))
@@ -204,7 +209,7 @@ Simulate guided proposal and compute loglikelihood (vector version, multiple sha
 function gp!(::LeftRule,  X::Vector, x0, W, Q::GuidedProposal; skip = sk, ll0 = true)
      logliks  = zeros(deepeltype(x0), Q.nshapes)
      for k ∈ 1:Q.nshapes
-         logliks[k], X[k] = gp!(LeftRule(), X[k],x0,W[k],Q, k ;skip=skip,ll0=ll0)
+         logliks[k], X[k] = gp!(LeftRule(), X[k],x0,W[k],Q, auxiliary(Q,k), k;skip=skip,ll0=ll0)
      end
      logliks, X
 end
@@ -220,7 +225,7 @@ function gp!(::LeftRule,  X::Vector, q, p , W, Q::GuidedProposal; skip = sk, ll0
     x0 = NState(reinterpret(Point{T}, T.(q)),reinterpret(Point{T}, T.(p)))
     logliks  = zeros(deepeltype(x0), Q.nshapes)
     for k ∈ 1:Q.nshapes
-        logliks[k], X[k] = gp!(LeftRule(), X[k],x0,W[k],Q, k ;skip=skip,ll0=ll0)
+        logliks[k], X[k] = gp!(LeftRule(), X[k],x0,W[k], Q, auxiliary(Q,k), k ;skip=skip,ll0=ll0)
     end
     logliks, X
 end
@@ -257,7 +262,13 @@ function adjust_to_newpars(Q::GuidedProposal,θᵒ, obsinfo, gramT_container)
     for k ∈ eachindex(gramT_container)
          gram_matrix!(gramT_container[k], Q.xobsT[k], Q.aux[k])
     end
-    aux = [auxiliary(target,State(Q.xobsT[k],Q.mT[k]), gramT_container[k]) for k ∈ 1:Q.nshapes]
+    k = 1
+    aux1 = auxiliary(target,State(Q.xobsT[k],Q.mT[k]), gramT_container[k])
+    aux = typeof(aux1)[aux1]
+    for k ∈ 2:Q.nshapes
+        push!(aux, auxiliary(target,State(Q.xobsT[k],Q.mT[k]), gramT_container[k]))
+    end
+
     Qnew = GuidedProposal(target, aux, Q.tt, Q.xobs0, Q.xobsT, Q.guidrec, Q.nshapes, Q.mT)
     Qnew = update_guidrec!(Qnew, obsinfo)
     Qnew
