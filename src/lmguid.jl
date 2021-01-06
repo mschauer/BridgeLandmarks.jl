@@ -85,12 +85,12 @@ function lm_mcmc(t, obsinfo, mT, P, ITER, subsamples, xinit, pars, priorθ, prio
                 if adapt(i)
                     ρ = adaptpcnstep(ρ, i, accinfo[!,update], pars.η, pars.adaptskip)
                 end
-            elseif update ∈ [:mala_mom, :rmmala_mom, :rmrw_mom]
+            elseif update ∈ [:mala_mom, :tmala_mom, :rmmala_mom, :rmrw_mom]
                 accinfo_, X, x, ∇, ll = update_initialstate!(X,Xᵒ,W,ll, x, qᵒ, pᵒ,∇, ∇ᵒ, Q, δ, update, priormom, (dK, inv_dK), At)
                 if adapt(i)
                     δ[2] = adapt_pospar_step(δ[2], i, accinfo[!,update], pars.η, pars.adaptskip)
                 end
-            elseif update ∈ [:mala_pos, :rmmala_pos]
+            elseif update ∈ [:mala_pos, :tmala_pos, :rmtmala_pos]
                 accinfo_ , X, x, ∇, ll= update_initialstate!(X,Xᵒ,W,ll, x, qᵒ, pᵒ,∇, ∇ᵒ, Q, δ, update, priormom, (dK, inv_dK), At)
                 if adapt(i)
                     δ[1] = adapt_pospar_step(δ[1], i, accinfo[!,update], pars.η, pars.adaptskip)
@@ -104,6 +104,7 @@ function lm_mcmc(t, obsinfo, mT, P, ITER, subsamples, xinit, pars, priorθ, prio
                 obsinfo, accinfo_, Q, X, ll = update_cyclicmatching(X, ll, obsinfo, Xᵒ, W, Q, At)
             elseif update == :sgd_mom
                 accinfo_, X, x, ∇, ll = update_initialstate!(X,Xᵒ,W,ll, x, qᵒ, pᵒ,∇, ∇ᵒ, Q, δ, update, priormom, (dK, inv_dK), At)
+            else @error "This update schme has not been implemented"
             end
             acc[k] = accinfo_
             k += 1
@@ -266,14 +267,14 @@ function update_initialstate!(X,Xᵒ,W,ll, x, qᵒ, pᵒ,∇, ∇ᵒ,
     else
         accinit = 0.0
         llᵒ = copy(ll)
-        if update in [:mala_pos, :rmmala_pos]
+        if update in [:mala_pos, :tmala_pos, :rmtmala_pos]
             u = slogρ_pos!(p, Q, W, X, priormom,ll, At)
             uᵒ = slogρ_pos!(p, Q, W, Xᵒ, priormom,llᵒ, At)
             cfg = ForwardDiff.GradientConfig(u, q, ForwardDiff.Chunk{dn}()) # d*P.n is maximal
             ForwardDiff.gradient!(∇, u, q, cfg) # X and ll get overwritten but do not change
             stepsize = sample(δ[1])
         end
-        if update in [:mala_mom, :rmmala_mom]
+        if update in [:mala_mom, :tmala_mom, :rmmala_mom]
             u = slogρ_mom!(q, Q, W, X, priormom,ll, At)
             uᵒ = slogρ_mom!(q, Q, W, Xᵒ, priormom,llᵒ, At)
             cfg = ForwardDiff.GradientConfig(u, p, ForwardDiff.Chunk{dn}()) # d*P.n is maximal
@@ -478,7 +479,7 @@ function show_updates()
     println("Available implemented update steps are:")
     println(":innov")
     println(":sgd_mom")
-    println(":mala_mom, :rmmala_mom, :rmrw_mom")
-    println(":mala_pos, :rmmala_pos")
+    println(":mala_mom, :tmala_mom, :rmmala_mom, :rmrw_mom")
+    println(":mala_pos, :tmala_pos, :rmtmala_pos")
     println(":parameter, :matching")
 end

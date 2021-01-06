@@ -34,26 +34,24 @@ xobs0 = map(i->PointF(d1[i,:]) - center, 1:n)/10.0
 xobsT = map(i->PointF(d2[i,:]) - center, 1:n)/10.0
 
 ################ settings and mcmc #################################
-ups = [:innov, :mala_mom, :parameter]
+ups = [:innov, :tmala_mom, :parameter]
 skip_saveITER = 100
 printskip = 1000
 adaptskip = ITER = 25_000
 
-ITER = 500
 p_ms = Pars_ms(γinit=1.0/√n, aprior=Pareto(1.0, 0.1), dt = 0.01,
                 adaptskip=adaptskip, skip_saveITER=skip_saveITER,
                 ρlowerbound=0.9)
 
-# using ProfileView
-# using Profile
-#Profile.init() @profview
 @time landmarksmatching(xobs0,xobsT; ITER=ITER, pars=p_ms, updatescheme=ups, printskip=printskip, outdir=outdir_ms)
 
-
-
-ITER = 10
-ups = [:innov, :mala_mom, :parameter]
 p_ahs = Pars_ahs(db=[3.0, 2.0], stdev=.5, γinit=.1, aprior=Pareto(1.0, 0.1), dt = 0.01,
                                 adaptskip=adaptskip, skip_saveITER=skip_saveITER,
                                 ρlowerbound=0.9)
-@time landmarksmatching(xobs0,xobsT; ITER=500, pars=p_ahs, updatescheme=ups, printskip=printskip, outdir=outdir_ahs)
+@time landmarksmatching(xobs0,xobsT; ITER=ITER, pars=p_ahs, updatescheme=ups, printskip=printskip, outdir=outdir_ahs)
+
+
+
+# using ProfileView
+# using Profile
+#Profile.init() @profview
