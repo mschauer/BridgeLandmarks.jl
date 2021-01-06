@@ -1,7 +1,7 @@
 import Bridge: kernelr3!, R3!, target, auxiliary, constdiff, llikelihood, _b!, B!, σ!, b!
 
 """
-    lm_mcmc(t, obsinfo, mT, P, ITER, subsamples, xinit, pars, priorθ, priormom, updatescheme, outdir)
+    (t, obsinfo, mT, P, ITER, subsamples, xinit, pars, priorθ, priormom, updatescheme, outdir, printskip)
 
 This is the main function call for doing either MCMC or SGD for landmark models
 Backward ODEs used are in terms of the LMμ-parametrisation
@@ -19,14 +19,16 @@ Backward ODEs used are in terms of the LMμ-parametrisation
 - `priormom`: prior on initial momenta
 - `updatescheme`: vector specifying mcmc-updates
 - `outdir` output directory for animation
+- `printskip` skip every `printskip` iterations in writing output to console
 
 ## Returns:
 - `Xsave`: saved iterations of all states at all times in tt_
-- `parsave`: saved iterations of all parameter updates ,
+- `parsave`: saved iterations of all parameter updates
+- `initendstates_save`: saved iterations of initial and endstate
 - `accinfo`: acceptance indicators of mcmc-updates
 - `δ`: value of `(δpos, δmom)` af the final iteration of the algorithm (these are stepsize parameters for updating initial positions and momenta respectively)
-- `ρ`: value of `ρinit`  af the final iteration of the algorithm
-- `covθprop`: value of `covθprop` at the final iteration of the algorithm
+- `ρ`: value of `ρinit`  at the final iteration of the algorithm
+- `δa`: value of `δa` at the final iteration of the algorithm (step size for updating Hamiltonian kernel parameter `a`)
 """
 function lm_mcmc(t, obsinfo, mT, P, ITER, subsamples, xinit, pars, priorθ, priormom, updatescheme, outdir, printskip)
     lt = length(t)
@@ -49,12 +51,12 @@ function lm_mcmc(t, obsinfo, mT, P, ITER, subsamples, xinit, pars, priorθ, prio
     q, p = split_state(xinit)
     qᵒ = deepcopy(q); pᵒ = deepcopy(q); ∇ = deepcopy(q); ∇ᵒ = deepcopy(q)
 
-    # memory allocations, actual state at each iteration is (X,W,Q,x,∇x) (x, ∇x are initial state and its gradient)
+    # memory allocations, actual state at each iteration is (X, W, Q, x, ∇x) (x, ∇x are initial state and its gradient)
     Xᵒ = deepcopy(X)
     Wᵒ = initSamplePath(t,  zeros(StateW, dwiener))
     Wnew = initSamplePath(t,  zeros(StateW, dwiener))
     # sample guided proposal and compute loglikelihood (write into X)
-    At = zeros(UncF, 2P.n, 2P.n)  # container for to compute a for auxiliary process.
+    At = zeros(UncF, 2P.n, 2P.n)  # container for to compute a=σσ' for auxiliary process.
     ll, X = gp!(LeftRule(), X, xinit, W, Q, At; skip=sk)
 
     # setup containers for saving objects
@@ -109,10 +111,10 @@ function lm_mcmc(t, obsinfo, mT, P, ITER, subsamples, xinit, pars, priorθ, prio
         acc[end] = i
         push!(accinfo, acc)
 
-        if mod(i,pars.adaptskip)==0 && i < 100  # adjust mT (the momenta at time T used in the construction of the guided proposal)
-            mTvec = [X[k][lt][2].p  for k in 1:nshapes]     # extract momenta at time T for each shape
-    #       Q = update_mT!(Q, mTvec, obsinfo)
-        end
+        # if mod(i,pars.adaptskip)==0 && i < 100  # adjust mT (the momenta at time T used in the construction of the guided proposal)
+        #     mTvec = [X[k][lt][2].p  for k in 1:nshapes]     # extract momenta at time T for each shape
+        #    Q = update_mT!(Q, mTvec, obsinfo)
+        # end
 
         # save some of the results
         if i ∈ subsamples
@@ -159,8 +161,7 @@ function update_path!(X, W, ll, Xᵒ,Wᵒ, Wnew, Q, ρlowerbound, At)
                 Wᵒ.yy[i][j] = ρ * W[k].yy[i][j] + ρ_ * Wnew.yy[i][j]
             end
         end
-         llᵒ, Xᵒ[k] = gp!(LeftRule(), Xᵒ[k], x0, Wᵒ, Q, k, At; skip=sk)
-        #llᵒ, Xᵒ[k] = 0.0, X[k]
+        llᵒ, Xᵒ[k] = gp!(LeftRule(), Xᵒ[k], x0, Wᵒ, Q, k, At; skip=sk)
         diff_ll = llᵒ - ll[k]
         if log(rand()) <= diff_ll
             for i ∈ eachindex(W[1].yy)
@@ -286,6 +287,8 @@ function update_initialstate!(X,Xᵒ,W,ll, x, qᵒ, pᵒ,∇, ∇ᵒ,
             #stepsize = δ[2]
             stepsize = sample(δ[2])
         end
+
+        ## compute proposal and log(acceptance ratio)
         if update == :mala_pos
             ndistr = MvNormal(dn,sqrt(stepsize))
             qᵒ .= q .+ .5 * stepsize *  ∇ .+ rand(ndistr)
@@ -294,6 +297,14 @@ function update_initialstate!(X,Xᵒ,W,ll, x, qᵒ, pᵒ,∇, ∇ᵒ,
             accinit = sum(llᵒ) - sum(ll) -
                       logpdf(ndistr, qᵒ - q - .5*stepsize * ∇) +
                       logpdf(ndistr, q - qᵒ - .5*stepsize * ∇ᵒ)
+        elseif update == :tmala_pos
+              ndistr = MvNormal(dn,sqrt(stepsize))
+              qᵒ .= q .+ .5 * tame(stepsize *  ∇) .+ rand(ndistr)
+              cfgᵒ = ForwardDiff.GradientConfig(uᵒ, qᵒ, ForwardDiff.Chunk{dn}())
+              ForwardDiff.gradient!(∇ᵒ, uᵒ, qᵒ, cfgᵒ)
+              accinit = sum(llᵒ) - sum(ll) -
+                        logpdf(ndistr, qᵒ - q - .5*stepsize * ∇) +
+                        logpdf(ndistr, q - qᵒ - .5*stepsize * ∇ᵒ)
         elseif update == :mala_mom
             ndistr = MvNormal(dn, sqrt(stepsize))
             pᵒ .= p .+ .5 * stepsize * trun(∇,stepsize) .+ rand(ndistr)
@@ -303,11 +314,21 @@ function update_initialstate!(X,Xᵒ,W,ll, x, qᵒ, pᵒ,∇, ∇ᵒ,
                       logpdf(ndistr, pᵒ - p - .5*stepsize * trun(∇,stepsize)) +
                       logpdf(ndistr, p - pᵒ - .5*stepsize * trun(∇ᵒ,stepsize))
                       #logpdf(priormom, pᵒ) - logpdf(priormom, p)
-        elseif update == :rmmala_pos
+      elseif update == :tmala_mom
+          ndistr = MvNormal(dn, sqrt(stepsize))
+          pᵒ .= p .+ .5 * tame(stepsize * ∇) .+ rand(ndistr)
+          cfgᵒ = ForwardDiff.GradientConfig(uᵒ, pᵒ, ForwardDiff.Chunk{dn}())
+          ForwardDiff.gradient!(∇ᵒ, uᵒ, pᵒ, cfgᵒ)
+          accinit = sum(llᵒ) - sum(ll) -
+                    logpdf(ndistr, pᵒ - p - .5*stepsize * trun(∇,stepsize)) +
+                    logpdf(ndistr, p - pᵒ - .5*stepsize * trun(∇ᵒ,stepsize))
+                    #logpdf(priormom, pᵒ) - logpdf(priormom, p)
+
+        elseif update == :rmtmala_pos
             #dK = gramkernel(x0.q, P)
             dK = gramkernel(reinterpret(PointF,q), P)
             ndistr = MvNormal(zeros(d*n),stepsize*dK)
-            qᵒ .= q .+ .5 * stepsize * dK * trun(∇,stepsize) .+ rand(ndistr)
+            qᵒ .= q .+ .5 * dK * tame(stepsize * ∇) .+ rand(ndistr)
             cfgᵒ = ForwardDiff.GradientConfig(uᵒ, qᵒ, ForwardDiff.Chunk{dn}())
             ForwardDiff.gradient!(∇ᵒ, uᵒ, qᵒ, cfgᵒ)
             dKᵒ = gramkernel(reinterpret(PointF,qᵒ), P)
@@ -354,6 +375,14 @@ end
 useful function for truncated version of mala
 """
 trun(x,h) = x/max(1.0,0.5*h*norm(x))
+
+
+"""
+    tame(x) = x/(I + norm(x))
+
+Useful for tamed version of Langevin algorithm
+"""
+tame(x) = x/(I + norm(x))
 
 
 """

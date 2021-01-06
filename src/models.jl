@@ -32,19 +32,19 @@ end
 -  `gramT`: Gram-matrix at xT
 """
 struct MarslandShardlowAux{S,T} <: ContinuousTimeProcess{State{PointF}}
-    a::T # kernel std parameter
-    c::T # kernel multiplicate parameter
-    γ::T # noise level
-    λ::T # mean reversion
+    a::T        # kernel std parameter
+    c::T        # kernel multiplicate parameter
+    γ::T        # noise level
+    λ::T        # mean reversion
     xT::State{Point{S}}  # use x = State(P.v, zero(P.v)) where v is conditioning vector
     n::Int
     gramT::Matrix{T} # Gram-matrix at xT
 end
 
 struct Noisefield{T}
-    δ::Point{T}   # locations of noise field
-    γ::Point{T}  # scaling at noise field (used to be called lambda)
-    τ::T # std of Gaussian kernel noise field
+    δ::Point{T}         # locations of noise field
+    γ::Point{T}         # scaling at noise field (used to be called lambda)
+    τ::T                # std of Gaussian kernel noise field
 end
 
 """
@@ -59,9 +59,9 @@ end
 - `nfs`:  vector of noisefields
 """
 struct  Landmarks{S,T} <: ContinuousTimeProcess{State{PointF}}
-    a::T # kernel std
-    c::T # kernel multiplicate parameter
-    n::Int64   # numer of landmarks
+    a::T            # kernel std
+    c::T            # kernel multiplicate parameter
+    n::Int64        # numer of landmarks
     db::Array{Float64,1} # domainbound
     nfstd::Float64
     nfs::Vector{Noisefield{S}}  # vector containing pars of noisefields
@@ -78,10 +78,10 @@ end
 - `nfs`:  vector of noisefields
 """
 struct LandmarksAux{S,T} <: ContinuousTimeProcess{State{PointF}}
-    a::T # kernel std
-    c::T # kernel multiplicate parameter
-    xT::State{Point{S}}  # use x = State(P.v, zero(P.v)) where v is conditioning vector
-    n::Int64   # numer of landmarks
+    a::T            # kernel std
+    c::T            # kernel multiplicate parameter
+    xT::State{Point{S}}     # use x = State(P.v, zero(P.v)) where v is conditioning vector
+    n::Int64        # numer of landmarks
     nfs::Vector{Noisefield{S}}  # vector containing pars of noisefields
     gramT::Matrix{T} # Gram-matrix at xT
 end
@@ -158,9 +158,8 @@ Bridge.b(t::Float64, x, P::Union{Landmarks,MarslandShardlow})= Bridge.b!(t, x, c
 
 Bridge.σ(t, x, dm, P) =  Bridge.σ!(t, x, dm , 0*x, P)
 
-########################################################################################################################################################################################
-################ MS model #########################################################################################
 
+################ MS model #########################################################################################
 
 """
     Bridge.b!(t, x, out, P::MarslandShardlow)
@@ -386,7 +385,7 @@ function amul(t, x::State, xin::Vector{<:Point}, P::MarslandShardlowAux, xT)
 end
 
 
-########################################################################################################################################################################################
+
 ################ AHS model #########################################################################################
 
 """
