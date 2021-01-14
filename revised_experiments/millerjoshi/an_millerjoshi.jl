@@ -34,10 +34,10 @@ xobs0 = map(i->PointF(d1[i,:]) - center, 1:n)/10.0
 xobsT = map(i->PointF(d2[i,:]) - center, 1:n)/10.0
 
 ################ settings and mcmc #################################
-ups = [:innov, :tmala_mom, :parameter]
+ups = [:innov, :mala_mom, :parameter]
 skip_saveITER = 100
 printskip = 1000
-adaptskip = ITER = 25_000
+adaptskip = ITER = 2_000
 
 p_ms = Pars_ms(γinit=1.0/√n, aprior=Pareto(1.0, 0.1), dt = 0.01,
                 adaptskip=adaptskip, skip_saveITER=skip_saveITER,
