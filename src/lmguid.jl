@@ -304,16 +304,16 @@ function update_initialstate!(X,Xᵒ,W,ll, x, qᵒ, pᵒ,∇, ∇ᵒ,
               cfgᵒ = ForwardDiff.GradientConfig(uᵒ, qᵒ, ForwardDiff.Chunk{dn}())
               ForwardDiff.gradient!(∇ᵒ, uᵒ, qᵒ, cfgᵒ)
               accinit = sum(llᵒ) - sum(ll) -
-                        logpdf(ndistr, qᵒ - q - .5*stepsize * ∇) +
-                        logpdf(ndistr, q - qᵒ - .5*stepsize * ∇ᵒ)
+                        logpdf(ndistr, qᵒ - q - .5 * tame(stepsize * ∇)) +
+                        logpdf(ndistr, q - qᵒ - .5 * tame(stepsize * ∇ᵒ))
         elseif update == :mala_mom
             ndistr = MvNormal(dn, sqrt(stepsize))
-            pᵒ .= p .+ .5 * stepsize * trun(∇,stepsize) .+ rand(ndistr)
+            pᵒ .= p .+ .5 * stepsize * ∇ .+ rand(ndistr)
             cfgᵒ = ForwardDiff.GradientConfig(uᵒ, pᵒ, ForwardDiff.Chunk{dn}())
             ForwardDiff.gradient!(∇ᵒ, uᵒ, pᵒ, cfgᵒ)
             accinit = sum(llᵒ) - sum(ll) -
-                      logpdf(ndistr, pᵒ - p - .5*stepsize * trun(∇,stepsize)) +
-                      logpdf(ndistr, p - pᵒ - .5*stepsize * trun(∇ᵒ,stepsize))
+                      logpdf(ndistr, pᵒ - p - .5 * stepsize * ∇) +
+                      logpdf(ndistr, p - pᵒ - .5 * stepsize * ∇ᵒ)
                       #logpdf(priormom, pᵒ) - logpdf(priormom, p)
       elseif update == :tmala_mom
           ndistr = MvNormal(dn, sqrt(stepsize))
@@ -321,8 +321,8 @@ function update_initialstate!(X,Xᵒ,W,ll, x, qᵒ, pᵒ,∇, ∇ᵒ,
           cfgᵒ = ForwardDiff.GradientConfig(uᵒ, pᵒ, ForwardDiff.Chunk{dn}())
           ForwardDiff.gradient!(∇ᵒ, uᵒ, pᵒ, cfgᵒ)
           accinit = sum(llᵒ) - sum(ll) -
-                    logpdf(ndistr, pᵒ - p - .5*stepsize * trun(∇,stepsize)) +
-                    logpdf(ndistr, p - pᵒ - .5*stepsize * trun(∇ᵒ,stepsize))
+                    logpdf(ndistr, pᵒ - p - .5 * tame(stepsize * ∇)) +
+                    logpdf(ndistr, p - pᵒ - .5 * tame(stepsize * ∇ᵒ))
                     #logpdf(priormom, pᵒ) - logpdf(priormom, p)
 
         elseif update == :rmtmala_pos
@@ -335,8 +335,8 @@ function update_initialstate!(X,Xᵒ,W,ll, x, qᵒ, pᵒ,∇, ∇ᵒ,
             dKᵒ = gramkernel(reinterpret(PointF,qᵒ), P)
             ndistrᵒ = MvNormal(zeros(d*n),stepsize*dKᵒ)
             accinit = sum(llᵒ) - sum(ll) -
-                     logpdf(ndistr, qᵒ - q - .5*stepsize * dK * trun(∇,stepsize)) +
-                     logpdf(ndistrᵒ, q - qᵒ - .5*stepsize * dKᵒ * trun(∇ᵒ,stepsize))
+                     logpdf(ndistr, qᵒ - q - .5*stepsize * dK * tame(stepsize * ∇)) +
+                     logpdf(ndistrᵒ, q - qᵒ - .5*stepsize * dKᵒ * tame(stepsize * ∇ᵒ))
         elseif update == :rmmala_mom
              ndistr = MvNormal(stepsize*inv_dK)
              pᵒ .= p .+ .5 * stepsize * inv_dK * ∇ .+  rand(ndistr)

@@ -19,11 +19,11 @@ workdir = @__DIR__
 cd(workdir)
 include("../../outdirpath.jl")
 
-dir1 = joinpath(outdirpath,"exp1_1D/ms")
-outdir_ms = mkpath(dir1)
+outdir_ms = joinpath(outdirpath,"exp1_1D/ms")
+mkpath(outdir_ms)
 
-dir2 = joinpath(outdirpath,"exp1_1D/ahs")
-outdir_ahs = mkpath(dir2)
+outdir_ahs = joinpath(outdirpath,"exp1_1D/ahs")
+mkpath(outdir_ahs)
 
 ################ read data ##########################################
 dat = load("data_exp1-1D.jld2")
@@ -33,16 +33,16 @@ n = dat["n"]
 nshapes = dat["nshapes"]
 
 ################ settings and mcmc #################################
-ups = [:innov, :tmala_mom, :parameter]
-skip_saveITER = 100
+skip_saveITER = 1000
 printskip = 1000
-adaptskip = ITER = 25_000
+adaptskip = ITER = 20_000
 
 ups = [:innov, :mala_mom]
-p_ms = Pars_ms(γinit=1.0/√n, aprior=Pareto(1.0, 0.1), η =  n -> 0.0, dt = 0.001,
+p_ms = Pars_ms(γinit=1.0/√n, aprior=Pareto(1.0, 0.1), η =  n -> 0.0, dt = 0.001, σobs=0.001,
                 adaptskip=adaptskip, skip_saveITER=skip_saveITER)
 landmarksmatching(xobs0,xobsT; ITER=ITER, pars=p_ms, updatescheme=ups, printskip=printskip, outdir=outdir_ms, ainit=1.0)
 
-p_ahs = Pars_ahs(db=[2.5],stdev=.5,γinit=.1, aprior=Pareto(1.0, 0.1), η =  n -> 0.0, dt = 0.001,
-                                adaptskip=adaptskip, skip_saveITER=skip_saveITER)
+
+p_ahs = Pars_ahs(db=[2.5],stdev=.5, γinit=0.1, aprior=Pareto(1.0, 0.1), η =  n -> 0.0, dt = 0.001, σobs=0.001,
+                                  adaptskip=adaptskip, skip_saveITER=skip_saveITER)
 landmarksmatching(xobs0,xobsT; ITER=ITER, pars=p_ahs, updatescheme=ups, printskip=printskip, outdir=outdir_ahs, ainit=1.0)

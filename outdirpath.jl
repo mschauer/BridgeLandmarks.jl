@@ -1,1 +1,1 @@
-outdirpath = "/Users/Frank/Sync/DOCUMENTS/onderzoek/BL_output"
+outdirpath = "/Users/frankvandermeulen/Sync/DOCUMENTS/onderzoek/BL_output"
