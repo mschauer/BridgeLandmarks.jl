@@ -257,9 +257,9 @@ function update_initialstate!(X,Xᵒ,W,ll, x, qᵒ, pᵒ,∇, ∇ᵒ,
             sample!(W[k], Wiener{Vector{PointF}}())
         end
         u = slogρ_mom!(q, Q, W, X, priormom,ll, At)
-        cfg = ForwardDiff.GradientConfig(u, p, ForwardDiff.Chunk{dn}()) # d*P.n is maximal
+        cfg = ForwardDiff.GradientConfig(u, p)#, ForwardDiff.Chunk{dn}()) # d*P.n is maximal
         ForwardDiff.gradient!(∇, u, p, cfg) # X gets overwritten but does not change
-        pᵒ = p .- δ[3] * ∇ # trun(∇, δ[3])
+        pᵒ = p .- δ[3] * ∇
         x0ᵒ = merge_state(q, pᵒ)
         ll, X = gp!(LeftRule(), X, x0ᵒ, W, Q, At)
         x .= deepvec(x0ᵒ)
@@ -270,14 +270,14 @@ function update_initialstate!(X,Xᵒ,W,ll, x, qᵒ, pᵒ,∇, ∇ᵒ,
         if update in [:mala_pos, :tmala_pos, :rmtmala_pos]
             u = slogρ_pos!(p, Q, W, X, priormom,ll, At)
             uᵒ = slogρ_pos!(p, Q, W, Xᵒ, priormom,llᵒ, At)
-            cfg = ForwardDiff.GradientConfig(u, q, ForwardDiff.Chunk{dn}()) # d*P.n is maximal
+            cfg = ForwardDiff.GradientConfig(u, q)#, ForwardDiff.Chunk{dn}()) # d*P.n is maximal
             ForwardDiff.gradient!(∇, u, q, cfg) # X and ll get overwritten but do not change
             stepsize = sample(δ[1])
         end
         if update in [:mala_mom, :tmala_mom, :rmmala_mom]
             u = slogρ_mom!(q, Q, W, X, priormom,ll, At)
             uᵒ = slogρ_mom!(q, Q, W, Xᵒ, priormom,llᵒ, At)
-            cfg = ForwardDiff.GradientConfig(u, p, ForwardDiff.Chunk{dn}()) # d*P.n is maximal
+            cfg = ForwardDiff.GradientConfig(u, p)#, ForwardDiff.Chunk{50}()) # d*P.n is maximal
             ForwardDiff.gradient!(∇, u, p, cfg) # X and ll get overwritten but do not change
             #stepsize = δ[2]
             stepsize = sample(δ[2])
@@ -293,7 +293,7 @@ function update_initialstate!(X,Xᵒ,W,ll, x, qᵒ, pᵒ,∇, ∇ᵒ,
         if update == :mala_pos
             ndistr = MvNormal(dn,sqrt(stepsize))
             qᵒ .= q .+ .5 * stepsize *  ∇ .+ rand(ndistr)
-            cfgᵒ = ForwardDiff.GradientConfig(uᵒ, qᵒ, ForwardDiff.Chunk{dn}())
+            cfgᵒ = ForwardDiff.GradientConfig(uᵒ, qᵒ)#, ForwardDiff.Chunk{dn}())
             ForwardDiff.gradient!(∇ᵒ, uᵒ, qᵒ, cfgᵒ)
             accinit = sum(llᵒ) - sum(ll) -
                       logpdf(ndistr, qᵒ - q - .5*stepsize * ∇) +
@@ -301,7 +301,7 @@ function update_initialstate!(X,Xᵒ,W,ll, x, qᵒ, pᵒ,∇, ∇ᵒ,
         elseif update == :tmala_pos
               ndistr = MvNormal(dn,sqrt(stepsize))
               qᵒ .= q .+ .5 * tame(stepsize *  ∇) .+ rand(ndistr)
-              cfgᵒ = ForwardDiff.GradientConfig(uᵒ, qᵒ, ForwardDiff.Chunk{dn}())
+              cfgᵒ = ForwardDiff.GradientConfig(uᵒ, qᵒ)#, ForwardDiff.Chunk{dn}())
               ForwardDiff.gradient!(∇ᵒ, uᵒ, qᵒ, cfgᵒ)
               accinit = sum(llᵒ) - sum(ll) -
                         logpdf(ndistr, qᵒ - q - .5 * tame(stepsize * ∇)) +
@@ -309,38 +309,35 @@ function update_initialstate!(X,Xᵒ,W,ll, x, qᵒ, pᵒ,∇, ∇ᵒ,
         elseif update == :mala_mom
             ndistr = MvNormal(dn, sqrt(stepsize))
             pᵒ .= p .+ .5 * stepsize * ∇ .+ rand(ndistr)
-            cfgᵒ = ForwardDiff.GradientConfig(uᵒ, pᵒ, ForwardDiff.Chunk{dn}())
+            cfgᵒ = ForwardDiff.GradientConfig(uᵒ, pᵒ, ForwardDiff.Chunk{50}()) # d*P.n is maximal
             ForwardDiff.gradient!(∇ᵒ, uᵒ, pᵒ, cfgᵒ)
             accinit = sum(llᵒ) - sum(ll) -
                       logpdf(ndistr, pᵒ - p - .5 * stepsize * ∇) +
                       logpdf(ndistr, p - pᵒ - .5 * stepsize * ∇ᵒ)
-                      #logpdf(priormom, pᵒ) - logpdf(priormom, p)
       elseif update == :tmala_mom
           ndistr = MvNormal(dn, sqrt(stepsize))
           pᵒ .= p .+ .5 * tame(stepsize * ∇) .+ rand(ndistr)
-          cfgᵒ = ForwardDiff.GradientConfig(uᵒ, pᵒ, ForwardDiff.Chunk{dn}())
+          cfgᵒ = ForwardDiff.GradientConfig(uᵒ, pᵒ)#, ForwardDiff.Chunk{dn}())
           ForwardDiff.gradient!(∇ᵒ, uᵒ, pᵒ, cfgᵒ)
           accinit = sum(llᵒ) - sum(ll) -
                     logpdf(ndistr, pᵒ - p - .5 * tame(stepsize * ∇)) +
                     logpdf(ndistr, p - pᵒ - .5 * tame(stepsize * ∇ᵒ))
-                    #logpdf(priormom, pᵒ) - logpdf(priormom, p)
-
         elseif update == :rmtmala_pos
             #dK = gramkernel(x0.q, P)
             dK = gramkernel(reinterpret(PointF,q), P)
             ndistr = MvNormal(zeros(d*n),stepsize*dK)
             qᵒ .= q .+ .5 * dK * tame(stepsize * ∇) .+ rand(ndistr)
-            cfgᵒ = ForwardDiff.GradientConfig(uᵒ, qᵒ, ForwardDiff.Chunk{dn}())
+            cfgᵒ = ForwardDiff.GradientConfig(uᵒ, qᵒ)#, ForwardDiff.Chunk{dn}())
             ForwardDiff.gradient!(∇ᵒ, uᵒ, qᵒ, cfgᵒ)
             dKᵒ = gramkernel(reinterpret(PointF,qᵒ), P)
             ndistrᵒ = MvNormal(zeros(d*n),stepsize*dKᵒ)
             accinit = sum(llᵒ) - sum(ll) -
-                     logpdf(ndistr, qᵒ - q - .5*stepsize * dK * tame(stepsize * ∇)) +
-                     logpdf(ndistrᵒ, q - qᵒ - .5*stepsize * dKᵒ * tame(stepsize * ∇ᵒ))
+                     logpdf(ndistr, qᵒ - q - .5 * dK * tame(stepsize * ∇)) +
+                     logpdf(ndistrᵒ, q - qᵒ - .5 * dKᵒ * tame(stepsize * ∇ᵒ))
         elseif update == :rmmala_mom
              ndistr = MvNormal(stepsize*inv_dK)
              pᵒ .= p .+ .5 * stepsize * inv_dK * ∇ .+  rand(ndistr)
-             cfgᵒ = ForwardDiff.GradientConfig(uᵒ, pᵒ, ForwardDiff.Chunk{dn}())
+             cfgᵒ = ForwardDiff.GradientConfig(uᵒ, pᵒ)#, ForwardDiff.Chunk{dn}())
              ForwardDiff.gradient!(∇ᵒ, uᵒ, pᵒ, cfgᵒ) # Xᵒ gets overwritten but does not change
              accinit = sum(llᵒ) - sum(ll) -
                        logpdf(ndistr, pᵒ - p - .5*stepsize * inv_dK * ∇) +
