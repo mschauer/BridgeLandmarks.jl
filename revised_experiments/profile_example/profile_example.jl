@@ -10,7 +10,7 @@ using ForwardDiff
 using Zygote
 using StaticArrays
 
-n = 57
+n = 101
 xobs0 = [PointF(2.0cos(t), sin(t))/4.0  for t in collect(0:(2pi/n):2pi)[2:end]]
 θ, ψ =  π/6, 0.1
 rot =  SMatrix{2,2}(cos(θ), sin(θ), -sin(θ), cos(θ))
@@ -30,7 +30,7 @@ p_ahs = Pars_ahs(δmom=δmom,  db=[2.0, 1.0],stdev=.2,γinit=0.1, aprior=Pareto(
 
 p_ms = Pars_ms(δmom=δmom,  γinit=1.0/√n, aprior=Pareto(1.0, 0.1), η =  n -> 0.0, dt = 0.01, σobs=0.01,
                 adaptskip=adaptskip, skip_saveITER=skip_saveITER, ρlowerbound=0.999)
-pars = p_ahs
+pars = p_ms
 model = pars.model
 n = length(xobs0)
 nshapes = 1
@@ -88,7 +88,7 @@ Wᵒ = BL.initSamplePath(t,  zeros(StateW, dwiener))
 Wnew = BL.initSamplePath(t,  zeros(StateW, dwiener))
 # sample guided proposal and compute loglikelihood (write into X)
 At = zeros(UncF, 2P.n, 2P.n)  # container for to compute a=σσ' for auxiliary process.
-ll, X = BL.gp!(BL.LeftRule(), X, xinit, W, Q, At; skip=sk)
+@time ll, X = BL.gp!(BL.LeftRule(), X, xinit, W, Q, At; skip=sk)
 
 # setup containers for saving objects
 Xsave = typeof(zeros(length(t) * P.n * 2 * d * nshapes))[]
@@ -114,57 +114,20 @@ dn = d * n
 u = BL.slogρ_mom!(q, Q, W, X, priormom,ll, At)
 cfg = ForwardDiff.GradientConfig(u, p, ForwardDiff.Chunk{dn}()) # d*P.n is maximal
 
-using Profile
-Profile.clear()
-@profile ForwardDiff.gradient!(∇, u, p, cfg)
-Juno.profiler()
-
-#@time ReverseDiff.gradient!(∇, u, p)
-
-ftape = ReverseDiff.GradientTape(u, p)
-compiled_ftape = ReverseDiff.compile(ftape)
-@time ReverseDiff.gradient!(∇, compiled_ftape, p)
+#using Profile
+#Profile.clear()
+#@profile ForwardDiff.gradient!(∇, u, p, cfg)
+cfg = ForwardDiff.GradientConfig(u, p, ForwardDiff.Chunk{dn}())
+@time ForwardDiff.gradient!(∇, u, p, cfg)
+#Juno.profiler()
 
 
-const Po{T} = SArray{Tuple{2},T,1,2}       # point in Rd
-function ff(x)
-    T = eltype(x)
-    y = reinterpret(Po{T}, x)
-    sum(sum(y))
-end
-
-function f(x)
-    sum(sum(x))
-end
 
 
-x = rand(100)
-ff(x)
-ReverseDiff.gradient(ff,x)
-@time ForwardDiff.gradient(ff,x)
-
-x = rand(PointF,5)
-f(x)
-ReverseDiff.gradient(f,x)
-ForwardDiff.gradient(f,x)
 
 
-grad(f)(x)
-temp = @diff ff(x)
-y = grad(temp, x)
-#Zygote.gradient(ff,x)
 
 
-function g(x)
-    out = zero(eltype(x))
-    for i in eachindex(x)
-        out += sin(x[i])
-    end
-    out - norm(x)
-end
-
-x = rand(250)
-@btime ForwardDiff.gradient(g,x) # 5.439 μs (3 allocations: 5.72 KiB)
-@btime ReverseDiff.gradient(g,x) # 27.096 μs (1235 allocations: 49.56 KiB)
-@btime Zygote.gradient(g,x) # 224.822 μs (2364 allocations: 139.67 KiB)
-@btime grad(g)(x) # 672.964 μs (4345 allocations: 170.73 KiB)
+# ftape = ReverseDiff.GradientTape(u, p)
+# compiled_ftape = ReverseDiff.compile(ftape)
+# @time ReverseDiff.gradient!(∇, compiled_ftape, p)
