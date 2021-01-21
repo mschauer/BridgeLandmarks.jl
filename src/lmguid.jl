@@ -102,7 +102,7 @@ function lm_mcmc(t, obsinfo, mT, P, ITER, subsamples, xinit, pars, priorθ, prio
                     ρ = adaptpcnstep(ρ, i, accinfo[!,update], pars.η, pars.adaptskip)
                 end
             elseif update ∈ [:mala_mom, :tmala_mom, :rmmala_mom, :rmrw_mom]
-                accinfo_, X, x, ∇, ll = update_initialstate!(X,Xᵒ,W,ll, x, qᵒ, pᵒ,∇, ∇ᵒ, Q, δ, update, priormom, (dK, inv_dK), A, chunksize)
+                accinfo_, X, x, ∇, ll = update_initialstate!(X,Xᵒ,W,ll, x, qᵒ, pᵒ,∇, ∇ᵒ, Q, δ, update, priormom, (dK, inv_dK), At, chunksize)
                 if adapt(i)
                     δ[2] = adapt_pospar_step(δ[2], i, accinfo[!,update], pars.η, pars.adaptskip)
                 end
