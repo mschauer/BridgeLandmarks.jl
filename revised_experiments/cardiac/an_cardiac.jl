@@ -33,9 +33,9 @@ n = dat["n"]
 ################ settings and mcmc #################################
 ups =  [:innov, :rmmala_pos, :parameter]
 adaptskip = 100
-skip_saveITER = 200
+skip_saveITER = 20#0
 printskip = 25
-ITER = 10_000
+ITER = 10_00#0
 
 
 
@@ -46,9 +46,9 @@ p_ms = Pars_ms(δpos=δpos,  γinit=.1/√n,  ## LET OP
 p_ahs = Pars_ahs(δpos=δpos,  db=[2.5, 2.5],stdev=.25,γinit=.1, aprior=Pareto(1.0, 0.1), η =  n -> 0.0, dt = 0.001,
                                 adaptskip=adaptskip, skip_saveITER=skip_saveITER, ρlowerbound=0.9)
 
-template_estimation(xobsT; xinitq=xinitq_adj,pars = p_ms, ITER=ITER, updatescheme = ups, printskip=printskip, outdir=outdir_ms)
+template_estimation(xobsT; xinitq= xobsT[1], pars = p_ms, ITER=ITER, updatescheme = ups, printskip=printskip, outdir=outdir_ms)
 
-template_estimation(xobsT; xinitq=xinitq_adj,pars = p_ahs, ITER=ITER, updatescheme = ups, printskip=printskip, outdir=outdir_ahs)
+#template_estimation(xobsT; xinitq= xobsT[1], pars = p_ahs, ITER=ITER, updatescheme = ups, printskip=printskip, outdir=outdir_ahs)
 
 
 # from 'old experiments'

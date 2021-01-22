@@ -106,7 +106,7 @@ function lm_mcmc(t, obsinfo, mT, P, ITER, subsamples, xinit, pars, priorθ, prio
                 if adapt(i)
                     δ[2] = adapt_pospar_step(δ[2], i, accinfo[!,update], pars.η, pars.adaptskip)
                 end
-            elseif update ∈ [:mala_pos, :tmala_pos, :rmtmala_pos]
+            elseif update ∈ [:mala_pos, :tmala_pos, :rmmala_pos]
                 accinfo_ , X, x, ∇, ll= update_initialstate!(X,Xᵒ,W,ll, x, qᵒ, pᵒ,∇, ∇ᵒ, Q, δ, update, priormom, (dK, inv_dK), At, chunksize)
                 if adapt(i)
                     δ[1] = adapt_pospar_step(δ[1], i, accinfo[!,update], pars.η, pars.adaptskip)
@@ -283,7 +283,7 @@ function update_initialstate!(X,Xᵒ,W,ll, x, qᵒ, pᵒ,∇, ∇ᵒ,
     else
         accinit = 0.0
         llᵒ = copy(ll)
-        if update in [:mala_pos, :tmala_pos, :rmtmala_pos]
+        if update in [:mala_pos, :tmala_pos, :rmmala_pos]
             u = slogρ_pos!(p, Q, W, X, priormom,ll, At)
             uᵒ = slogρ_pos!(p, Q, W, Xᵒ, priormom,llᵒ, At)
             cfg = ForwardDiff.GradientConfig(u, q, ForwardDiff.Chunk{chunksize}()) # d*P.n is maximal
@@ -338,7 +338,7 @@ function update_initialstate!(X,Xᵒ,W,ll, x, qᵒ, pᵒ,∇, ∇ᵒ,
           accinit = sum(llᵒ) - sum(ll) -
                     logpdf(ndistr, pᵒ - p - .5 * tame(stepsize * ∇)) +
                     logpdf(ndistr, p - pᵒ - .5 * tame(stepsize * ∇ᵒ))
-        elseif update == :rmtmala_pos
+        elseif update == :rmmala_pos
             #dK = gramkernel(x0.q, P)
             dK = gramkernel(reinterpret(PointF,q), P)
             ndistr = MvNormal(zeros(d*n),stepsize*dK)
@@ -493,6 +493,6 @@ function show_updates()
     println(":innov")
     println(":sgd_mom")
     println(":mala_mom, :tmala_mom, :rmmala_mom, :rmrw_mom")
-    println(":mala_pos, :tmala_pos, :rmtmala_pos")
+    println(":mala_pos, :tmala_pos, :rmmala_pos")
     println(":parameter, :matching")
 end
