@@ -33,17 +33,17 @@ n = dat["n"]
 ################ settings and mcmc #################################
 ups =  [:innov, :rmmala_pos, :parameter]
 adaptskip = 100
-skip_saveITER = 20#0
+skip_saveITER = 25
 printskip = 25
-ITER = 10_00#0
+ITER = 2500#10_00#0
 
 
 
-δpos = (d*n)^(-1/6) * [0.01, 0.001, 0.0001]
+δpos = (d*n)^(-1/6) * [1e-4, 1e-5]
 p_ms = Pars_ms(δpos=δpos,  γinit=.1/√n,  ## LET OP
-                  aprior=Pareto(1.0, 0.1), η =  n -> 0.0, dt = 0.01,
-                adaptskip=adaptskip, skip_saveITER=skip_saveITER, ρlowerbound=0.9)
-p_ahs = Pars_ahs(δpos=δpos,  db=[2.5, 2.5],stdev=.25,γinit=.1, aprior=Pareto(1.0, 0.1), η =  n -> 0.0, dt = 0.001,
+                  aprior=Pareto(1.0, 0.01), η =  n -> 0.0, dt = 0.01,
+                adaptskip=adaptskip, skip_saveITER=skip_saveITER, ρlowerbound=0.8, δa=0.1)
+p_ahs = Pars_ahs(δpos=δpos,  db=[2.5, 2.5],stdev=.25,γinit=.1, aprior=Pareto(1.0, 0.01), η =  n -> 0.0, dt = 0.001,
                                 adaptskip=adaptskip, skip_saveITER=skip_saveITER, ρlowerbound=0.9)
 
 template_estimation(xobsT; xinitq= xobsT[1], pars = p_ms, ITER=ITER, updatescheme = ups, printskip=printskip, outdir=outdir_ms)

@@ -32,10 +32,10 @@ n = length(xobs0)
 ################ settings and mcmc #################################
 ups = [:innov, :mala_mom]#,  :rmrw_mom] #:mala_mom]#, :parameter]
 
-skip_saveITER = 10
+skip_saveITER = 50
 printskip = 10
 adaptskip = 10
-ITER = 500#_000
+ITER = 2500#_000
 
 δmom = [0.01, 0.001] * (d*n)^(-1/6)
 
