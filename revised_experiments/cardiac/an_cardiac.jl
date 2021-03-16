@@ -35,14 +35,14 @@ ups =  [:innov, :rmmala_pos, :parameter]
 adaptskip = 100
 skip_saveITER = 25
 printskip = 25
-ITER = 2500#10_00#0
+ITER = 2500#2500#10_00#0
 
 
 
-δpos = (d*n)^(-1/6) * [1e-4, 1e-5]
+δpos = (d*n)^(-1/6) * [1e-6, 1e-5]
 p_ms = Pars_ms(δpos=δpos,  γinit=.1/√n,  ## LET OP
                   aprior=Pareto(1.0, 0.01), η =  n -> 0.0, dt = 0.01,
-                adaptskip=adaptskip, skip_saveITER=skip_saveITER, ρlowerbound=0.8, δa=0.1)
+                adaptskip=adaptskip, skip_saveITER=skip_saveITER, ρlowerbound=0.8, δa=0.04, σobs=0.001)
 p_ahs = Pars_ahs(δpos=δpos,  db=[2.5, 2.5],stdev=.25,γinit=.1, aprior=Pareto(1.0, 0.01), η =  n -> 0.0, dt = 0.001,
                                 adaptskip=adaptskip, skip_saveITER=skip_saveITER, ρlowerbound=0.9)
 
