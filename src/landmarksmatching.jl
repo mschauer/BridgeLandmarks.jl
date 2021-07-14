@@ -86,7 +86,7 @@ function landmarksmatching(
     priormom = MvNormalCanon(gramkernel(xobs0,P)/pars.κ)
 
     xinit = State(xobs0, zeros(PointF,P.n))
-    mT = zeros(PointF, n)
+    mT = zeros(PointF, n)     # randn(PointF, n)
 
 
     start = time()

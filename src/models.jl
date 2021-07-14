@@ -577,7 +577,7 @@ end
 Compute B̃(t) * X (B̃ from auxiliary process) and write to out
 Both B̃(t) and X are of type UncMat
 """
-function Bridge.B!(t,X,out, Paux::LandmarksAux, xT)
+function Bridge.B!(t, X, out, Paux::LandmarksAux, xT)
     out .= 0.0 * out
     u = zero(UncF)
     @inbounds  for i in 1:Paux.n  # separately loop over even and odd indices
