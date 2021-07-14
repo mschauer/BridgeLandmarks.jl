@@ -16,7 +16,8 @@ Random.seed!(9)
 ################ set directories ##########################################
 workdir = @__DIR__
 cd(workdir)
-include("../../outdirpath.jl")
+#include("../../outdirpath.jl")
+include("outdirpath.jl")
 
 dir1 = joinpath(outdirpath,"exp2/ms")
 outdir_ms = mkpath(dir1)
@@ -25,7 +26,8 @@ dir2 = joinpath(outdirpath,"exp2/ahs")
 outdir_ahs = mkpath(dir2)
 
 ################ read data ##########################################
-dat = load("data_exp2.jld2")
+#dat = load("data_exp2.jld2")
+dat = load("revised_experiments/exp2/data_exp2.jld2")
 xobs0 = dat["xobs0"]
 xobsT = dat["xobsT"]
 n = dat["n"]

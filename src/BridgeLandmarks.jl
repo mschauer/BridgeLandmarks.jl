@@ -1,21 +1,21 @@
 module BridgeLandmarks
 
 using Bridge
- using CSV
- using DataFrames
- using DelimitedFiles
- using Distributions 
+using CSV
+using DataFrames
+using DelimitedFiles
+using Distributions
 using ForwardDiff
- using GaussianDistributions
- using JLD2 
+using GaussianDistributions
+using JLD2
 using LinearAlgebra
 using Base.Iterators
- using PDMats
- using Parameters
-using RecursiveArrayTools 
+using PDMats
+using Parameters
+using RecursiveArrayTools
 using SparseArrays
 using StaticArrays
- using StatsFuns 
+using StatsFuns
 
 dir() = joinpath(@__DIR__, "..")
 
